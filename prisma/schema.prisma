@@ -1,0 +1,512 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── System Roles ───────────────────────────────────────────
+enum SystemRole {
+  STUDENT
+  SUPERVISOR
+  ADMIN
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GITHUB
+  GOOGLE
+  ORCID
+  GUEST
+}
+
+// ─── User ───────────────────────────────────────────────────
+model User {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  passwordHash  String?
+  image         String?
+  institution   String?
+  department    String?
+  role          String?      @default("STUDENT")
+  systemRole    SystemRole   @default(STUDENT)
+  provider      AuthProvider @default(CREDENTIALS)
+  providerId    String?
+  isGuest       Boolean      @default(false)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Own data
+  papers        Paper[]
+  collections   Collection[]
+  tags          Tag[]
+  notes         Note[]
+
+  // Supervisor ↔ Student relationship
+  supervisorId  String?
+  supervisor    User?        @relation("SupervisorStudents", fields: [supervisorId], references: [id])
+  students      User[]       @relation("SupervisorStudents")
+
+  // Paper assignments
+  assignedPapers    Assignment[] @relation("AssignedTo")
+  assignmentsMade   Assignment[] @relation("AssignedBy")
+
+  // Feedback
+  feedbackGiven     Feedback[]   @relation("FeedbackAuthor")
+  feedbackReceived  Feedback[]   @relation("FeedbackTarget")
+
+  // Notifications
+  notifications     Notification[]
+
+  // 1-on-1 Meetings
+  meetingsAsSupervisor Meeting[]   @relation("SupervisorMeetings")
+  meetingsAsStudent    Meeting[]   @relation("StudentMeetings")
+
+  // Review Rubrics
+  rubricsGiven         ReviewRubric[] @relation("RubricSupervisor")
+  rubricsReceived      ReviewRubric[] @relation("RubricStudent")
+
+  // Thesis Milestones
+  milestonesAsStudent    ThesisMilestone[] @relation("StudentMilestones")
+  milestonesAsSupervisor ThesisMilestone[] @relation("SupervisorMilestones")
+
+  // Academic Labs & Research Groups
+  labsLed                Lab[]             @relation("LabLead")
+  labMemberships         LabMember[]
+  groupMemberships       GroupMember[]
+  labJoinRequests        LabJoinRequest[]
+  broadcastsAuthored     LabBroadcast[]
+  journalClubSessions    JournalClubSession[]
+  hostedLabMeetings      LabMeeting[]      @relation("HostLabMeetings")
+}
+
+// ─── Paper ──────────────────────────────────────────────────
+model Paper {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title           String
+  authors         String
+  abstract        String?  @db.Text
+  doi             String?
+  url             String?
+  journal         String?
+  publicationYear Int?
+  status          Status   @default(TO_READ)
+  priority        Priority @default(MEDIUM)
+  isFavorite      Boolean  @default(false)
+  pdfPath         String?
+  arxivId         String?
+  citationCount   Int?     @default(0)
+
+  // AI & ML Research Specific Fields
+  codeUrl           String?
+  modelUrl          String?
+  datasetUrl        String?
+  replicationStatus ReplicationStatus @default(UNTESTED)
+
+  // Model Architecture & Compute Specs
+  parameters        String?
+  contextWindow     String?
+  architecture      String?
+  computeBudget     String?
+  benchmarks        String?   @db.Text
+
+  // 3-Minute Digest & Core Synthesis
+  problemSolved     String?   @db.Text
+  keyContribution   String?   @db.Text
+  limitations       String?   @db.Text
+
+  // Literature Review Matrix & Collaborative Annotations
+  literatureReview  String?   @db.Text
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  tags        Tag[]        @relation("PaperTags")
+  collections Collection[] @relation("PaperCollections")
+  notes       Note[]
+  assignments Assignment[]
+  feedback    Feedback[]
+  rubrics             ReviewRubric[]
+  starterPackItems    StarterPackItem[]
+  journalClubSessions JournalClubSession[]
+
+  @@unique([userId, doi])
+}
+
+// ─── Assignment (Supervisor → Student) ──────────────────────
+model Assignment {
+  id           String           @id @default(cuid())
+  paperId      String
+  paper        Paper            @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User             @relation("AssignedTo", fields: [studentId], references: [id])
+  assignedById String
+  assignedBy   User             @relation("AssignedBy", fields: [assignedById], references: [id])
+  dueDate      DateTime?
+  status       AssignmentStatus @default(PENDING)
+  note         String?          @db.Text
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([paperId, studentId])
+}
+
+enum AssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+// ─── Feedback (Supervisor comments on student work) ─────────
+model Feedback {
+  id           String       @id @default(cuid())
+  content      String       @db.Text
+  paperId      String
+  paper        Paper        @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User         @relation("FeedbackAuthor", fields: [authorId], references: [id])
+  targetUserId String
+  targetUser   User         @relation("FeedbackTarget", fields: [targetUserId], references: [id])
+  type         FeedbackType @default(COMMENT)
+  createdAt    DateTime     @default(now())
+}
+
+enum FeedbackType {
+  COMMENT
+  SUGGESTION
+  APPROVAL
+  REVISION_REQUEST
+}
+
+// ─── Tag ────────────────────────────────────────────────────
+model Tag {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name   String
+  papers Paper[] @relation("PaperTags")
+
+  @@unique([userId, name])
+}
+
+// ─── Collection ─────────────────────────────────────────────
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  color       String?
+  papers      Paper[]  @relation("PaperCollections")
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, name])
+}
+
+// ─── Note ───────────────────────────────────────────────────
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String   @db.Text
+  paperId   String
+  paper     Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Enums ──────────────────────────────────────────────────
+enum Status {
+  TO_READ
+  READING
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReplicationStatus {
+  UNTESTED
+  REPRODUCING
+  REPLICATED
+  FAILED
+}
+
+// ─── Notification (Real-Time Lab Alerts) ───────────────────
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String           @db.Text
+  type      NotificationType @default(ASSIGNMENT)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+enum NotificationType {
+  ASSIGNMENT
+  FEEDBACK
+  STATUS_UPDATE
+  SYSTEM
+}
+
+// ─── AuditLog (Lab Governance & Forensic Trail) ────────────
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String
+  resource  String
+  details   String?  @db.Text
+  severity  String   @default("INFO") // INFO, WARNING, CRITICAL
+  createdAt DateTime @default(now())
+}
+
+// ─── Weekly 1-on-1 Meeting & Action Item Hub ──────────────
+model Meeting {
+  id              String        @id @default(cuid())
+  supervisorId    String
+  supervisor      User          @relation("SupervisorMeetings", fields: [supervisorId], references: [id])
+  studentId       String
+  student         User          @relation("StudentMeetings", fields: [studentId], references: [id])
+  title           String
+  scheduledAt     DateTime
+  status          MeetingStatus @default(SCHEDULED)
+  studentNotes    String?       @db.Text
+  supervisorNotes String?       @db.Text
+  actionItems     String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+// ─── Faculty Review Rubric & Conference Scorecard ─────────
+model ReviewRubric {
+  id              String        @id @default(cuid())
+  paperId         String
+  paper           Paper         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  supervisorId    String
+  supervisor      User          @relation("RubricSupervisor", fields: [supervisorId], references: [id])
+  studentId       String
+  student         User          @relation("RubricStudent", fields: [studentId], references: [id])
+  problemScore    Int           @default(3) // 1-5
+  methodologyScore Int          @default(3) // 1-5
+  empiricalScore  Int           @default(3) // 1-5
+  synthesisScore  Int           @default(3) // 1-5
+  verdict         RubricVerdict @default(APPROVED)
+  feedbackSummary String?       @db.Text
+  createdAt       DateTime      @default(now())
+}
+
+enum RubricVerdict {
+  APPROVED
+  MINOR_REVISION
+  MAJOR_REVISION
+}
+
+// ─── Thesis & Research Milestone Tracker ──────────────────
+model ThesisMilestone {
+  id               String          @id @default(cuid())
+  studentId        String
+  student          User            @relation("StudentMilestones", fields: [studentId], references: [id])
+  supervisorId     String
+  supervisor       User            @relation("SupervisorMilestones", fields: [supervisorId], references: [id])
+  title            String
+  description      String          @db.Text
+  dueDate          DateTime?
+  status           MilestoneStatus @default(PENDING)
+  deliverableUrl   String?
+  deliverableNotes String?         @db.Text
+  collectionId     String?
+  feedback         String?         @db.Text
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REVISION_REQUESTED
+}
+
+// ─── Academic Research Lab ──────────────────────────────────
+model Lab {
+  id           String           @id @default(cuid())
+  name         String
+  slug         String           @unique
+  joinCode     String           @unique
+  institution  String
+  department   String?
+  description  String?          @db.Text
+  leadId       String
+  lead         User             @relation("LabLead", fields: [leadId], references: [id])
+  members      LabMember[]
+  groups       ResearchGroup[]
+  joinRequests LabJoinRequest[]
+  broadcasts   LabBroadcast[]
+  meetings     LabMeeting[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+// ─── Lab Membership & Roles ─────────────────────────────────
+model LabMember {
+  id       String   @id @default(cuid())
+  labId    String
+  lab      Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     LabRole  @default(RESEARCHER) // LEAD, CO_LEAD, RESEARCHER, GUEST
+  joinedAt DateTime @default(now())
+
+  @@unique([labId, userId])
+}
+
+enum LabRole {
+  LEAD
+  CO_LEAD
+  RESEARCHER
+  GUEST
+}
+
+// ─── Research Sub-Groups & Project Clusters ─────────────────
+model ResearchGroup {
+  id                  String               @id @default(cuid())
+  labId               String
+  lab                 Lab                  @relation(fields: [labId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?              @db.Text
+  color               String               @default("cyan")
+  members             GroupMember[]
+  starterPackItems    StarterPackItem[]
+  journalClubSessions JournalClubSession[]
+  meetings            LabMeeting[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+// ─── Group Membership ───────────────────────────────────────
+model GroupMember {
+  id       String        @id @default(cuid())
+  groupId  String
+  group    ResearchGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String        @default("MEMBER") // LEAD, MEMBER
+  joinedAt DateTime      @default(now())
+
+  @@unique([groupId, userId])
+}
+
+// ─── Lab Join Requests ──────────────────────────────────────
+model LabJoinRequest {
+  id        String        @id @default(cuid())
+  labId     String
+  lab       Lab           @relation(fields: [labId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    RequestStatus @default(PENDING) // PENDING, APPROVED, REJECTED
+  message   String?
+  createdAt DateTime      @default(now())
+
+  @@unique([labId, userId])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Lab Broadcast / Announcement ───────────────────────────
+model LabBroadcast {
+  id        String    @id @default(cuid())
+  labId     String
+  lab       Lab       @relation(fields: [labId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+  title     String
+  content   String    @db.Text
+  category  String    @default("ANNOUNCEMENT") // CONFERENCE_DEADLINE, PAPER_ACCEPTED, COMPUTE_NOTICE, ANNOUNCEMENT
+  deadline  DateTime? // Optional conference deadline for countdown
+  isPinned  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+}
+
+// ─── Sub-Group Starter Pack (Onboarding Syllabus) ────────────
+model StarterPackItem {
+  id        String        @id @default(cuid())
+  groupId   String
+  group     ResearchGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paperId   String
+  paper     Paper         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  order     Int           @default(0)
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@unique([groupId, paperId])
+}
+
+// ─── Sub-Group Journal Club Seminar ─────────────────────────
+model JournalClubSession {
+  id          String        @id @default(cuid())
+  groupId     String
+  group       ResearchGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paperId     String
+  paper       Paper         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  presenterId String
+  presenter   User          @relation(fields: [presenterId], references: [id])
+  scheduledAt DateTime
+  status      String        @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+}
+
+// ─── Lab & Sub-Group Meeting Scheduler ──────────────────────
+model LabMeeting {
+  id          String         @id @default(cuid())
+  labId       String
+  lab         Lab            @relation(fields: [labId], references: [id], onDelete: Cascade)
+  groupId     String?        // null = Lab-wide meeting; set = Specific sub-group meeting
+  group       ResearchGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  hostId      String
+  host        User           @relation("HostLabMeetings", fields: [hostId], references: [id])
+  title       String
+  description String?        @db.Text
+  meetingType String         @default("LAB_WIDE") // LAB_WIDE, SUB_GROUP, SYNC, PRESENTATION, DEFENSE
+  startTime   DateTime
+  endTime     DateTime?
+  location    String?        // Physical room or hall
+  meetingUrl  String?        // Zoom, Google Meet, Microsoft Teams URL
+  agenda      String?        @db.Text
+  status      String         @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+

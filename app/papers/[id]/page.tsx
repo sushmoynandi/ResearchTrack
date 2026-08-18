@@ -1,0 +1,766 @@
+'use client'
+
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { StatusBadge } from '@/components/papers/StatusBadge'
+import { PriorityIndicator } from '@/components/papers/PriorityIndicator'
+import { StarButton } from '@/components/papers/StarButton'
+import { CitationModal } from '@/components/citations/CitationModal'
+import { ExportMatrixModal } from '@/components/papers/ExportMatrixModal'
+import { NotesSection } from '@/components/notes/NotesSection'
+import { FeedbackPanel } from '@/components/papers/FeedbackPanel'
+import { FacultyRubricCard } from '@/components/papers/FacultyRubricCard'
+import { GroupReadingRadarCard } from '@/components/papers/GroupReadingRadarCard'
+import { LiteratureReviewView } from '@/components/papers/LiteratureReviewSection'
+import { CitationGraph } from '@/components/papers/CitationGraph'
+import { ConnectedLiteratureExplorer } from '@/components/papers/ConnectedLiteratureExplorer'
+import { PaperChatAssistant } from '@/components/papers/PaperChatAssistant'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { useToast } from '@/components/ui/Toast'
+import {
+  Calendar,
+  ExternalLink,
+  Link2,
+  Edit,
+  Trash2,
+  BookOpen,
+  Copy,
+  FileText,
+  Upload,
+  Download,
+  ArrowLeft,
+  FolderOpen,
+  Cpu,
+  Trophy,
+  Sparkles,
+  Database,
+  AlertTriangle,
+  Lightbulb,
+  Crosshair,
+  FileCheck,
+  Share2,
+  MessageSquare,
+} from 'lucide-react'
+import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
+import type {
+  Paper,
+  BenchmarkScore,
+  ReplicationStatus,
+  LiteratureReviewData,
+} from '@/lib/types'
+import { REPLICATION_LABELS } from '@/lib/types'
+
+export default function PaperDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const { addToast } = useToast()
+  const [paper, setPaper] = useState<Paper | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Modals & actions state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [isCitationModalOpen, setIsCitationModalOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  // PDF upload state
+  const [uploadingPdf, setUploadingPdf] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const paperId = params.id as string
+
+  const fetchPaper = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/papers/${paperId}?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store' },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPaper(data)
+      } else {
+        addToast('error', 'Paper not found')
+        router.push('/papers')
+      }
+    } catch {
+      addToast('error', 'Failed to load paper')
+    } finally {
+      setLoading(false)
+    }
+  }, [paperId, router, addToast])
+
+  useEffect(() => {
+    fetchPaper()
+  }, [fetchPaper])
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/papers/${paperId}`, { method: 'DELETE' })
+      if (res.ok) {
+        addToast('success', 'Paper deleted from library')
+        router.push('/papers')
+      } else {
+        addToast('error', 'Failed to delete paper')
+      }
+    } catch {
+      addToast('error', 'Failed to delete paper')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const copyDoi = () => {
+    if (paper?.doi) {
+      navigator.clipboard.writeText(paper.doi)
+      addToast('info', 'DOI copied to clipboard')
+    }
+  }
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingPdf(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch(`/api/papers/${paperId}/pdf`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setPaper((prev) => (prev ? { ...prev, pdfPath: data.pdfPath } : prev))
+        addToast('success', 'PDF uploaded successfully!')
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to upload PDF')
+      }
+    } catch {
+      addToast('error', 'Failed to upload PDF file')
+    } finally {
+      setUploadingPdf(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!paper) return null
+
+  // Parse benchmarks
+  const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
+    ? (() => {
+        try {
+          return typeof paper.benchmarks === 'string'
+            ? JSON.parse(paper.benchmarks)
+            : paper.benchmarks
+        } catch {
+          return []
+        }
+      })()
+    : []
+
+  // Parse literature review data
+  const rawLitReview: LiteratureReviewData = paper.literatureReview
+    ? (() => {
+        try {
+          return typeof paper.literatureReview === 'string'
+            ? JSON.parse(paper.literatureReview)
+            : paper.literatureReview
+        } catch {
+          return {}
+        }
+      })()
+    : {}
+
+  const parsedLiteratureReview: LiteratureReviewData = {
+    sl: rawLitReview.sl || '1',
+    assignedPerson: rawLitReview.assignedPerson || '',
+    reviewDueDate: rawLitReview.reviewDueDate || '',
+    reviewWorkflowStatus: rawLitReview.reviewWorkflowStatus || 'PENDING_REVIEW',
+    selectedPaperTitle: rawLitReview.selectedPaperTitle || paper.title,
+    paperTitle: rawLitReview.paperTitle || paper.title,
+    paperLink: rawLitReview.paperLink || paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : ''),
+    pdfAccessibility: rawLitReview.pdfAccessibility || (paper.pdfPath ? 'Open Access' : 'Pre-print Available'),
+    researchGap: rawLitReview.researchGap || paper.problemSolved || '',
+    usedDataset: rawLitReview.usedDataset || paper.datasetUrl || '',
+    summaryRepository: rawLitReview.summaryRepository || paper.codeUrl || '',
+    remarks: rawLitReview.remarks || '',
+    q1ProblemImportance: rawLitReview.q1ProblemImportance || (paper.problemSolved ? { detailedAnswer: paper.problemSolved, shortSummary: paper.problemSolved } : undefined),
+    q2DataDetails: rawLitReview.q2DataDetails,
+    q3FeaturesInputs: rawLitReview.q3FeaturesInputs || (paper.contextWindow ? { detailedAnswer: `Context length: ${paper.contextWindow}`, shortSummary: paper.contextWindow } : undefined),
+    q4MethodsPipeline: rawLitReview.q4MethodsPipeline || (paper.architecture ? { detailedAnswer: `Architecture: ${paper.architecture}`, shortSummary: paper.architecture } : undefined),
+    q5Baselines: rawLitReview.q5Baselines,
+    q6Evaluation: rawLitReview.q6Evaluation,
+    q7KeyResults: rawLitReview.q7KeyResults,
+    q8LimitationsBiases: rawLitReview.q8LimitationsBiases || (paper.limitations ? { detailedAnswer: paper.limitations, shortSummary: paper.limitations } : undefined),
+    q9ArtifactsReplication: rawLitReview.q9ArtifactsReplication || (paper.codeUrl ? { detailedAnswer: `Code: ${paper.codeUrl}`, shortSummary: 'Code available' } : undefined),
+    customQuestions: rawLitReview.customQuestions || [],
+    outcome: rawLitReview.outcome || paper.keyContribution || '',
+    rubricReviews: rawLitReview.rubricReviews || [],
+    collaborationComments: rawLitReview.collaborationComments || [],
+  }
+
+  const handleUpdateLitReview = (updated: LiteratureReviewData) => {
+    setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(updated) } : prev))
+  }
+
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto pb-12">
+      {/* Back Navigation Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <Link
+          href="/papers"
+          className="inline-flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors font-medium"
+        >
+          <ArrowLeft size={14} /> Back to Research Library &amp; Matrix
+        </Link>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <StarButton paperId={paper.id} isFavorite={paper.isFavorite} />
+
+          {/* Dedicated In-App PDF Reader Action */}
+          <Link href={`/papers/${paper.id}/reader`}>
+            <Button size="sm" variant="primary" icon={<BookOpen size={14} />}>
+              PDF Reader
+            </Button>
+          </Link>
+
+          {/* Journal Club Presentation Mode */}
+          <Link href={`/papers/${paper.id}/present`}>
+            <Button size="sm" variant="secondary" icon={<Sparkles size={14} className="text-purple-400" />}>
+              Journal Club
+            </Button>
+          </Link>
+
+          {/* Export Matrix / BibTeX */}
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Download size={14} />}
+            onClick={() => setIsExportModalOpen(true)}
+          >
+            Export
+          </Button>
+
+          <Link href={`/papers/${paper.id}/edit`}>
+            <Button size="sm" variant="secondary" icon={<Edit size={14} />}>
+              Edit
+            </Button>
+          </Link>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowDeleteModal(true)}
+            icon={<Trash2 size={14} />}
+            className="text-danger hover:text-danger hover:bg-danger-subtle/30"
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Title & Authors Card */}
+      <div className="glass-card p-6 md:p-8 space-y-4 relative overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <StatusBadge status={paper.status} />
+          <PriorityIndicator priority={paper.priority} />
+
+          {paper.arxivId && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent/15 text-accent border border-accent/30">
+              arXiv:{paper.arxivId}
+            </span>
+          )}
+
+          {paper.citationCount !== null && paper.citationCount !== undefined && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-bg-tertiary text-text-secondary border border-border-default">
+              📚 {paper.citationCount.toLocaleString()} Citations
+            </span>
+          )}
+        </div>
+
+        <h1 className="text-xl md:text-2xl font-bold text-text-primary font-display leading-tight">
+          {paper.title}
+        </h1>
+
+        <p className="text-sm text-text-secondary font-medium">
+          {paper.authors}
+        </p>
+
+        {/* Collections & Tags Row */}
+        {(paper.collections?.length || paper.tags?.length) && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-default/60">
+            {/* Collections */}
+            {paper.collections?.map((c) => (
+              <Link key={c.id} href={`/collections/${c.id}`}>
+                <Badge
+                  variant="default"
+                  size="md"
+                  className="hover:border-border-hover transition-colors flex items-center gap-1.5"
+                  style={{ borderLeft: `3px solid ${c.color || '#06b6d4'}` }}
+                >
+                  <FolderOpen size={12} className="text-accent" />
+                  {c.name}
+                </Badge>
+              </Link>
+            ))}
+
+            {/* Tags */}
+            {paper.tags?.map((tag) => (
+              <Link key={tag.id} href={`/papers?tag=${encodeURIComponent(tag.name)}`}>
+                <Badge variant="outline" size="md" className="hover:border-accent hover:text-accent transition-colors">
+                  #{tag.name}
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sub-Group & Lab Reading Radar */}
+      <GroupReadingRadarCard paperId={paper.id} paperTitle={paper.title} />
+
+      {/* AI Research Assistant & Interactive Paper Q&A */}
+      <PaperChatAssistant paperId={paper.id} paperTitle={paper.title} />
+
+      {/* Interactive Citation Network & Connected Papers Graph */}
+      <CitationGraph paperId={paper.id} paperTitle={paper.title} />
+
+      {/* Semantic Discovery & Connected Literature Engine */}
+      <ConnectedLiteratureExplorer paperId={paper.id} paperTitle={paper.title} />
+
+      {/* AI/ML Code, Weights & Datasets Hub */}
+      {(paper.codeUrl || paper.modelUrl || paper.datasetUrl || paper.url) && (
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <GithubIcon size={18} className="text-accent" />
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+              Code, Model Weights &amp; Datasets Hub
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {paper.codeUrl ? (
+              <a
+                href={paper.codeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 rounded-xl bg-bg-tertiary hover:bg-bg-elevated border border-border-default group transition-all"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <GithubIcon size={18} className="text-accent shrink-0" />
+                  <div className="truncate">
+                    <p className="text-xs font-semibold text-text-primary group-hover:text-accent transition-colors">Code Repository</p>
+                    <p className="text-[11px] text-text-tertiary truncate">{paper.codeUrl.replace(/^https?:\/\//, '')}</p>
+                  </div>
+                </div>
+                <ExternalLink size={13} className="text-text-tertiary group-hover:text-accent shrink-0" />
+              </a>
+            ) : (
+              <div className="p-3 rounded-xl bg-bg-tertiary/40 border border-border-default/50 flex items-center gap-2 text-xs text-text-tertiary">
+                <GithubIcon size={16} className="opacity-40" /> No code link added
+              </div>
+            )}
+
+            {paper.modelUrl ? (
+              <a
+                href={paper.modelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 rounded-xl bg-bg-tertiary hover:bg-bg-elevated border border-border-default group transition-all"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <HuggingFaceIcon size={18} className="text-warning shrink-0" />
+                  <div className="truncate">
+                    <p className="text-xs font-semibold text-text-primary group-hover:text-warning transition-colors">Hugging Face Weights</p>
+                    <p className="text-[11px] text-text-tertiary truncate">{paper.modelUrl.replace(/^https?:\/\//, '')}</p>
+                  </div>
+                </div>
+                <ExternalLink size={13} className="text-text-tertiary group-hover:text-warning shrink-0" />
+              </a>
+            ) : (
+              <div className="p-3 rounded-xl bg-bg-tertiary/40 border border-border-default/50 flex items-center gap-2 text-xs text-text-tertiary">
+                <HuggingFaceIcon size={16} className="opacity-40" /> No model checkpoint added
+              </div>
+            )}
+
+            {paper.datasetUrl ? (
+              <a
+                href={paper.datasetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 rounded-xl bg-bg-tertiary hover:bg-bg-elevated border border-border-default group transition-all"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <Database size={18} className="text-success shrink-0" />
+                  <div className="truncate">
+                    <p className="text-xs font-semibold text-text-primary group-hover:text-success transition-colors">Dataset Repository</p>
+                    <p className="text-[11px] text-text-tertiary truncate">{paper.datasetUrl.replace(/^https?:\/\//, '')}</p>
+                  </div>
+                </div>
+                <ExternalLink size={13} className="text-text-tertiary group-hover:text-success shrink-0" />
+              </a>
+            ) : (
+              <div className="p-3 rounded-xl bg-bg-tertiary/40 border border-border-default/50 flex items-center gap-2 text-xs text-text-tertiary">
+                <Database size={16} className="opacity-40" /> No dataset link added
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Model Specs & Architecture Cards */}
+      {(paper.architecture || paper.parameters || paper.contextWindow || paper.computeBudget) && (
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Cpu size={18} className="text-accent" />
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+              Architecture &amp; Compute Specifications
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {paper.architecture && (
+              <div className="p-3 rounded-lg bg-bg-tertiary border border-border-default">
+                <span className="text-[11px] text-text-tertiary uppercase font-medium">Architecture</span>
+                <p className="text-sm font-semibold text-text-primary mt-0.5">{paper.architecture}</p>
+              </div>
+            )}
+            {paper.parameters && (
+              <div className="p-3 rounded-lg bg-bg-tertiary border border-border-default">
+                <span className="text-[11px] text-text-tertiary uppercase font-medium">Parameters</span>
+                <p className="text-sm font-mono font-bold text-accent mt-0.5">{paper.parameters}</p>
+              </div>
+            )}
+            {paper.contextWindow && (
+              <div className="p-3 rounded-lg bg-bg-tertiary border border-border-default">
+                <span className="text-[11px] text-text-tertiary uppercase font-medium">Context Window</span>
+                <p className="text-sm font-mono font-semibold text-text-primary mt-0.5">{paper.contextWindow}</p>
+              </div>
+            )}
+            {paper.computeBudget && (
+              <div className="p-3 rounded-lg bg-bg-tertiary border border-border-default">
+                <span className="text-[11px] text-text-tertiary uppercase font-medium">Training Compute</span>
+                <p className="text-sm font-medium text-text-primary mt-0.5 truncate" title={paper.computeBudget}>
+                  {paper.computeBudget}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Benchmark Performance Matrix */}
+      {parsedBenchmarks.length > 0 && (
+        <div className="glass-card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy size={18} className="text-warning" />
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+              Empirical Benchmark Matrix
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {parsedBenchmarks.map((b, idx) => (
+              <div key={idx} className="p-4 rounded-xl bg-bg-tertiary border border-border-default flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-text-secondary">{b.name}</span>
+                    {b.metric && (
+                      <span className="text-[10px] text-text-tertiary font-mono bg-bg-elevated px-1.5 py-0.5 rounded">
+                        {b.metric}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-2xl font-bold text-text-primary font-display mt-1 text-accent">
+                    {b.score}
+                  </p>
+                </div>
+                {b.baseline && (
+                  <div className="mt-3 pt-2 border-t border-border-default/60 flex items-center justify-between text-xs text-text-tertiary">
+                    <span>Baseline:</span>
+                    <span className="font-mono text-text-secondary">{b.baseline}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3-Minute Research Digest */}
+      {(paper.problemSolved || paper.keyContribution || paper.limitations) && (
+        <div className="glass-card p-6 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles size={18} className="text-accent" />
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+              3-Minute Research Digest
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {paper.problemSolved && (
+              <div className="p-4 rounded-xl bg-bg-tertiary border border-border-default">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-info mb-2">
+                  <Crosshair size={14} /> Problem Solved
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  {paper.problemSolved}
+                </p>
+              </div>
+            )}
+
+            {paper.keyContribution && (
+              <div className="p-4 rounded-xl bg-bg-tertiary border border-border-default">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-success mb-2">
+                  <Lightbulb size={14} /> Key Innovation &amp; Method
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  {paper.keyContribution}
+                </p>
+              </div>
+            )}
+
+            {paper.limitations && (
+              <div className="p-4 rounded-xl bg-bg-tertiary border border-border-default">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-warning mb-2">
+                  <AlertTriangle size={14} /> Limitations &amp; Compute
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  {paper.limitations}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Structured Literature Review & 20-Column Survey Questionnaire */}
+      <div className="glass-card p-6 md:p-8 space-y-4">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
+          <div className="flex items-center gap-2">
+            <FileCheck size={20} className="text-accent" />
+            <h3 className="text-base font-semibold text-text-primary font-display">
+              Structured Literature Review &amp; Paper Survey (Q1–Q9 Framework)
+            </h3>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => router.push(`/papers/${paper.id}/edit`)}
+            icon={<Edit size={13} />}
+          >
+            Edit Review
+          </Button>
+        </div>
+
+        <LiteratureReviewView
+          data={parsedLiteratureReview}
+          paperTitle={paper.title}
+          paperUrl={paper.url || undefined}
+          doi={paper.doi || undefined}
+        />
+      </div>
+
+      {/* Metadata Badges Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {paper.journal && (
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-1.5 text-text-tertiary mb-1">
+              <BookOpen size={13} />
+              <span className="text-[11px] font-medium uppercase tracking-wider">Venue</span>
+            </div>
+            <p className="text-sm text-text-primary font-medium truncate">{paper.journal}</p>
+          </div>
+        )}
+
+        {paper.publicationYear && (
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-1.5 text-text-tertiary mb-1">
+              <Calendar size={13} />
+              <span className="text-[11px] font-medium uppercase tracking-wider">Year</span>
+            </div>
+            <p className="text-sm text-text-primary font-medium">{paper.publicationYear}</p>
+          </div>
+        )}
+
+        {paper.doi && (
+          <div
+            className="glass-card p-4 cursor-pointer group hover:border-accent/40 transition-colors"
+            onClick={copyDoi}
+            title="Click to copy DOI"
+          >
+            <div className="flex items-center gap-1.5 text-text-tertiary mb-1">
+              <Link2 size={13} />
+              <span className="text-[11px] font-medium uppercase tracking-wider">DOI</span>
+              <Copy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+            </div>
+            <p className="text-sm text-accent font-mono truncate">{paper.doi}</p>
+          </div>
+        )}
+
+        {paper.url && (
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-1.5 text-text-tertiary mb-1">
+              <ExternalLink size={13} />
+              <span className="text-[11px] font-medium uppercase tracking-wider">Paper Link</span>
+            </div>
+            <a
+              href={paper.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-accent hover:text-accent-hover truncate block font-medium"
+            >
+              Open Link
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* PDF Document Attachment Section */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-accent" />
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+              Attached PDF Document &amp; In-App Reader
+            </h3>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={handlePdfUpload}
+            className="hidden"
+          />
+
+          <div className="flex items-center gap-2">
+            <Link href={`/papers/${paper.id}/reader`}>
+              <Button size="xs" variant="primary" icon={<BookOpen size={12} />}>
+                Open Side-by-Side Reader
+              </Button>
+            </Link>
+
+            {paper.pdfPath ? (
+              <>
+                <a
+                  href={paper.pdfPath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent hover:bg-accent/25 transition-colors font-mono"
+                >
+                  <Download size={13} /> Download
+                </a>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  loading={uploadingPdf}
+                  icon={<Upload size={12} />}
+                >
+                  Replace
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                loading={uploadingPdf}
+                icon={<Upload size={12} />}
+              >
+                Upload Local PDF
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {paper.pdfPath && (
+          <div className="mt-3 p-3 rounded-lg bg-bg-tertiary/50 border border-border-default flex items-center justify-between text-xs text-text-secondary">
+            <span className="truncate font-mono">{paper.pdfPath}</span>
+            <span className="text-success font-medium shrink-0 ml-2">✓ Attached</span>
+          </div>
+        )}
+      </div>
+
+      {/* Abstract Section */}
+      {paper.abstract && (
+        <div className="glass-card p-6">
+          <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+            Abstract
+          </h3>
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+            {paper.abstract}
+          </p>
+        </div>
+      )}
+
+      {/* Interactive Notes Section */}
+      <NotesSection paperId={paper.id} initialNotes={paper.notes} />
+
+      {/* Faculty Review Rubric & Conference Scorecard */}
+      <FacultyRubricCard paperId={paper.id} paperTitle={paper.title} />
+
+      {/* Supervisor Feedback & Annotation Section */}
+      <FeedbackPanel paperId={paper.id} paperOwnerId={paper.userId} />
+
+      {/* Citation Modal */}
+      <CitationModal
+        isOpen={isCitationModalOpen}
+        onClose={() => setIsCitationModalOpen(false)}
+        paper={paper}
+      />
+
+      {/* Export Matrix & BibTeX Modal */}
+      <ExportMatrixModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        papers={[paper]}
+        title={`Export: ${paper.title.slice(0, 45)}...`}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Paper"
+        description="Are you sure you want to delete this paper and all its associated notes? This action cannot be undone."
+        size="sm"
+      >
+        <div className="flex items-center gap-3 pt-2">
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            loading={deleting}
+          >
+            Delete Paper
+          </Button>
+          <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+        </div>
+      </Modal>
+    </div>
+  )
+}
