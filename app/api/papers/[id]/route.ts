@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
+import { createNotification } from '@/lib/notifications'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -194,6 +195,41 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         _count: { select: { notes: true } },
       },
     })
+
+    // Synchronize corresponding Assignment status & notify Supervisor if assigned
+    if (status !== undefined) {
+      const activeAssignment = existing.assignments?.find(
+        (a) => a.studentId === user.id || a.paperId === id
+      )
+      if (activeAssignment) {
+        const newAssignmentStatus =
+          status === 'COMPLETED'
+            ? 'COMPLETED'
+            : status === 'READING'
+            ? 'IN_PROGRESS'
+            : 'PENDING'
+
+        await prisma.assignment.update({
+          where: { id: activeAssignment.id },
+          data: { status: newAssignmentStatus },
+        })
+
+        // If student completed paper, send real-time notification to the supervisor
+        if (status === 'COMPLETED' && user.systemRole === 'STUDENT' && activeAssignment.assignedById) {
+          try {
+            await createNotification({
+              userId: activeAssignment.assignedById,
+              title: 'Reading Assignment Completed',
+              message: `${user.name} finished reading assigned paper: "${existing.title}"`,
+              type: 'ASSIGNMENT',
+              link: `/papers/${id}`,
+            })
+          } catch {
+            // Notification is non-blocking
+          }
+        }
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (error) {

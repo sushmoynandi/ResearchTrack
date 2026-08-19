@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { LabProgressReportModal } from '@/components/reports/LabProgressReportModal'
 import {
@@ -61,6 +62,74 @@ export default function StudentsPage() {
   const [nudgeStudent, setNudgeStudent] = useState<StudentData | null>(null)
   const [nudgeMessage, setNudgeMessage] = useState('')
   const [sendingNudge, setSendingNudge] = useState(false)
+
+  // Direct Assign Paper Modal State
+  const [assignStudent, setAssignStudent] = useState<StudentData | null>(null)
+  const [availablePapers, setAvailablePapers] = useState<Paper[]>([])
+  const [selectedPaperId, setSelectedPaperId] = useState('')
+  const [assignDueDate, setAssignDueDate] = useState('')
+  const [assignNote, setAssignNote] = useState('')
+  const [assigningPaper, setAssigningPaper] = useState(false)
+  const [loadingPapers, setLoadingPapers] = useState(false)
+
+  const handleOpenAssign = async (student: StudentData) => {
+    setAssignStudent(student)
+    setAssignDueDate('')
+    setAssignNote('')
+    if (availablePapers.length === 0) {
+      setLoadingPapers(true)
+      try {
+        const res = await fetch('/api/papers')
+        if (res.ok) {
+          const data = await res.json()
+          setAvailablePapers(data)
+          if (data.length > 0) {
+            setSelectedPaperId(data[0].id)
+          }
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoadingPapers(false)
+      }
+    } else if (availablePapers.length > 0) {
+      setSelectedPaperId(availablePapers[0].id)
+    }
+  }
+
+  const handleConfirmAssign = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignStudent || !selectedPaperId) return
+    setAssigningPaper(true)
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paperId: selectedPaperId,
+          studentId: assignStudent.id,
+          dueDate: assignDueDate || undefined,
+          note: assignNote || undefined,
+        }),
+      })
+
+      if (res.ok) {
+        addToast('success', `Assigned paper to ${assignStudent.name} successfully!`)
+        setAssignStudent(null)
+        // Refresh student metrics
+        fetch('/api/students')
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data) => setStudents(data))
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to assign paper')
+      }
+    } catch {
+      addToast('error', 'Network error assigning paper')
+    } finally {
+      setAssigningPaper(false)
+    }
+  }
 
   const handleOpenReport = async (student: StudentData) => {
     setReportStudent(student)
@@ -240,7 +309,17 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-3 border-t border-border-default flex items-center gap-2">
+                <div className="pt-3 border-t border-border-default flex items-center gap-1.5">
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => handleOpenAssign(student)}
+                    icon={<ClipboardList size={13} className="text-blue-400" />}
+                    title="Assign Landmark Paper to Student"
+                  >
+                    Assign
+                  </Button>
+
                   <Link
                     href={`/papers?studentId=${student.id}`}
                     className="flex-1"
@@ -362,6 +441,85 @@ export default function StudentsPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* 1-Click Direct Assign Paper Modal */}
+      {assignStudent && (
+        <Modal
+          isOpen={Boolean(assignStudent)}
+          onClose={() => setAssignStudent(null)}
+          title={`Assign Landmark Paper to ${assignStudent.name}`}
+          description="Select a paper from your laboratory library to assign to this student's queue."
+          size="md"
+        >
+          <form onSubmit={handleConfirmAssign} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Select Landmark Paper <span className="text-danger">*</span>
+              </label>
+              {loadingPapers ? (
+                <div className="text-xs text-text-tertiary">Loading research library...</div>
+              ) : availablePapers.length === 0 ? (
+                <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                  No papers found in your library. Add papers from ArXiv or DOIs first.
+                </div>
+              ) : (
+                <select
+                  value={selectedPaperId}
+                  onChange={(e) => setSelectedPaperId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                  required
+                >
+                  {availablePapers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({p.authors?.split(',')[0]} {p.publicationYear ? `· ${p.publicationYear}` : ''})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Target Due Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Supervisory Instructions / Guidance (Optional)
+              </label>
+              <textarea
+                value={assignNote}
+                onChange={(e) => setAssignNote(e.target.value)}
+                placeholder="e.g. Please read this before our Friday 1-on-1 meeting and pay special attention to the evaluation metrics..."
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-default">
+              <Button variant="ghost" size="sm" type="button" onClick={() => setAssignStudent(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                type="submit"
+                loading={assigningPaper}
+                disabled={availablePapers.length === 0}
+                icon={<ClipboardList size={14} />}
+              >
+                Assign Paper
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   )

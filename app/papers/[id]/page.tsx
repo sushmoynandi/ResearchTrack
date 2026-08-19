@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/components/auth/AuthProvider'
 import {
   Calendar,
   ExternalLink,
@@ -45,6 +46,7 @@ import {
   Share2,
   MessageSquare,
   UserCheck,
+  ClipboardList,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -58,6 +60,7 @@ import { REPLICATION_LABELS } from '@/lib/types'
 export default function PaperDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
   const [paper, setPaper] = useState<Paper | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,11 +71,73 @@ export default function PaperDetailPage() {
   const [isCitationModalOpen, setIsCitationModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
+  // 1-Click Assignment Modal State
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [studentList, setStudentList] = useState<{ id: string; name: string; email: string; department?: string }[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [assignDueDate, setAssignDueDate] = useState('')
+  const [assignNote, setAssignNote] = useState('')
+  const [assigning, setAssigning] = useState(false)
+
   // PDF upload state
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const paperId = params.id as string
+
+  // Fetch students for supervisor assignment modal
+  useEffect(() => {
+    if (isAssignModalOpen && (isSupervisor || isAdmin) && studentList.length === 0) {
+      setLoadingStudents(true)
+      fetch('/api/students')
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => {
+          setStudentList(data)
+          if (data.length > 0) {
+            setSelectedStudentId(data[0].id)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingStudents(false))
+    }
+  }, [isAssignModalOpen, isSupervisor, isAdmin, studentList.length])
+
+  const handleAssignPaper = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedStudentId) {
+      addToast('error', 'Please select a student researcher')
+      return
+    }
+    setAssigning(true)
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paperId,
+          studentId: selectedStudentId,
+          dueDate: assignDueDate || undefined,
+          note: assignNote || undefined,
+        }),
+      })
+      if (res.ok) {
+        const studentObj = studentList.find((s) => s.id === selectedStudentId)
+        addToast('success', `Assigned paper to ${studentObj?.name || 'student'} successfully!`)
+        setIsAssignModalOpen(false)
+        setAssignNote('')
+        setAssignDueDate('')
+        fetchPaper()
+      } else {
+        const data = await res.json()
+        addToast('error', data.error || 'Failed to assign paper')
+      }
+    } catch {
+      addToast('error', 'Network error assigning paper')
+    } finally {
+      setAssigning(false)
+    }
+  }
 
   const fetchPaper = useCallback(async () => {
     try {
@@ -262,6 +327,18 @@ export default function PaperDetailPage() {
               Journal Club
             </Button>
           </Link>
+
+          {/* 1-Click Supervisor Assignment Action */}
+          {(isSupervisor || isAdmin) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<ClipboardList size={14} className="text-blue-400" />}
+              onClick={() => setIsAssignModalOpen(true)}
+            >
+              Assign to Student
+            </Button>
+          )}
 
           {/* Export Matrix / BibTeX */}
           <Button
@@ -798,6 +875,84 @@ export default function PaperDetailPage() {
         papers={[paper]}
         title={`Export: ${paper.title.slice(0, 45)}...`}
       />
+
+      {/* 1-Click Supervisor Assignment Modal */}
+      <Modal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        title="Assign Paper to Student Researcher"
+        description="Assign this landmark paper to a student's reading queue with research guidance and deadlines."
+        size="md"
+      >
+        <form onSubmit={handleAssignPaper} className="space-y-4 pt-2">
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Select Student Researcher <span className="text-danger">*</span>
+            </label>
+            {loadingStudents ? (
+              <div className="text-xs text-text-tertiary">Loading supervised students...</div>
+            ) : studentList.length === 0 ? (
+              <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                No active students found in your roster. Add students in User Management or My Students first.
+              </div>
+            ) : (
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                required
+              >
+                {studentList.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.email}) {st.department ? `· ${st.department}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Target Reading Deadline (Optional)
+            </label>
+            <input
+              type="date"
+              value={assignDueDate}
+              onChange={(e) => setAssignDueDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Supervisory Guidance / Research Focus (Optional)
+            </label>
+            <textarea
+              value={assignNote}
+              onChange={(e) => setAssignNote(e.target.value)}
+              placeholder="e.g. Focus on Section 3.2 methodology and compare loss functions with our baseline architecture..."
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-default">
+            <Button variant="ghost" size="sm" type="button" onClick={() => setIsAssignModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              loading={assigning}
+              disabled={studentList.length === 0}
+              icon={<ClipboardList size={14} />}
+            >
+              Confirm Assignment
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
