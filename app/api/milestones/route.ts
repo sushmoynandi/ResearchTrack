@@ -50,12 +50,163 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, description, dueDate, studentId, supervisorId, collectionId } = body
+    const {
+      title,
+      description,
+      dueDate,
+      targetType = 'INDIVIDUAL',
+      studentId,
+      supervisorId,
+      labId,
+      groupId,
+      collectionId,
+    } = body
 
     if (!title || !description) {
       return NextResponse.json({ error: 'Title and description are required' }, { status: 400 })
     }
 
+    // ─── 1. Lab-Wide Milestone Assignment ───────────────────────
+    if (targetType === 'LAB' && labId) {
+      const lab = await prisma.lab.findUnique({
+        where: { id: labId },
+        include: {
+          members: {
+            include: {
+              user: { select: { id: true, name: true, email: true, systemRole: true } },
+            },
+          },
+        },
+      })
+
+      if (!lab) {
+        return NextResponse.json({ error: 'Research Lab not found' }, { status: 404 })
+      }
+
+      // Collect all student/researcher members (excluding the supervisor)
+      const targetUserIds = lab.members
+        .map((m) => m.userId)
+        .filter((uid) => uid !== user.id)
+
+      const finalUserIds = targetUserIds.length > 0 ? targetUserIds : [user.id]
+
+      const createdMilestones = await Promise.all(
+        finalUserIds.map(async (stId) => {
+          const m = await prisma.thesisMilestone.create({
+            data: {
+              title: title.trim(),
+              description: description.trim(),
+              dueDate: dueDate ? new Date(dueDate) : null,
+              studentId: stId,
+              supervisorId: user.id,
+              collectionId: collectionId || null,
+              status: 'PENDING',
+            },
+            include: {
+              student: { select: { id: true, name: true, email: true } },
+              supervisor: { select: { id: true, name: true, email: true } },
+            },
+          })
+
+          if (stId !== user.id) {
+            try {
+              await createNotification({
+                userId: stId,
+                title: `🏛️ New Lab Milestone: ${lab.name}`,
+                message: `${user.name} assigned a lab-wide milestone: "${milestoneTitle(title)}"`,
+                type: 'ASSIGNMENT',
+                link: '/milestones',
+              })
+            } catch {
+              // non-blocking
+            }
+          }
+          return m
+        })
+      )
+
+      return NextResponse.json(
+        {
+          success: true,
+          count: createdMilestones.length,
+          milestones: createdMilestones,
+          firstMilestone: createdMilestones[0],
+        },
+        { status: 201 }
+      )
+    }
+
+    // ─── 2. Sub-Group Milestone Assignment ───────────────────────
+    if (targetType === 'GROUP' && groupId) {
+      const group = await prisma.researchGroup.findUnique({
+        where: { id: groupId },
+        include: {
+          members: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+          lab: { select: { name: true } },
+        },
+      })
+
+      if (!group) {
+        return NextResponse.json({ error: 'Research Group not found' }, { status: 404 })
+      }
+
+      const targetUserIds = group.members
+        .map((m) => m.userId)
+        .filter((uid) => uid !== user.id)
+
+      const finalUserIds = targetUserIds.length > 0 ? targetUserIds : [user.id]
+
+      const createdMilestones = await Promise.all(
+        finalUserIds.map(async (stId) => {
+          const m = await prisma.thesisMilestone.create({
+            data: {
+              title: title.trim(),
+              description: description.trim(),
+              dueDate: dueDate ? new Date(dueDate) : null,
+              studentId: stId,
+              supervisorId: user.id,
+              collectionId: collectionId || null,
+              status: 'PENDING',
+            },
+            include: {
+              student: { select: { id: true, name: true, email: true } },
+              supervisor: { select: { id: true, name: true, email: true } },
+            },
+          })
+
+          if (stId !== user.id) {
+            try {
+              await createNotification({
+                userId: stId,
+                title: `🔬 New Sub-Group Milestone: ${group.name}`,
+                message: `${user.name} assigned a sub-group milestone: "${milestoneTitle(title)}"`,
+                type: 'ASSIGNMENT',
+                link: '/milestones',
+              })
+            } catch {
+              // non-blocking
+            }
+          }
+          return m
+        })
+      )
+
+      return NextResponse.json(
+        {
+          success: true,
+          count: createdMilestones.length,
+          milestones: createdMilestones,
+          firstMilestone: createdMilestones[0],
+        },
+        { status: 201 }
+      )
+    }
+
+    // ─── 3. Individual Student Milestone Assignment ──────────────
     let targetStudentId = studentId ? String(studentId).trim() : ''
     let targetSupervisorId = supervisorId ? String(supervisorId).trim() : ''
 
@@ -143,6 +294,10 @@ export async function POST(request: NextRequest) {
     console.error('Error creating milestone:', error)
     return NextResponse.json({ error: 'Failed to create milestone' }, { status: 500 })
   }
+}
+
+function milestoneTitle(t: string) {
+  return t.length > 40 ? `${t.substring(0, 40)}...` : t
 }
 
 // PUT /api/milestones — Submit deliverables or update milestone status

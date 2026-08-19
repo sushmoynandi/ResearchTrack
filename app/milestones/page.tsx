@@ -17,6 +17,8 @@ import {
   GraduationCap,
   MessageSquare,
   Award,
+  Building,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -47,11 +49,24 @@ export default function MilestonesPage() {
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [targetType, setTargetType] = useState<'INDIVIDUAL' | 'LAB' | 'GROUP'>('INDIVIDUAL')
   const [students, setStudents] = useState<{ id: string; name: string; email: string }[]>([])
+  const [labs, setLabs] = useState<
+    Array<{
+      id: string
+      name: string
+      institution: string
+      groups: Array<{ id: string; name: string; members?: any[] }>
+      members: Array<{ userId: string; user: { id: string; name: string; email: string } }>
+      _count?: { members: number; groups: number }
+    }>
+  >([])
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [selectedLabId, setSelectedLabId] = useState('')
+  const [selectedGroupId, setSelectedGroupId] = useState('')
   const [creating, setCreating] = useState(false)
 
   // Submit deliverable modal
@@ -87,11 +102,24 @@ export default function MilestonesPage() {
     setIsCreateOpen(true)
     if (isSupervisor || isAdmin) {
       try {
-        const res = await fetch('/api/students')
-        if (res.ok) {
-          const data = await res.json()
+        const [studentsRes, labsRes] = await Promise.all([
+          fetch('/api/students'),
+          fetch('/api/labs'),
+        ])
+        if (studentsRes.ok) {
+          const data = await studentsRes.json()
           setStudents(data)
           if (data.length > 0) setSelectedStudentId(data[0].id)
+        }
+        if (labsRes.ok) {
+          const labsData = await labsRes.json()
+          setLabs(labsData)
+          if (labsData.length > 0) {
+            setSelectedLabId(labsData[0].id)
+            if (labsData[0].groups?.length > 0) {
+              setSelectedGroupId(labsData[0].groups[0].id)
+            }
+          }
         }
       } catch {
         // silent
@@ -103,20 +131,39 @@ export default function MilestonesPage() {
     e.preventDefault()
     setCreating(true)
     try {
+      const payload: Record<string, unknown> = {
+        title: newTitle.trim(),
+        description: newDesc.trim(),
+        dueDate: newDueDate || undefined,
+        targetType,
+        supervisorId: isSupervisor || isAdmin ? user?.id : (user?.supervisorId || undefined),
+      }
+
+      if (targetType === 'LAB') {
+        payload.labId = selectedLabId || (labs[0]?.id)
+      } else if (targetType === 'GROUP') {
+        payload.groupId = selectedGroupId || (labs.flatMap((l) => l.groups)[0]?.id)
+      } else {
+        payload.studentId = isSupervisor || isAdmin ? (selectedStudentId || students[0]?.id || user?.id) : user?.id
+      }
+
       const res = await fetch('/api/milestones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          description: newDesc.trim(),
-          dueDate: newDueDate || undefined,
-          studentId: isSupervisor || isAdmin ? (selectedStudentId || students[0]?.id || user?.id) : user?.id,
-          supervisorId: isSupervisor || isAdmin ? user?.id : (user?.supervisorId || undefined),
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (res.ok) {
-        addToast('success', 'Thesis milestone established!')
+        const data = await res.json()
+        const count = data.count || 1
+        addToast(
+          'success',
+          targetType === 'LAB'
+            ? `Lab-wide milestone established for ${count} researcher(s)!`
+            : targetType === 'GROUP'
+            ? `Sub-group milestone established for ${count} researcher(s)!`
+            : 'Thesis milestone established!'
+        )
         setIsCreateOpen(false)
         setNewTitle('')
         setNewDesc('')
@@ -406,23 +453,140 @@ export default function MilestonesPage() {
                 />
               </div>
 
-              {(isSupervisor || isAdmin) && students.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Student Researcher *
-                  </label>
-                  <select
-                    value={selectedStudentId}
-                    onChange={(e) => setSelectedStudentId(e.target.value)}
-                    className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                    required
-                  >
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.email})
-                      </option>
-                    ))}
-                  </select>
+              {(isSupervisor || isAdmin) && (
+                <div className="space-y-3 p-3 rounded-xl bg-bg-primary border border-border-default">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                      Assign Milestone To
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-bg-tertiary rounded-lg border border-border-default text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('INDIVIDUAL')}
+                        className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          targetType === 'INDIVIDUAL'
+                            ? 'bg-accent text-white font-bold shadow-sm'
+                            : 'text-text-tertiary hover:text-text-primary'
+                        }`}
+                      >
+                        <User size={13} /> Student
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetType('LAB')
+                          if (labs.length > 0 && !selectedLabId) setSelectedLabId(labs[0].id)
+                        }}
+                        className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          targetType === 'LAB'
+                            ? 'bg-accent text-white font-bold shadow-sm'
+                            : 'text-text-tertiary hover:text-text-primary'
+                        }`}
+                      >
+                        <Building size={13} /> Entire Lab
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetType('GROUP')
+                          if (labs.length > 0) {
+                            const allGroups = labs.flatMap((l) => l.groups || [])
+                            if (allGroups.length > 0 && !selectedGroupId) setSelectedGroupId(allGroups[0].id)
+                          }
+                        }}
+                        className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          targetType === 'GROUP'
+                            ? 'bg-accent text-white font-bold shadow-sm'
+                            : 'text-text-tertiary hover:text-text-primary'
+                        }`}
+                      >
+                        <Users size={13} /> Sub-Group
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 1. Individual Student Selector */}
+                  {targetType === 'INDIVIDUAL' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Select Student Researcher *
+                      </label>
+                      {students.length > 0 ? (
+                        <select
+                          value={selectedStudentId}
+                          onChange={(e) => setSelectedStudentId(e.target.value)}
+                          className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                          required
+                        >
+                          {students.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.email})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-[11px] text-text-tertiary italic">
+                          No students in roster. Will assign to your personal workspace.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. Research Lab Selector */}
+                  {targetType === 'LAB' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Select Research Lab *
+                      </label>
+                      {labs.length > 0 ? (
+                        <select
+                          value={selectedLabId}
+                          onChange={(e) => setSelectedLabId(e.target.value)}
+                          className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                          required
+                        >
+                          {labs.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              🏛️ {l.name} ({l.members?.length || l._count?.members || 1} Researchers)
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-[11px] text-text-tertiary italic">
+                          No labs found. Create a Research Lab first in the Labs portal.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. Research Sub-Group Selector */}
+                  {targetType === 'GROUP' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Select Research Sub-Group *
+                      </label>
+                      {labs.flatMap((l) => l.groups || []).length > 0 ? (
+                        <select
+                          value={selectedGroupId}
+                          onChange={(e) => setSelectedGroupId(e.target.value)}
+                          className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                          required
+                        >
+                          {labs.map((l) =>
+                            (l.groups || []).map((g) => (
+                              <option key={g.id} value={g.id}>
+                                🔬 {l.name} ➔ {g.name} ({g.members?.length || 0} Members)
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      ) : (
+                        <p className="text-[11px] text-text-tertiary italic">
+                          No sub-groups found in your research labs.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
