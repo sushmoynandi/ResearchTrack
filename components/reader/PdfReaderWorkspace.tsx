@@ -19,6 +19,14 @@ import {
   Copy,
   Trash2,
   Check,
+  CheckCircle2,
+  Clock,
+  Play,
+  Pause,
+  RotateCcw,
+  Trophy,
+  Flame,
+  TrendingUp,
   Cpu,
   Layers,
   Edit,
@@ -215,6 +223,80 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       .catch(() => {})
       .finally(() => setLoadingFullText(false))
   }, [paper.id, paper.doi, paper.pdfPath, paper.arxivId, paper.url])
+
+  // ─── Reading Tracker & Session Velocity ───────────────────
+  const [readingStatus, setReadingStatus] = useState<string>(paper.status || 'TO_READ')
+  const [readingSeconds, setReadingSeconds] = useState<number>(0)
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(true)
+  const [readingProgress, setReadingProgress] = useState<number>(() => {
+    if (paper.status === 'COMPLETED') return 100
+    if (paper.status === 'READING') return 45
+    return 15
+  })
+  const [updatingStatus, setUpdatingStatus] = useState<boolean>(false)
+
+  // Live session timer
+  useEffect(() => {
+    if (!isTimerActive) return
+    const timer = setInterval(() => {
+      setReadingSeconds((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [isTimerActive])
+
+  // Auto transition to READING status when reader is opened if TO_READ
+  useEffect(() => {
+    if (paper.status === 'TO_READ') {
+      fetch(`/api/papers/${paper.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'READING' }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            setReadingStatus('READING')
+            setReadingProgress(35)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [paper.id, paper.status])
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    setUpdatingStatus(true)
+    try {
+      const res = await fetch(`/api/papers/${paper.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (res.ok) {
+        setReadingStatus(newStatus)
+        if (newStatus === 'COMPLETED') {
+          setReadingProgress(100)
+          addToast('success', `🎉 Marked as COMPLETED! Reading velocity updated.`)
+        } else if (newStatus === 'READING') {
+          setReadingProgress(50)
+          addToast('info', 'Status set to In-Progress Reading.')
+        } else {
+          setReadingProgress(10)
+          addToast('info', 'Status set to Queued (To Read).')
+        }
+      } else {
+        addToast('error', 'Failed to update reading status')
+      }
+    } catch {
+      addToast('error', 'Network error updating reading status')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const formatReadingTime = (sec: number) => {
+    const mins = Math.floor(sec / 60)
+    const secs = sec % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   // AI Assistant state
   const [aiInput, setAiInput] = useState('')
@@ -497,6 +579,93 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           >
             {isSidebarOpen ? 'Hide Assistant' : 'Show Assistant'}
           </button>
+        </div>
+      </div>
+
+      {/* Interactive Reading Velocity & Session Tracker Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-bg-secondary/70 border-b border-border-default text-xs shrink-0">
+        {/* Left: Active Session Timer & Streak */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default font-mono">
+            <Clock size={13} className="text-accent" />
+            <span className="font-bold text-text-primary">{formatReadingTime(readingSeconds)}</span>
+            <button
+              type="button"
+              onClick={() => setIsTimerActive(!isTimerActive)}
+              className="ml-1 text-text-tertiary hover:text-text-primary cursor-pointer"
+              title={isTimerActive ? 'Pause Session Timer' : 'Resume Session Timer'}
+            >
+              {isTimerActive ? <Pause size={12} /> : <Play size={12} className="text-success" />}
+            </button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1.5 text-text-secondary text-[11px]">
+            <Flame size={13} className="text-amber-400" />
+            <span>Reading Track Active</span>
+          </div>
+        </div>
+
+        {/* Center: Reading Progress Slider / Visual Bar */}
+        <div className="flex items-center gap-2 flex-1 max-w-xs">
+          <span className="text-[11px] text-text-tertiary font-mono">{readingProgress}%</span>
+          <div className="flex-1 bg-bg-tertiary h-2 rounded-full overflow-hidden relative cursor-pointer group">
+            <div
+              className="bg-accent h-full rounded-full transition-all duration-300 group-hover:bg-accent-hover"
+              style={{ width: `${readingProgress}%` }}
+            />
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-text-tertiary font-mono">
+            {[25, 50, 75, 100].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  setReadingProgress(p)
+                  if (p === 100 && readingStatus !== 'COMPLETED') {
+                    handleUpdateStatus('COMPLETED')
+                  }
+                }}
+                className={`px-1.5 py-0.2 rounded hover:bg-bg-tertiary transition-colors cursor-pointer ${
+                  readingProgress === p ? 'text-accent font-bold' : ''
+                }`}
+              >
+                {p}%
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: 1-Click Status Transition Button */}
+        <div className="flex items-center gap-2">
+          {readingStatus === 'COMPLETED' ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-success/15 text-success border border-success/30 font-semibold text-xs">
+              <CheckCircle2 size={14} /> Completed
+            </div>
+          ) : (
+            <Button
+              size="xs"
+              variant="primary"
+              onClick={() => handleUpdateStatus('COMPLETED')}
+              loading={updatingStatus}
+              icon={<Trophy size={13} />}
+            >
+              Mark as Finished
+            </Button>
+          )}
+
+          {/* Status Dropdown */}
+          <select
+            value={readingStatus}
+            onChange={(e) => handleUpdateStatus(e.target.value)}
+            disabled={updatingStatus}
+            aria-label="Reading Status"
+            className="h-7 px-2 text-[11px] font-medium rounded-lg bg-bg-tertiary border border-border-default text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+          >
+            <option value="TO_READ">📖 Queued</option>
+            <option value="READING">⚡ Active Reading</option>
+            <option value="COMPLETED">✅ Completed</option>
+            <option value="ARCHIVED">📦 Archived</option>
+          </select>
         </div>
       </div>
 
