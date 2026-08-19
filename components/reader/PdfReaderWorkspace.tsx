@@ -395,15 +395,26 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           )}
 
           {pdfUrl && (
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors"
-              title="Open in new tab / download"
-            >
-              <Download size={14} />
-            </a>
+            <>
+              <a
+                href={activeSource?.url || pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors flex items-center gap-1 text-xs"
+                title="Open original document in new tab"
+              >
+                <ExternalLink size={14} />
+              </a>
+              <a
+                href={pdfUrl.startsWith('http') && !pdfUrl.includes('arxiv.org') ? `/api/proxy/pdf?url=${encodeURIComponent(pdfUrl)}` : pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors"
+                title="Download PDF"
+              >
+                <Download size={14} />
+              </a>
+            </>
           )}
 
           <button
@@ -429,14 +440,29 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       <div className="flex-1 flex min-h-0 relative">
         {/* Left Side: PDF Viewer */}
         <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative">
+          {activeSource && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-bg-primary/80 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] text-text-secondary border border-border-default shadow-sm pointer-events-auto">
+              <span className="font-medium text-text-primary">{activeSource.label}</span>
+              <span>·</span>
+              <a
+                href={activeSource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:underline flex items-center gap-0.5"
+              >
+                Open Original Link <ExternalLink size={10} />
+              </a>
+            </div>
+          )}
+
           {pdfUrl ? (
             <iframe
               src={
                 activeSource?.isHtml
-                  ? pdfUrl
-                  : pdfUrl.includes('#')
-                  ? pdfUrl
-                  : `${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
+                  ? activeSource.url
+                  : activeSource?.url.startsWith('/uploads/') || activeSource?.url.includes('arxiv.org/pdf/')
+                  ? `${activeSource.url}#toolbar=1&navpanes=1&scrollbar=1`
+                  : `/api/proxy/pdf?url=${encodeURIComponent(activeSource ? activeSource.url : pdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
               }
               className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
               title="Paper Reader"
