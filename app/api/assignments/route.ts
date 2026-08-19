@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     // Send real-time notification to assigned student
     await createNotification({
       userId: studentId,
-      title: 'New Literature Assigned',
+      title: 'New Paper Assigned',
       message: `${user.name} assigned you: "${paper.title}"`,
       type: 'ASSIGNMENT',
       link: `/papers/${paperId}`,

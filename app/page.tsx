@@ -232,12 +232,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. STUDENT VIEW: My Assigned Papers From Supervisor */}
+      {/* 2. Assigned Papers from Supervisor Section for Students */}
       {isStudent && stats.myAssignments && stats.myAssignments.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2 font-display">
-              <ClipboardList size={18} className="text-blue-500" /> Assigned Literature by Supervisor
+              <ClipboardList size={18} className="text-blue-500" /> Assigned Paper by Supervisor
             </h3>
             <Link href="/assignments" className="text-xs text-accent hover:underline flex items-center gap-1">
               View All Assignments <ChevronRight size={14} />
