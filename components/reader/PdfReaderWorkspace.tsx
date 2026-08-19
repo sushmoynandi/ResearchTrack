@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   FileText,
@@ -27,6 +27,8 @@ import {
   Trophy,
   Flame,
   TrendingUp,
+  Highlighter,
+  Quote,
   Cpu,
   Layers,
   Edit,
@@ -316,9 +318,124 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const [noteCategory, setNoteCategory] = useState<'takeaway' | 'method' | 'limitation' | 'question' | 'faculty'>(
     isSupervisor ? 'faculty' : 'takeaway'
   )
-  const [noteAuthorFilter, setNoteAuthorFilter] = useState<'all' | 'student' | 'faculty'>('all')
+  const [noteAuthorFilter, setNoteAuthorFilter] = useState<'all' | 'highlights' | 'student' | 'faculty'>('all')
   const [submittingNote, setSubmittingNote] = useState(false)
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null)
+
+  // ─── In-Reader Text Selection & Margin Quotes State ────────
+  interface SelectionTooltipState {
+    text: string
+    sectionTitle: string
+    x: number
+    y: number
+  }
+
+  const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipState | null>(null)
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Floating highlight actions
+  const handleSelectionMouseUp = () => {
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed) {
+      setSelectionTooltip(null)
+      return
+    }
+
+    const text = sel.toString().trim()
+    if (text.length < 3) {
+      setSelectionTooltip(null)
+      return
+    }
+
+    try {
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      // Find nearest section title if in structured article
+      let sectionTitle = ''
+      let node: Node | null = range.startContainer
+      while (node && node !== document.body) {
+        if (node instanceof HTMLElement && node.getAttribute('id')?.startsWith('sec-')) {
+          const heading = node.querySelector('h2')
+          if (heading) sectionTitle = heading.textContent?.trim() || ''
+          break
+        }
+        node = node.parentNode
+      }
+
+      setSelectionTooltip({
+        text,
+        sectionTitle: sectionTitle || 'Selected Passage',
+        x: Math.max(16, rect.left + rect.width / 2),
+        y: Math.max(16, rect.top - 8),
+      })
+    } catch {
+      setSelectionTooltip(null)
+    }
+  }
+
+  const handleQuickHighlight = async (colorName: string, emoji: string) => {
+    if (!selectionTooltip?.text) return
+    const quote = selectionTooltip.text
+    const sec = selectionTooltip.sectionTitle
+
+    const fullContent = `🖍️ **Highlight [${colorName}]** (${sec}):\n> "${quote}"`
+
+    try {
+      const res = await fetch(`/api/papers/${paper.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: fullContent }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setNotes((prev) => [created, ...prev])
+        addToast('success', `${emoji} Highlight saved to paper notes!`)
+      }
+    } catch {
+      addToast('error', 'Failed to save highlight')
+    } finally {
+      setSelectionTooltip(null)
+      window.getSelection()?.removeAllRanges()
+    }
+  }
+
+  const handleAddMarginNoteFromSelection = () => {
+    if (!selectionTooltip?.text) return
+    const quote = selectionTooltip.text
+    const sec = selectionTooltip.sectionTitle
+
+    setIsSidebarOpen(true)
+    setActiveTab('notes')
+    setNotePage(sec)
+    setNewNote(`> "${quote}"\n\n`)
+    setSelectionTooltip(null)
+    window.getSelection()?.removeAllRanges()
+    addToast('info', 'Quote attached to note composer')
+    setTimeout(() => {
+      noteTextareaRef.current?.focus()
+    }, 150)
+  }
+
+  const handleAskAiFromSelection = () => {
+    if (!selectionTooltip?.text) return
+    const quote = selectionTooltip.text
+    setIsSidebarOpen(true)
+    setActiveTab('ai')
+    handleSendAi(`Explain this passage and its core insight from the paper in simple terms:\n\n"${quote}"`)
+    setSelectionTooltip(null)
+    window.getSelection()?.removeAllRanges()
+  }
+
+  const handleCopyCitationQuote = () => {
+    if (!selectionTooltip?.text) return
+    const quote = selectionTooltip.text
+    const citation = `"${quote}" — ${paper.authors} (${paper.publicationYear || 'n.d.'})`
+    navigator.clipboard.writeText(citation)
+    addToast('success', 'Quote copied with citation!')
+    setSelectionTooltip(null)
+    window.getSelection()?.removeAllRanges()
+  }
 
   // Survey Matrix state
   const [litReview, setLitReview] = useState<LiteratureReviewData>(() => {
@@ -699,7 +816,10 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               </div>
 
               {/* Main Reading Flow */}
-              <div className="flex-1 p-6 md:p-10 overflow-y-auto space-y-8 max-w-3xl mx-auto">
+              <div
+                className="flex-1 p-6 md:p-10 overflow-y-auto space-y-8 max-w-3xl mx-auto select-text"
+                onMouseUp={handleSelectionMouseUp}
+              >
                 <div className="space-y-2 border-b border-border-default pb-6">
                   <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-accent/15 text-accent font-mono font-semibold">
                     PMC Open Access Full-Text
@@ -723,7 +843,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                         <p
                           key={pIdx}
                           className="hover:bg-accent/5 p-1.5 rounded transition-colors group relative cursor-text"
-                          title="Highlight to consult AI or save margin note"
+                          title="Highlight any text to save margin note or ask AI"
                         >
                           {para}
                         </p>
@@ -958,6 +1078,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   </div>
 
                   <Textarea
+                    ref={noteTextareaRef}
                     placeholder={
                       noteCategory === 'faculty'
                         ? 'Write supervisor advice, recommendation, or thesis guidance...'
@@ -965,17 +1086,17 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                     }
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
-                    rows={2}
+                    rows={3}
                     className="text-xs"
                   />
 
                   <div className="flex items-center justify-between gap-2">
                     <input
                       type="text"
-                      placeholder="Page (e.g. 4)"
+                      placeholder="Section / Page"
                       value={notePage}
                       onChange={(e) => setNotePage(e.target.value)}
-                      className="w-24 h-7 px-2 text-[11px] rounded bg-bg-primary border border-border-default text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                      className="w-28 h-7 px-2 text-[11px] rounded bg-bg-primary border border-border-default text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
                     />
 
                     <Button
@@ -986,13 +1107,13 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                       disabled={!newNote.trim()}
                       icon={<Plus size={12} />}
                     >
-                      Save Margin Note
+                      Save Note
                     </Button>
                   </div>
                 </div>
 
-                {/* Co-Reading Filter Pills */}
-                <div className="flex items-center gap-1 text-[11px] border-b border-border-default pb-2">
+                {/* Co-Reading & Highlight Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1 text-[11px] border-b border-border-default pb-2">
                   <button
                     onClick={() => setNoteAuthorFilter('all')}
                     className={`px-2 py-0.5 rounded-md font-medium cursor-pointer ${
@@ -1002,12 +1123,21 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                     All ({notes.length})
                   </button>
                   <button
+                    onClick={() => setNoteAuthorFilter('highlights')}
+                    className={`px-2 py-0.5 rounded-md font-medium cursor-pointer flex items-center gap-1 ${
+                      noteAuthorFilter === 'highlights' ? 'bg-amber-500/20 text-amber-400 font-bold' : 'text-text-tertiary hover:text-text-secondary'
+                    }`}
+                  >
+                    <Highlighter size={11} className="text-amber-400" /> Highlights (
+                    {notes.filter((n) => n.content.includes('Highlight') || n.content.includes('> "')).length})
+                  </button>
+                  <button
                     onClick={() => setNoteAuthorFilter('student')}
                     className={`px-2 py-0.5 rounded-md font-medium cursor-pointer ${
                       noteAuthorFilter === 'student' ? 'bg-accent/20 text-accent font-bold' : 'text-text-tertiary hover:text-text-secondary'
                     }`}
                   >
-                    Student Insights ({notes.filter((n) => !n.content.includes('Faculty Guidance')).length})
+                    Student ({notes.filter((n) => !n.content.includes('Faculty Guidance')).length})
                   </button>
                   <button
                     onClick={() => setNoteAuthorFilter('faculty')}
@@ -1015,29 +1145,32 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                       noteAuthorFilter === 'faculty' ? 'bg-purple-500/20 text-purple-400 font-bold' : 'text-text-tertiary hover:text-purple-400'
                     }`}
                   >
-                    🟣 Faculty Guidance ({notes.filter((n) => n.content.includes('Faculty Guidance')).length})
+                    🟣 Faculty ({notes.filter((n) => n.content.includes('Faculty Guidance')).length})
                   </button>
                 </div>
 
-                {/* Notes List */}
+                {/* Notes & Highlights List */}
                 <div className="space-y-2.5 flex-1">
                   {notes.filter((n) => {
+                    if (noteAuthorFilter === 'highlights') return n.content.includes('Highlight') || n.content.includes('> "')
                     if (noteAuthorFilter === 'student') return !n.content.includes('Faculty Guidance')
                     if (noteAuthorFilter === 'faculty') return n.content.includes('Faculty Guidance')
                     return true
                   }).length === 0 ? (
                     <div className="text-center py-8 text-text-tertiary text-xs">
-                      No notes found in this category.
+                      No notes or highlights found in this filter.
                     </div>
                   ) : (
                     notes
                       .filter((n) => {
+                        if (noteAuthorFilter === 'highlights') return n.content.includes('Highlight') || n.content.includes('> "')
                         if (noteAuthorFilter === 'student') return !n.content.includes('Faculty Guidance')
                         if (noteAuthorFilter === 'faculty') return n.content.includes('Faculty Guidance')
                         return true
                       })
                       .map((note) => {
                         const isFacultyNote = note.content.includes('Faculty Guidance')
+                        const isHighlight = note.content.includes('Highlight') || note.content.includes('> "')
 
                         return (
                           <div
@@ -1045,22 +1178,36 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                             className={`p-3 rounded-xl border text-xs space-y-2 group transition-all ${
                               isFacultyNote
                                 ? 'bg-purple-500/10 border-purple-500/40 text-purple-200'
+                                : isHighlight
+                                ? 'bg-amber-500/5 border-amber-500/30 text-text-primary'
                                 : 'bg-bg-primary border-border-default'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-1">
                               <span
-                                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                  isFacultyNote ? 'bg-purple-500/20 text-purple-300' : 'bg-amber-500/10 text-amber-300'
+                                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                  isFacultyNote
+                                    ? 'bg-purple-500/20 text-purple-300'
+                                    : isHighlight
+                                    ? 'bg-amber-500/15 text-amber-300'
+                                    : 'bg-accent/10 text-accent'
                                 }`}
                               >
-                                {isFacultyNote ? '🟣 Faculty Direction' : '💡 Student Insight'}
+                                {isFacultyNote ? (
+                                  '🟣 Faculty Direction'
+                                ) : isHighlight ? (
+                                  <>
+                                    <Highlighter size={10} /> Margin Quote
+                                  </>
+                                ) : (
+                                  '💡 Research Note'
+                                )}
                               </span>
                             </div>
 
-                            <p className="whitespace-pre-wrap leading-relaxed">
+                            <div className="whitespace-pre-wrap leading-relaxed text-xs">
                               {note.content}
-                            </p>
+                            </div>
 
                             <div className="flex items-center justify-between text-[10px] text-text-tertiary pt-1 border-t border-border-default/40">
                               <span>
@@ -1076,16 +1223,16 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                                 <button
                                   type="button"
                                   onClick={() => copyNoteText(note.id, note.content)}
-                                  className="p-1 text-text-tertiary hover:text-text-primary"
-                                  title="Copy"
+                                  className="p-1 text-text-tertiary hover:text-text-primary cursor-pointer"
+                                  title="Copy Note"
                                 >
                                   {copiedNoteId === note.id ? <Check size={11} className="text-success" /> : <Copy size={11} />}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteNote(note.id)}
-                                  className="p-1 text-text-tertiary hover:text-danger"
-                                  title="Delete"
+                                  className="p-1 text-text-tertiary hover:text-danger cursor-pointer"
+                                  title="Delete Note"
                                 >
                                   <Trash2 size={11} />
                                 </button>
@@ -1245,6 +1392,78 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           </div>
         )}
       </div>
+
+      {/* Interactive Selection Pop-over Highlighter & Margin Quotes Toolbar */}
+      {selectionTooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${selectionTooltip.x}px`,
+            top: `${selectionTooltip.y}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 9999,
+          }}
+          className="bg-bg-primary/95 backdrop-blur-md border border-border-default shadow-2xl rounded-xl p-1.5 flex items-center gap-1.5 animate-scale-in select-none text-xs"
+        >
+          {/* Highlight Color Pickers */}
+          <div className="flex items-center gap-1 pr-1.5 border-r border-border-default">
+            <button
+              type="button"
+              onClick={() => handleQuickHighlight('Yellow', '🟡')}
+              className="w-5 h-5 rounded-full bg-yellow-400/80 hover:bg-yellow-400 border border-yellow-300 transition-transform hover:scale-110 cursor-pointer"
+              title="Highlight in Yellow"
+            />
+            <button
+              type="button"
+              onClick={() => handleQuickHighlight('Green', '🟢')}
+              className="w-5 h-5 rounded-full bg-emerald-400/80 hover:bg-emerald-400 border border-emerald-300 transition-transform hover:scale-110 cursor-pointer"
+              title="Highlight in Green"
+            />
+            <button
+              type="button"
+              onClick={() => handleQuickHighlight('Blue', '🔵')}
+              className="w-5 h-5 rounded-full bg-sky-400/80 hover:bg-sky-400 border border-sky-300 transition-transform hover:scale-110 cursor-pointer"
+              title="Highlight in Blue"
+            />
+            <button
+              type="button"
+              onClick={() => handleQuickHighlight('Purple', '🟣')}
+              className="w-5 h-5 rounded-full bg-purple-400/80 hover:bg-purple-400 border border-purple-300 transition-transform hover:scale-110 cursor-pointer"
+              title="Highlight in Purple"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <button
+            type="button"
+            onClick={handleAddMarginNoteFromSelection}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-text-primary hover:bg-bg-tertiary font-medium cursor-pointer transition-colors"
+            title="Attach quote to margin notes"
+          >
+            <Quote size={13} className="text-accent" />
+            <span>Note</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleAskAiFromSelection}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-text-primary hover:bg-bg-tertiary font-medium cursor-pointer transition-colors"
+            title="Ask AI Assistant to explain this passage"
+          >
+            <Bot size={13} className="text-purple-400" />
+            <span>Ask AI</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyCitationQuote}
+            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer transition-colors"
+            title="Copy quote with academic citation"
+          >
+            <Copy size={13} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
