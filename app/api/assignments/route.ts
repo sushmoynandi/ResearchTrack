@@ -112,6 +112,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
+    if (user.systemRole === 'SUPERVISOR' && student.supervisorId !== user.id) {
+      return NextResponse.json(
+        { error: 'You can only assign papers to students assigned to you by the administrator' },
+        { status: 403 }
+      )
+    }
+
     // Verify paper exists
     const paper = await prisma.paper.findUnique({
       where: { id: paperId },

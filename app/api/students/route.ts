@@ -22,11 +22,7 @@ export async function GET() {
     }
 
     if (user.systemRole === 'SUPERVISOR') {
-      where.OR = [
-        { supervisorId: user.id },
-        { supervisorId: null },
-        ...(user.department ? [{ department: user.department }] : []),
-      ]
+      where.supervisorId = user.id
     }
 
     const students = await prisma.user.findMany({

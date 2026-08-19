@@ -77,6 +77,16 @@ export async function POST(request: NextRequest) {
       }
     } else if (user.systemRole === 'SUPERVISOR') {
       targetSupervisorId = user.id
+      const studentRecord = await prisma.user.findUnique({
+        where: { id: targetStudentId },
+        select: { supervisorId: true },
+      })
+      if (studentRecord?.supervisorId !== user.id) {
+        return NextResponse.json(
+          { error: 'You can only schedule 1-on-1 meetings with students assigned to you by an administrator' },
+          { status: 403 }
+        )
+      }
     }
 
     if (!targetStudentId || !targetSupervisorId) {

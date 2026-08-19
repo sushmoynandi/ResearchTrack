@@ -361,7 +361,7 @@ export default function StudentsPage() {
             No Supervised Students Assigned
           </h3>
           <p className="text-xs text-text-secondary max-w-sm mx-auto">
-            When students register and select your institution or are assigned to you by the department administrator, they will appear here.
+            You currently have no students assigned to your research mentorship roster. When the system administrator assigns students to you, they will appear here with full reading velocity metrics and literature digests.
           </p>
         </div>
       )}
