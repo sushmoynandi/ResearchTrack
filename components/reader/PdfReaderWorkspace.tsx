@@ -460,7 +460,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               src={
                 activeSource?.isHtml
                   ? activeSource.url
-                  : activeSource?.url.startsWith('/uploads/') || activeSource?.url.includes('arxiv.org/pdf/')
+                  : activeSource?.url.startsWith('/uploads/')
                   ? `${activeSource.url}#toolbar=1&navpanes=1&scrollbar=1`
                   : `/api/proxy/pdf?url=${encodeURIComponent(activeSource ? activeSource.url : pdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
               }
