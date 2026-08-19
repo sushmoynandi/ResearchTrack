@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   FileText,
+  BookOpen,
   Bot,
   MessageSquare,
   Sparkles,
@@ -191,6 +192,30 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(targetPdfUrl)}&embedded=true`
     : `/api/proxy/pdf?url=${encodeURIComponent(targetPdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
 
+  const [viewMode, setViewMode] = useState<'pdf' | 'article'>('pdf')
+  const [fullTextSections, setFullTextSections] = useState<{ id: string; title: string; sectionType: string; paragraphs: string[] }[]>([])
+  const [loadingFullText, setLoadingFullText] = useState(false)
+  const [activeSectionId, setActiveSectionId] = useState<string>('')
+
+  // Load structured full-text sections for DOI / PMC / Crossref papers
+  useEffect(() => {
+    setLoadingFullText(true)
+    fetch(`/api/papers/${paper.id}/fulltext`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.sections && Array.isArray(data.sections) && data.sections.length > 0) {
+          setFullTextSections(data.sections)
+          setActiveSectionId(data.sections[0].id)
+          // Default to structured article view for non-arXiv DOIs without uploaded local PDF
+          if (paper.doi && !paper.pdfPath && !paper.arxivId && !paper.url?.endsWith('.pdf')) {
+            setViewMode('article')
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingFullText(false))
+  }, [paper.id, paper.doi, paper.pdfPath, paper.arxivId, paper.url])
+
   // AI Assistant state
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -198,7 +223,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
     {
       id: 'welcome',
       role: 'assistant',
-      content: `I am your AI Reading Assistant for **"${paper.title}"**.\n\nPaste any text snippet, equation, or paragraph from the PDF to get an instant breakdown, or click a quick prompt below.`,
+      content: `I am your AI Reading Assistant for **"${paper.title}"**.\n\nPaste any text snippet, equation, or paragraph from the PDF or Full-Text Article to get an instant breakdown, or click a quick prompt below.`,
     },
   ])
 
@@ -386,15 +411,42 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
         {/* Source Selector & Viewer Controls */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* PDF Source Picker */}
-          {availableSources.length > 0 && (
+          {/* View Mode Toggle: PDF vs Full-Text Article */}
+          <div className="flex items-center bg-bg-tertiary p-1 rounded-lg border border-border-default text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setViewMode('pdf')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded transition-all cursor-pointer ${
+                viewMode === 'pdf' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <FileText size={13} /> PDF View
+            </button>
+            {fullTextSections.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setViewMode('article')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded transition-all cursor-pointer ${
+                  viewMode === 'article' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <BookOpen size={13} /> Structured Article
+                <span className="ml-0.5 px-1 py-0.2 text-[9px] bg-white/20 rounded font-mono font-bold">
+                  {fullTextSections.length}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* PDF Source Picker when in PDF Mode */}
+          {viewMode === 'pdf' && availableSources.length > 1 && (
             <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-lg border border-border-default text-[11px] font-mono">
               {availableSources.map((src) => (
                 <button
                   key={src.id}
                   type="button"
                   onClick={() => setSelectedSourceId(src.id)}
-                  className={`px-2.5 py-0.5 rounded transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                     activeSource?.id === src.id
                       ? 'bg-accent text-white font-bold shadow-sm'
                       : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
@@ -450,54 +502,119 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
       {/* Main Split-Screen Layout */}
       <div className="flex-1 flex min-h-0 relative">
-        {/* Left Side: PDF Viewer */}
-        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative">
-          {activeSource && (
-            <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-bg-primary/90 backdrop-blur-md px-3 py-1 rounded-md text-[11px] text-text-secondary border border-border-default shadow-md pointer-events-auto">
-              <span className="font-medium text-text-primary">{activeSource.label}</span>
-              {!activeSource.isHtml && targetPdfUrl.startsWith('http') && (
-                <>
-                  <span>·</span>
-                  <button
-                    type="button"
-                    onClick={() => setEmbedEngine(embedEngine === 'stream' ? 'gdocs' : 'stream')}
-                    className="text-accent hover:underline font-mono text-[10px] cursor-pointer"
-                    title="Click if PDF is blank or blocked by browser settings"
+        {/* Left Side: Viewer (PDF or Structured Article) */}
+        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative overflow-hidden">
+          {viewMode === 'article' ? (
+            /* Structured Article Reader */
+            <div className="w-full h-full bg-bg-primary flex min-h-0 overflow-hidden">
+              {/* Section Outline Navigator */}
+              <div className="w-56 bg-bg-secondary border-r border-border-default p-3 flex flex-col gap-1 overflow-y-auto shrink-0 hidden md:block">
+                <div className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider mb-2 px-1">
+                  Article Outline
+                </div>
+                {fullTextSections.map((sec, idx) => (
+                  <a
+                    key={sec.id}
+                    href={`#${sec.id}`}
+                    onClick={() => setActiveSectionId(sec.id)}
+                    className={`block px-2.5 py-1.5 rounded text-xs truncate transition-colors ${
+                      activeSectionId === sec.id
+                        ? 'bg-accent/15 text-accent font-semibold'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+                    }`}
                   >
-                    {embedEngine === 'stream' ? 'Switch to Cloud Viewer' : 'Switch to Native Stream'}
-                  </button>
-                </>
-              )}
-              <span>·</span>
-              <a
-                href={activeSource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline flex items-center gap-0.5"
-              >
-                Open Original Link <ExternalLink size={10} />
-              </a>
-            </div>
-          )}
+                    <span className="opacity-60 mr-1.5 font-mono">{idx + 1}.</span>
+                    {sec.title}
+                  </a>
+                ))}
+              </div>
 
-          {pdfUrl ? (
-            <iframe
-              src={finalIframeSrc}
-              className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
-              title="Paper Reader"
-            />
+              {/* Main Reading Flow */}
+              <div className="flex-1 p-6 md:p-10 overflow-y-auto space-y-8 max-w-3xl mx-auto">
+                <div className="space-y-2 border-b border-border-default pb-6">
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-accent/15 text-accent font-mono font-semibold">
+                    PMC Open Access Full-Text
+                  </div>
+                  <h1 className="text-xl md:text-2xl font-bold text-text-primary font-display leading-snug">
+                    {paper.title}
+                  </h1>
+                  <p className="text-xs text-text-secondary">
+                    {paper.authors} {paper.journal ? `· ${paper.journal}` : ''} {paper.publicationYear ? `(${paper.publicationYear})` : ''}
+                  </p>
+                </div>
+
+                {fullTextSections.map((sec) => (
+                  <section key={sec.id} id={sec.id} className="space-y-3 scroll-mt-6">
+                    <h2 className="text-base font-bold text-text-primary border-b border-border-default/60 pb-1 flex items-center gap-2">
+                      <span className="w-1.5 h-4 rounded-full bg-accent" />
+                      {sec.title}
+                    </h2>
+                    <div className="space-y-3 text-xs md:text-sm text-text-secondary leading-relaxed font-sans">
+                      {sec.paragraphs.map((para, pIdx) => (
+                        <p
+                          key={pIdx}
+                          className="hover:bg-accent/5 p-1.5 rounded transition-colors group relative cursor-text"
+                          title="Highlight to consult AI or save margin note"
+                        >
+                          {para}
+                        </p>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </div>
           ) : (
-            <div className="p-8 text-center text-text-tertiary space-y-3">
-              <FileText size={48} className="mx-auto opacity-30 text-accent" />
-              <h3 className="text-sm font-semibold text-text-primary">No PDF Source Available</h3>
-              <p className="text-xs max-w-sm mx-auto">
-                Attach a PDF file on the paper detail page or provide an ArXiv ID / DOI link to read full text directly here.
-              </p>
-              <Link href={`/papers/${paper.id}`}>
-                <Button size="sm" variant="primary">
-                  Go to Paper Details &amp; Attach Source
-                </Button>
-              </Link>
+            /* PDF Document Viewer */
+            <div className="w-full h-full flex flex-col relative">
+              {activeSource && (
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-bg-primary/90 backdrop-blur-md px-3 py-1 rounded-md text-[11px] text-text-secondary border border-border-default shadow-md pointer-events-auto">
+                  <span className="font-medium text-text-primary">{activeSource.label}</span>
+                  {!activeSource.isHtml && targetPdfUrl.startsWith('http') && (
+                    <>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        onClick={() => setEmbedEngine(embedEngine === 'stream' ? 'gdocs' : 'stream')}
+                        className="text-accent hover:underline font-mono text-[10px] cursor-pointer"
+                        title="Click if PDF is blank or blocked by browser settings"
+                      >
+                        {embedEngine === 'stream' ? 'Switch to Cloud Viewer' : 'Switch to Native Stream'}
+                      </button>
+                    </>
+                  )}
+                  <span>·</span>
+                  <a
+                    href={activeSource.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline flex items-center gap-0.5"
+                  >
+                    Open Original Link <ExternalLink size={10} />
+                  </a>
+                </div>
+              )}
+
+              {pdfUrl ? (
+                <iframe
+                  src={finalIframeSrc}
+                  className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
+                  title="Paper Reader"
+                />
+              ) : (
+                <div className="p-8 text-center text-text-tertiary space-y-3 m-auto">
+                  <FileText size={48} className="mx-auto opacity-30 text-accent" />
+                  <h3 className="text-sm font-semibold text-text-primary">No PDF Source Attached</h3>
+                  <p className="text-xs max-w-sm mx-auto">
+                    You can switch to the <strong>Structured Article</strong> tab above to read the complete paper full-text, or upload a local PDF.
+                  </p>
+                  {fullTextSections.length > 0 && (
+                    <Button size="sm" variant="primary" onClick={() => setViewMode('article')}>
+                      Read Full-Text Article ({fullTextSections.length} Sections)
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
