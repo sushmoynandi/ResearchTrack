@@ -195,28 +195,52 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Clean up relations safely before removing user
-    try {
-      await prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } })
-      await prisma.assignment.deleteMany({ where: { OR: [{ studentId: id }, { assignedById: id }] } })
-      await prisma.meeting.deleteMany({ where: { OR: [{ studentId: id }, { supervisorId: id }] } })
-      await prisma.labMeeting.deleteMany({ where: { hostId: id } })
-      await prisma.groupMember.deleteMany({ where: { userId: id } })
-      await prisma.labMember.deleteMany({ where: { userId: id } })
-      await prisma.labJoinRequest.deleteMany({ where: { userId: id } })
-      await prisma.labBroadcast.deleteMany({ where: { authorId: id } })
-      await prisma.journalClubSession.deleteMany({ where: { presenterId: id } })
-      await prisma.notification.deleteMany({ where: { userId: id } })
-      await prisma.note.deleteMany({ where: { userId: id } })
-      await prisma.tag.deleteMany({ where: { userId: id } })
-      await prisma.collection.deleteMany({ where: { userId: id } })
-      await prisma.paper.deleteMany({ where: { userId: id } })
-    } catch {
-      // non-blocking fallback
-    }
+    // Perform complete cascading cleanup across all referencing tables
+    const fallbackAdmin =
+      (await prisma.user.findFirst({
+        where: { systemRole: 'ADMIN', id: { not: id } },
+        select: { id: true },
+      })) || adminUser
 
-    // Delete user
-    await prisma.user.delete({ where: { id } })
+    await prisma.$transaction([
+      // 1. Clear supervisor links
+      prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } }),
+
+      // 2. Transfer or clear lab leads
+      prisma.lab.updateMany({ where: { leadId: id }, data: { leadId: fallbackAdmin.id } }),
+
+      // 3. Thesis Milestones & Evaluation Rubrics
+      prisma.thesisMilestone.deleteMany({ where: { OR: [{ studentId: id }, { supervisorId: id }] } }),
+      prisma.reviewRubric.deleteMany({ where: { OR: [{ supervisorId: id }, { studentId: id }] } }),
+
+      // 4. Feedback & Assignments
+      prisma.feedback.deleteMany({ where: { OR: [{ authorId: id }, { targetUserId: id }] } }),
+      prisma.assignment.deleteMany({ where: { OR: [{ studentId: id }, { assignedById: id }] } }),
+
+      // 5. Meetings (1-on-1 & Lab)
+      prisma.meeting.deleteMany({ where: { OR: [{ studentId: id }, { supervisorId: id }] } }),
+      prisma.labMeeting.deleteMany({ where: { hostId: id } }),
+
+      // 6. Lab & Group Memberships, Requests & Content
+      prisma.journalClubSession.deleteMany({ where: { presenterId: id } }),
+      prisma.labBroadcast.deleteMany({ where: { authorId: id } }),
+      prisma.labJoinRequest.deleteMany({ where: { userId: id } }),
+      prisma.groupMember.deleteMany({ where: { userId: id } }),
+      prisma.labMember.deleteMany({ where: { userId: id } }),
+
+      // 7. Audit Logs & Notifications
+      prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } }),
+      prisma.notification.deleteMany({ where: { userId: id } }),
+
+      // 8. User notes, tags, collections, and papers
+      prisma.note.deleteMany({ where: { userId: id } }),
+      prisma.tag.deleteMany({ where: { userId: id } }),
+      prisma.collection.deleteMany({ where: { userId: id } }),
+      prisma.paper.deleteMany({ where: { userId: id } }),
+
+      // 9. Finally delete the user account
+      prisma.user.delete({ where: { id } }),
+    ])
 
     return NextResponse.json({
       success: true,
