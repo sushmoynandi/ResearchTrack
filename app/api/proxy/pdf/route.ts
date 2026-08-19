@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
-        'Content-Type': contentType.includes('pdf') ? 'application/pdf' : contentType,
-        'Content-Disposition': 'inline; filename="paper.pdf"',
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'inline',
         'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-        // Omit X-Frame-Options to allow embedding in app reader
+        'Access-Control-Allow-Origin': '*',
       },
     })
   } catch (error) {

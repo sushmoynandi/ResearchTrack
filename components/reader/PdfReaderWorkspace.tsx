@@ -136,6 +136,8 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const [embedEngine, setEmbedEngine] = useState<'stream' | 'gdocs'>('stream')
+
   // Auto-resolve all initial available PDF and reading sources
   const baseSources = React.useMemo(() => getAutoResolvedPdfSources(paper), [paper])
   const [dynamicSources, setDynamicSources] = useState<{ id: string; label: string; url: string; isHtml?: boolean }[]>([])
@@ -178,6 +180,16 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
   const activeSource = availableSources.find((s) => s.id === selectedSourceId) || availableSources[0] || null
   const pdfUrl = activeSource ? activeSource.url : ''
+
+  // Compute final iframe URL based on engine mode
+  const targetPdfUrl = activeSource ? activeSource.url : pdfUrl
+  const finalIframeSrc = activeSource?.isHtml
+    ? activeSource.url
+    : targetPdfUrl.startsWith('/uploads/')
+    ? `${targetPdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
+    : embedEngine === 'gdocs' && targetPdfUrl.startsWith('http')
+    ? `https://docs.google.com/viewer?url=${encodeURIComponent(targetPdfUrl)}&embedded=true`
+    : `/api/proxy/pdf?url=${encodeURIComponent(targetPdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
 
   // AI Assistant state
   const [aiInput, setAiInput] = useState('')
@@ -441,8 +453,21 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         {/* Left Side: PDF Viewer */}
         <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative">
           {activeSource && (
-            <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-bg-primary/80 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] text-text-secondary border border-border-default shadow-sm pointer-events-auto">
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-bg-primary/90 backdrop-blur-md px-3 py-1 rounded-md text-[11px] text-text-secondary border border-border-default shadow-md pointer-events-auto">
               <span className="font-medium text-text-primary">{activeSource.label}</span>
+              {!activeSource.isHtml && targetPdfUrl.startsWith('http') && (
+                <>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => setEmbedEngine(embedEngine === 'stream' ? 'gdocs' : 'stream')}
+                    className="text-accent hover:underline font-mono text-[10px] cursor-pointer"
+                    title="Click if PDF is blank or blocked by browser settings"
+                  >
+                    {embedEngine === 'stream' ? 'Switch to Cloud Viewer' : 'Switch to Native Stream'}
+                  </button>
+                </>
+              )}
               <span>·</span>
               <a
                 href={activeSource.url}
@@ -457,13 +482,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
           {pdfUrl ? (
             <iframe
-              src={
-                activeSource?.isHtml
-                  ? activeSource.url
-                  : activeSource?.url.startsWith('/uploads/')
-                  ? `${activeSource.url}#toolbar=1&navpanes=1&scrollbar=1`
-                  : `/api/proxy/pdf?url=${encodeURIComponent(activeSource ? activeSource.url : pdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
-              }
+              src={finalIframeSrc}
               className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
               title="Paper Reader"
             />
