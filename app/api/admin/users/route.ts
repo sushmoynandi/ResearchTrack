@@ -166,3 +166,64 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
   }
 }
+
+// DELETE /api/admin/users — Permanently delete a user account (Admin only)
+export async function DELETE(request: NextRequest) {
+  try {
+    const adminUser = await getCurrentUser()
+    if (!adminUser || adminUser.systemRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized: Administrator access required' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id') || searchParams.get('userId')
+
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    }
+
+    if (id === adminUser.id) {
+      return NextResponse.json({ error: 'Cannot delete your own administrator account' }, { status: 400 })
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true, systemRole: true },
+    })
+
+    if (!target) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Clean up relations safely before removing user
+    try {
+      await prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } })
+      await prisma.assignment.deleteMany({ where: { OR: [{ studentId: id }, { assignedById: id }] } })
+      await prisma.meeting.deleteMany({ where: { OR: [{ studentId: id }, { supervisorId: id }] } })
+      await prisma.labMeeting.deleteMany({ where: { hostId: id } })
+      await prisma.groupMember.deleteMany({ where: { userId: id } })
+      await prisma.labMember.deleteMany({ where: { userId: id } })
+      await prisma.labJoinRequest.deleteMany({ where: { userId: id } })
+      await prisma.labBroadcast.deleteMany({ where: { authorId: id } })
+      await prisma.journalClubSession.deleteMany({ where: { presenterId: id } })
+      await prisma.notification.deleteMany({ where: { userId: id } })
+      await prisma.note.deleteMany({ where: { userId: id } })
+      await prisma.tag.deleteMany({ where: { userId: id } })
+      await prisma.collection.deleteMany({ where: { userId: id } })
+      await prisma.paper.deleteMany({ where: { userId: id } })
+    } catch {
+      // non-blocking fallback
+    }
+
+    // Delete user
+    await prisma.user.delete({ where: { id } })
+
+    return NextResponse.json({
+      success: true,
+      message: `Account for ${target.name} (${target.email}) permanently deleted`,
+    })
+  } catch (error) {
+    console.error('Error deleting user by admin:', error)
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
+  }
+}

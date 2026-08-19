@@ -5,7 +5,6 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import {
@@ -14,12 +13,11 @@ import {
   Users,
   Building,
   GraduationCap,
-  Mail,
-  UserCheck,
-  UserX,
   Edit2,
-  Check,
+  Trash2,
+  Power,
   Search,
+  AlertTriangle,
 } from 'lucide-react'
 import type { SystemRole } from '@/lib/types'
 
@@ -44,7 +42,7 @@ interface AdminUserRecord {
 }
 
 export default function AdminUsersPage() {
-  const { user, isAdmin } = useAuth()
+  const { user: currentAdmin } = useAuth()
   const { addToast } = useToast()
 
   const [users, setUsers] = useState<AdminUserRecord[]>([])
@@ -61,6 +59,10 @@ export default function AdminUsersPage() {
   const [editInstitution, setEditInstitution] = useState('')
   const [editIsActive, setEditIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Delete User Modal
+  const [deletingUser, setDeletingUser] = useState<AdminUserRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Create User Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -137,6 +139,53 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleToggleActive = async (u: AdminUserRecord) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: u.id,
+          isActive: !u.isActive,
+        }),
+      })
+
+      if (res.ok) {
+        addToast('success', `${u.name} is now ${!u.isActive ? 'Active' : 'Deactivated'}`)
+        loadData()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update user status')
+      }
+    } catch {
+      addToast('error', 'Network error updating user status')
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/users?id=${deletingUser.id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        addToast('success', `Permanently deleted account for ${deletingUser.name}`)
+        setDeletingUser(null)
+        loadData()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to delete user')
+      }
+    } catch {
+      addToast('error', 'Network error deleting user')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!createName || !createEmail || !createPassword) {
@@ -161,12 +210,14 @@ export default function AdminUsersPage() {
       })
 
       if (res.ok) {
-        addToast('success', 'User created successfully')
+        addToast('success', `Created new user ${createName}`)
         setIsCreateOpen(false)
         setCreateName('')
         setCreateEmail('')
         setCreatePassword('')
         setCreateDepartment('')
+        setCreateInstitution('')
+        setCreateSupervisorId('')
         loadData()
       } else {
         const err = await res.json()
@@ -321,10 +372,19 @@ export default function AdminUsersPage() {
                       ? 'bg-purple-500/10 text-purple-500 border-purple-500/30'
                       : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
 
+                  const isSelf = currentAdmin?.id === u.id
+
                   return (
                     <tr key={u.id} className="hover:bg-bg-tertiary/40 transition-colors">
                       <td className="p-4">
-                        <div className="font-bold text-text-primary">{u.name}</div>
+                        <div className="font-bold text-text-primary flex items-center gap-1.5">
+                          {u.name}
+                          {isSelf && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-accent/20 text-accent rounded">
+                              You
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-text-tertiary">{u.email}</div>
                       </td>
                       <td className="p-4">
@@ -360,14 +420,49 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                       <td className="p-4 text-right">
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          onClick={() => handleOpenEdit(u)}
-                          icon={<Edit2 size={12} />}
-                        >
-                          Edit
-                        </Button>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          {/* Quick Toggle Status (Activate / Deactivate) */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(u)}
+                            disabled={isSelf}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              isSelf
+                                ? 'opacity-30 cursor-not-allowed border-transparent text-text-tertiary'
+                                : u.isActive
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                            }`}
+                            title={isSelf ? 'Cannot deactivate yourself' : u.isActive ? 'Deactivate Account' : 'Activate Account'}
+                          >
+                            <Power size={13} />
+                          </button>
+
+                          {/* Edit User Modal */}
+                          <Button
+                            size="xs"
+                            variant="secondary"
+                            onClick={() => handleOpenEdit(u)}
+                            icon={<Edit2 size={12} />}
+                          >
+                            Edit
+                          </Button>
+
+                          {/* Delete Account */}
+                          <button
+                            type="button"
+                            onClick={() => setDeletingUser(u)}
+                            disabled={isSelf}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              isSelf
+                                ? 'opacity-30 cursor-not-allowed border-transparent text-text-tertiary'
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                            }`}
+                            title={isSelf ? 'Cannot delete yourself' : 'Delete Account'}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -448,9 +543,9 @@ export default function AdminUsersPage() {
                   id="isActiveToggle"
                   checked={editIsActive}
                   onChange={(e) => setEditIsActive(e.target.checked)}
-                  className="rounded border-border-default"
+                  className="rounded border-border-default cursor-pointer"
                 />
-                <label htmlFor="isActiveToggle" className="text-xs font-medium text-text-primary">
+                <label htmlFor="isActiveToggle" className="text-xs font-medium text-text-primary cursor-pointer">
                   Account is Active (Uncheck to suspend login)
                 </label>
               </div>
@@ -464,6 +559,50 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deletingUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-secondary border border-rose-500/40 rounded-2xl w-full max-w-md p-6 shadow-modal space-y-4 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-text-primary font-display">
+                  Delete Account Permanently?
+                </h3>
+                <p className="text-xs text-text-tertiary">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-text-secondary space-y-1.5">
+              <p>
+                You are about to permanently delete the account for{' '}
+                <strong className="text-text-primary font-bold">{deletingUser.name}</strong> ({deletingUser.email}).
+              </p>
+              <p className="text-[11px] text-rose-300">
+                All assigned papers, personal notes, collection links, and meeting memberships associated with this account will be removed from the database.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setDeletingUser(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeleteUser}
+                loading={deleting}
+                icon={<Trash2 size={14} />}
+              >
+                Permanently Delete Account
+              </Button>
+            </div>
           </div>
         </div>
       )}
