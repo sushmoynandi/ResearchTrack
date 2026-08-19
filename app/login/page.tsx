@@ -8,30 +8,25 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
 import {
-  Sparkles,
   Lock,
   Mail,
   ArrowRight,
   Eye,
   EyeOff,
   Atom,
-  Zap,
 } from 'lucide-react'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectUrl = searchParams.get('redirect') || '/'
   const { addToast } = useToast()
   const { user, loading: authLoading, setAuthSession } = useAuth()
 
   // State
-  const [activeTab, setActiveTab] = useState<'credentials' | 'guest'>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [guestLoading, setGuestLoading] = useState(false)
 
   // If already authenticated, redirect to target page
   useEffect(() => {
@@ -41,19 +36,16 @@ function LoginForm() {
     }
   }, [user, authLoading, searchParams, router])
 
-  // Email / Password Login (Supports manual submit OR 1-click credentials override)
-  const handleCredentialsSubmit = async (e?: React.FormEvent, overrideEmail?: string, overridePassword?: string) => {
+  // Email / Password Login
+  const handleCredentialsSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    const targetEmail = (overrideEmail || email).trim()
-    const targetPassword = overridePassword || password
+    const targetEmail = email.trim()
+    const targetPassword = password
 
     if (!targetEmail || !targetPassword) {
       addToast('error', 'Please enter your email and password')
       return
     }
-
-    if (overrideEmail) setEmail(overrideEmail)
-    if (overridePassword) setPassword(overridePassword)
 
     setLoading(true)
     try {
@@ -84,31 +76,6 @@ function LoginForm() {
     }
   }
 
-  // 1-Click Guest Sandbox Login
-  const handleGuestLogin = async () => {
-    setGuestLoading(true)
-    try {
-      const res = await fetch('/api/auth/guest', { method: 'POST' })
-      const data = await res.json()
-
-      if (res.ok) {
-        if (data.user && data.token) {
-          setAuthSession(data.user, data.token)
-        }
-        addToast('success', 'Entered Sandbox Workspace as Guest Researcher')
-        setTimeout(() => {
-          window.location.href = redirectUrl
-        }, 100)
-      } else {
-        addToast('error', data.error || 'Failed to initialize guest sandbox')
-      }
-    } catch {
-      addToast('error', 'Failed to initialize guest sandbox')
-    } finally {
-      setGuestLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background ambient glow */}
@@ -130,129 +97,48 @@ function LoginForm() {
 
         {/* Card */}
         <div className="glass-card p-6 sm:p-8 space-y-6">
-          {/* Auth Tabs */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-bg-tertiary rounded-xl border border-border-default">
-            <button
-              type="button"
-              onClick={() => setActiveTab('credentials')}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                activeTab === 'credentials'
-                  ? 'bg-bg-elevated text-text-primary shadow-sm'
-                  : 'text-text-tertiary hover:text-text-secondary'
-              }`}
-            >
-              Email Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('guest')}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                activeTab === 'guest'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-accent hover:bg-accent-subtle'
-              }`}
-            >
-              <Sparkles size={12} /> Guest Demo
-            </button>
-          </div>
+          <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-4">
+            <Input
+              label="Email Address"
+              placeholder="researcher@institute.edu"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              icon={<Mail size={15} />}
+              required
+            />
 
-          {/* TAB 1: Email & Password Form */}
-          {activeTab === 'credentials' && (
-            <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-4 animate-fade-in">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-text-secondary">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] text-text-tertiary hover:text-accent cursor-pointer flex items-center gap-1"
+                >
+                  {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <Input
-                label="Email Address"
-                placeholder="researcher@institute.edu"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                icon={<Mail size={15} />}
+                placeholder="••••••••"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock size={15} />}
                 required
               />
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-text-secondary">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-[11px] text-text-tertiary hover:text-accent cursor-pointer flex items-center gap-1"
-                  >
-                    {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <Input
-                  placeholder="••••••••"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock size={15} />}
-                  required
-                />
-              </div>
-
-              <Button
-                type="submit"
-                loading={loading}
-                className="w-full mt-2"
-                icon={<ArrowRight size={15} />}
-              >
-                Sign In
-              </Button>
-
-              {/* 1-Click Academic Role Logins */}
-              <div className="pt-4 border-t border-border-default space-y-2">
-                <p className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider text-center">
-                  Quick Demo Logins (1-Click):
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCredentialsSubmit(undefined, 'student@researchtrack.edu', 'password123')}
-                    className="p-2.5 rounded-lg bg-bg-tertiary hover:bg-blue-500/10 border border-border-default hover:border-blue-500/30 text-center transition-all cursor-pointer group"
-                    title="1-Click Instant Sign In as Student"
-                  >
-                    <p className="text-xs font-bold text-text-primary group-hover:text-blue-400">Student</p>
-                    <p className="text-[10px] text-text-tertiary truncate">Sophia Chen</p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCredentialsSubmit(undefined, 'supervisor@researchtrack.edu', 'password123')}
-                    className="p-2.5 rounded-lg bg-bg-tertiary hover:bg-purple-500/10 border border-border-default hover:border-purple-500/30 text-center transition-all cursor-pointer group"
-                    title="1-Click Instant Sign In as Supervisor"
-                  >
-                    <p className="text-xs font-bold text-text-primary group-hover:text-purple-400">Supervisor</p>
-                    <p className="text-[10px] text-text-tertiary truncate">Dr. Rostova</p>
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 2: 1-Click Guest Sandbox */}
-          {activeTab === 'guest' && (
-            <div className="space-y-4 animate-fade-in pt-1 text-center">
-              <div className="p-4 rounded-xl bg-accent-subtle/50 border border-accent/30 text-left space-y-2">
-                <div className="flex items-center gap-2 text-accent font-semibold text-xs">
-                  <Sparkles size={14} /> Instant Demo Workspace
-                </div>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  Explore full ResearchTrack features with pre-seeded landmark AI papers (<strong>Transformer</strong>, <strong>Llama 3 405B</strong>, and <strong>Mamba SSM</strong>) without entering any credentials.
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                onClick={handleGuestLogin}
-                loading={guestLoading}
-                className="w-full h-11"
-                icon={<Zap size={16} />}
-              >
-                Enter Sandbox as Guest
-              </Button>
             </div>
-          )}
+
+            <Button
+              type="submit"
+              loading={loading}
+              className="w-full mt-2"
+              icon={<ArrowRight size={15} />}
+            >
+              Sign In
+            </Button>
+          </form>
 
           {/* Bottom links */}
           <div className="pt-4 border-t border-border-default text-center">
