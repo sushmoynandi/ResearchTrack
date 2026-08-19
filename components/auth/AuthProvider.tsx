@@ -97,6 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('researchtrack_token')
           localStorage.removeItem('papertrack_user')
           localStorage.removeItem('papertrack_token')
+          document.cookie = 'researchtrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+          document.cookie = 'papertrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
         } catch { /* ignore */ }
       }
     } catch (err) {
