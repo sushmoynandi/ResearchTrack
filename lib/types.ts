@@ -82,6 +82,7 @@ export interface Paper {
   notes?: Note[]
   user?: { id: string; name: string; systemRole: SystemRole; email?: string }
   assignments?: Assignment[]
+  _count?: { notes?: number; feedback?: number }
 }
 
 // ─── Assignment ─────────────────────────────────────────────
