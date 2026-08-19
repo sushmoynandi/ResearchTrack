@@ -5,7 +5,7 @@ import { StatusBadge } from './StatusBadge'
 import { PriorityIndicator } from './PriorityIndicator'
 import { StarButton } from './StarButton'
 import { Badge } from '@/components/ui/Badge'
-import { MessageSquare, Cpu, Trophy } from 'lucide-react'
+import { MessageSquare, Cpu, Trophy, UserCheck } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
 import type { Paper } from '@/lib/types'
 import { REPLICATION_LABELS, REPLICATION_COLORS } from '@/lib/types'
@@ -50,6 +50,25 @@ export function PaperRow({ paper, onUpdate }: PaperRowProps) {
           {paper.architecture && <span className="text-accent/80"> · {paper.architecture}</span>}
         </p>
       </div>
+
+      {/* Assigned Person badge */}
+      {paper.assignments && paper.assignments.length > 0 && (
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            title={`Assigned by ${paper.assignments[0].assignedBy?.name || 'Supervisor'} to ${paper.assignments[0].student?.name || 'Student'}`}
+          >
+            <UserCheck size={11} />
+            <span>
+              {paper.assignments[0].assignedBy?.name
+                ? `By ${paper.assignments[0].assignedBy.name}`
+                : paper.assignments[0].student?.name
+                ? `To ${paper.assignments[0].student.name}`
+                : 'Assigned'}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Replication Status if set */}
       {paper.replicationStatus && paper.replicationStatus !== 'UNTESTED' && (

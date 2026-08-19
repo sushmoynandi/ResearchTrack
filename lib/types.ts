@@ -80,7 +80,8 @@ export interface Paper {
   tags?: Tag[]
   collections?: Collection[]
   notes?: Note[]
-  user?: { id: string; name: string; systemRole: SystemRole }
+  user?: { id: string; name: string; systemRole: SystemRole; email?: string }
+  assignments?: Assignment[]
 }
 
 // ─── Assignment ─────────────────────────────────────────────

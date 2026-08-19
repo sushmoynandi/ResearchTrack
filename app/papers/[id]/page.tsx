@@ -44,6 +44,7 @@ import {
   FileCheck,
   Share2,
   MessageSquare,
+  UserCheck,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -279,6 +280,55 @@ export default function PaperDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Assigned Person / Supervisor Details Banner */}
+      {paper.assignments && paper.assignments.length > 0 && (
+        <div className="glass-card p-4 md:p-5 border-purple-500/30 bg-purple-500/5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                <UserCheck size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5">
+                  Supervisory Reading Assignment
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Assigned by <strong className="text-purple-400 font-semibold">{paper.assignments[0].assignedBy?.name || 'Supervisor'}</strong> to{' '}
+                  <strong className="text-cyan-400 font-semibold">{paper.assignments[0].student?.name || 'Student Researcher'}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {paper.assignments[0].dueDate && (
+                <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
+                  <Calendar size={13} className="text-accent" />
+                  Due: {new Date(paper.assignments[0].dueDate).toLocaleDateString()}
+                </span>
+              )}
+              <Badge
+                variant={
+                  paper.assignments[0].status === 'COMPLETED'
+                    ? 'success'
+                    : paper.assignments[0].status === 'IN_PROGRESS'
+                    ? 'warning'
+                    : 'info'
+                }
+                size="md"
+              >
+                {paper.assignments[0].status}
+              </Badge>
+            </div>
+          </div>
+
+          {paper.assignments[0].note && (
+            <p className="text-xs text-text-secondary bg-bg-tertiary/70 p-3 rounded-xl italic border border-border-default/50">
+              &ldquo;{paper.assignments[0].note}&rdquo;
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Main Title & Authors Card */}
       <div className="glass-card p-6 md:p-8 space-y-4 relative overflow-hidden">

@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  UserCheck,
 } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
 import type { Paper, BenchmarkScore } from '@/lib/types'
@@ -59,6 +60,24 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
               onToggle={onUpdate}
             />
           </div>
+
+          {/* Assigned Person / Supervisor Badge */}
+          {paper.assignments && paper.assignments.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
+              {paper.assignments.map((a) => (
+                <span
+                  key={a.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                  title={`Assigned by ${a.assignedBy?.name || 'Supervisor'} to ${a.student?.name || 'Student'}`}
+                >
+                  <UserCheck size={11} />
+                  <span>
+                    {a.assignedBy?.name ? `Assigned by ${a.assignedBy.name}` : a.student?.name ? `Assigned to ${a.student.name}` : 'Assigned Paper'}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Title */}
           <h3 className="text-base font-semibold text-text-primary mb-1.5 line-clamp-2 group-hover:text-accent transition-colors duration-200">

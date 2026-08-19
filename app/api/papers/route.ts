@@ -105,7 +105,8 @@ export async function GET(request: NextRequest) {
         user: { select: { id: true, name: true, systemRole: true, institution: true } },
         assignments: {
           include: {
-            assignedBy: { select: { id: true, name: true } },
+            assignedBy: { select: { id: true, name: true, email: true } },
+            student: { select: { id: true, name: true, email: true } },
           },
         },
         _count: { select: { notes: true, feedback: true } },
