@@ -36,7 +36,11 @@ function ShellInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user && !isAuthPage) {
-      router.replace('/login')
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login')
+      } else {
+        router.replace('/login')
+      }
     }
   }, [loading, user, isAuthPage, router])
 
@@ -58,7 +62,11 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return null
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
+        <p className="text-xs text-text-tertiary">Redirecting to login...</p>
+      </div>
+    )
   }
 
   return (

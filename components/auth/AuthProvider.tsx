@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser)
     setToken(newToken)
     tokenRef.current = newToken
+    setLoading(false)
     try {
       localStorage.setItem('researchtrack_user', JSON.stringify(newUser))
       localStorage.setItem('researchtrack_token', newToken)
@@ -55,6 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const refreshUser = useCallback(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 4000)
+
     try {
       let currentToken = tokenRef.current
       if (!currentToken && typeof window !== 'undefined') {
@@ -66,7 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers['Authorization'] = `Bearer ${currentToken}`
       }
 
-      const res = await fetch('/api/auth/me', { headers })
+      const res = await fetch('/api/auth/me', {
+        headers,
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
       if (res.ok) {
         const data = await res.json()
         if (data.user) {
@@ -90,27 +100,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch { /* ignore */ }
       }
     } catch (err) {
-      console.error('Failed to refresh user session:', err)
+      console.warn('User session check completed with notice:', err)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }, [])
 
   // Run initial session initialization ONCE on mount
   useEffect(() => {
+    let hasSavedCredentials = false
     if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('researchtrack_token') || localStorage.getItem('papertrack_token')
-      const savedUser = localStorage.getItem('researchtrack_user') || localStorage.getItem('papertrack_user')
-      if (savedToken) {
-        setToken(savedToken)
-        tokenRef.current = savedToken
-      }
-      if (savedUser) {
-        try {
+      try {
+        const savedToken = localStorage.getItem('researchtrack_token') || localStorage.getItem('papertrack_token')
+        const savedUser = localStorage.getItem('researchtrack_user') || localStorage.getItem('papertrack_user')
+        if (savedToken) {
+          setToken(savedToken)
+          tokenRef.current = savedToken
+          hasSavedCredentials = true
+        }
+        if (savedUser) {
           setUser(JSON.parse(savedUser))
-        } catch { /* ignore */ }
+          hasSavedCredentials = true
+        }
+      } catch {
+        // ignore localStorage parsing errors
       }
     }
+
+    // If no credentials saved at all, stop loading immediately
+    if (!hasSavedCredentials) {
+      setLoading(false)
+    }
+
+    // Validate with server
     refreshUser()
   }, [refreshUser])
 
@@ -123,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       setToken(null)
       tokenRef.current = null
+      setLoading(false)
       try {
         localStorage.removeItem('researchtrack_user')
         localStorage.removeItem('researchtrack_token')
