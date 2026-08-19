@@ -48,6 +48,77 @@ interface AiMessage {
   content: string
 }
 
+function getAutoResolvedPdfSources(paper: Paper) {
+  const sources: { id: string; label: string; url: string; isHtml?: boolean }[] = []
+
+  // 1. Local uploaded PDF
+  if (paper.pdfPath) {
+    sources.push({
+      id: 'local',
+      label: 'Uploaded PDF',
+      url: paper.pdfPath,
+    })
+  }
+
+  // 2. ArXiv ID direct
+  if (paper.arxivId) {
+    const rawId = paper.arxivId.replace(/^arxiv:\s*/i, '').replace(/v[0-9]+$/, '').trim()
+    sources.push({
+      id: 'arxiv-pdf',
+      label: `arXiv PDF (${rawId})`,
+      url: `https://arxiv.org/pdf/${rawId}.pdf`,
+    })
+    sources.push({
+      id: 'arxiv-html',
+      label: 'arXiv Web View (HTML)',
+      url: `https://ar5iv.labs.arxiv.org/html/${rawId}`,
+      isHtml: true,
+    })
+  }
+
+  // 3. ArXiv URL in paper.url
+  if (paper.url) {
+    const arxivUrlMatch = paper.url.match(/(?:arxiv\.org\/(?:abs|pdf)|ar5iv\.labs\.arxiv\.org\/html)\/([0-9]{4}\.[0-9]{4,5}(?:v[0-9]+)?)/i)
+    if (arxivUrlMatch) {
+      const rawId = arxivUrlMatch[1].replace(/v[0-9]+$/, '')
+      if (!sources.some((s) => s.url.includes(rawId))) {
+        sources.push({
+          id: 'arxiv-url-pdf',
+          label: `arXiv PDF (${rawId})`,
+          url: `https://arxiv.org/pdf/${rawId}.pdf`,
+        })
+        sources.push({
+          id: 'arxiv-url-html',
+          label: 'arXiv Web View (HTML)',
+          url: `https://ar5iv.labs.arxiv.org/html/${rawId}`,
+          isHtml: true,
+        })
+      }
+    } else if (paper.url.endsWith('.pdf') || paper.url.includes('.pdf')) {
+      sources.push({
+        id: 'direct-pdf',
+        label: 'Direct PDF URL',
+        url: paper.url,
+      })
+    }
+  }
+
+  // 4. ArXiv DOI in paper.doi
+  if (paper.doi) {
+    const arxivDoiMatch = paper.doi.match(/(?:arxiv\.|10\.48550\/arXiv\.)([0-9]{4}\.[0-9]{4,5})/i)
+    if (arxivDoiMatch && !sources.some((s) => s.url.includes(arxivDoiMatch[1]))) {
+      const rawId = arxivDoiMatch[1]
+      sources.push({
+        id: 'arxiv-doi-pdf',
+        label: `arXiv PDF (${rawId})`,
+        url: `https://arxiv.org/pdf/${rawId}.pdf`,
+      })
+    }
+  }
+
+  return sources
+}
+
 export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
@@ -55,11 +126,14 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // PDF Source Selection
-  const localPdf = paper.pdfPath
-  const arxivPdf = paper.arxivId ? `https://arxiv.org/pdf/${paper.arxivId.replace(/^arxiv:/i, '')}.pdf` : null
-  const initialPdfUrl = localPdf || arxivPdf || (paper.url?.endsWith('.pdf') ? paper.url : null)
-  const [pdfUrl, setPdfUrl] = useState<string>(initialPdfUrl || '')
+  // Auto-resolve all available PDF and reading sources
+  const availableSources = React.useMemo(() => getAutoResolvedPdfSources(paper), [paper])
+  const [selectedSourceId, setSelectedSourceId] = useState<string>(
+    availableSources.length > 0 ? availableSources[0].id : ''
+  )
+
+  const activeSource = availableSources.find((s) => s.id === selectedSourceId) || availableSources[0] || null
+  const pdfUrl = activeSource ? activeSource.url : ''
 
   // AI Assistant state
   const [aiInput, setAiInput] = useState('')
@@ -257,34 +331,24 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         {/* Source Selector & Viewer Controls */}
         <div className="flex items-center gap-2 shrink-0">
           {/* PDF Source Picker */}
-          <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-lg border border-border-default text-[11px] font-mono">
-            {localPdf && (
-              <button
-                type="button"
-                onClick={() => setPdfUrl(localPdf)}
-                className={`px-2 py-0.5 rounded cursor-pointer ${
-                  pdfUrl === localPdf
-                    ? 'bg-accent text-white font-bold'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Local Upload
-              </button>
-            )}
-            {arxivPdf && (
-              <button
-                type="button"
-                onClick={() => setPdfUrl(arxivPdf)}
-                className={`px-2 py-0.5 rounded cursor-pointer ${
-                  pdfUrl === arxivPdf
-                    ? 'bg-accent text-white font-bold'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                ArXiv PDF
-              </button>
-            )}
-          </div>
+          {availableSources.length > 0 && (
+            <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-lg border border-border-default text-[11px] font-mono">
+              {availableSources.map((src) => (
+                <button
+                  key={src.id}
+                  type="button"
+                  onClick={() => setSelectedSourceId(src.id)}
+                  className={`px-2.5 py-0.5 rounded transition-all cursor-pointer ${
+                    activeSource?.id === src.id
+                      ? 'bg-accent text-white font-bold shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                  }`}
+                >
+                  {src.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {pdfUrl && (
             <a
@@ -323,20 +387,26 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative">
           {pdfUrl ? (
             <iframe
-              src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
-              className="w-full h-full border-none"
-              title="PDF Reader"
+              src={
+                activeSource?.isHtml
+                  ? pdfUrl
+                  : pdfUrl.includes('#')
+                  ? pdfUrl
+                  : `${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
+              }
+              className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
+              title="Paper Reader"
             />
           ) : (
             <div className="p-8 text-center text-text-tertiary space-y-3">
               <FileText size={48} className="mx-auto opacity-30 text-accent" />
               <h3 className="text-sm font-semibold text-text-primary">No PDF Source Available</h3>
               <p className="text-xs max-w-sm mx-auto">
-                Attach a PDF file on the paper detail page or provide an ArXiv ID to read full text directly here.
+                Attach a PDF file on the paper detail page or provide an ArXiv ID / DOI link to read full text directly here.
               </p>
               <Link href={`/papers/${paper.id}`}>
                 <Button size="sm" variant="primary">
-                  Go to Paper Details &amp; Upload PDF
+                  Go to Paper Details &amp; Attach Source
                 </Button>
               </Link>
             </div>

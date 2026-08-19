@@ -242,8 +242,17 @@ export default function PaperDetailPage() {
 
           {/* Dedicated In-App PDF Reader Action */}
           <Link href={`/papers/${paper.id}/reader`}>
-            <Button size="sm" variant="primary" icon={<BookOpen size={14} />}>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<BookOpen size={14} className={Boolean(paper.pdfPath || paper.arxivId || paper.url?.includes('arxiv.org') || paper.url?.endsWith('.pdf') || paper.doi?.includes('arXiv')) ? 'text-cyan-200' : ''} />}
+            >
               PDF Reader
+              {Boolean(paper.pdfPath || paper.arxivId || paper.url?.includes('arxiv.org') || paper.url?.endsWith('.pdf') || paper.doi?.includes('arXiv')) && (
+                <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-white/25 rounded-md font-mono font-bold">
+                  PDF Ready
+                </span>
+              )}
             </Button>
           </Link>
 
