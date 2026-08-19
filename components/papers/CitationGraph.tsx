@@ -212,41 +212,54 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
   }
 
   // 1-Click Import of Connected Node to Research Library & Matrix
+  // 1-Click Import of Connected Node to Research Library & Matrix
   const handleImportNode = async (node: GraphNode) => {
     setImportingId(node.id)
     try {
-      const res = await fetch('/api/arxiv?id=' + encodeURIComponent(node.title))
-      if (!res.ok) throw new Error('Could not auto-fetch metadata')
-      const fetched = await res.json()
+      // 1. Try to enrich metadata via ArXiv / Semantic Scholar if possible
+      let fetched: any = null
+      try {
+        const query = node.url && node.url.includes('arxiv.org') ? node.url : node.title
+        const res = await fetch(`/api/arxiv?query=${encodeURIComponent(query)}`)
+        if (res.ok) {
+          fetched = await res.json()
+        }
+      } catch {
+        // Enriched metadata fetch is optional fallback
+      }
+
+      // 2. Build paper payload using enriched data or node metadata
+      const paperPayload = {
+        title: fetched?.title || node.title,
+        authors: fetched?.authors || node.authors || 'Unknown Authors',
+        abstract: fetched?.abstract || `Imported via Citation Graph exploration connected to "${paperTitle}".`,
+        doi: fetched?.doi || null,
+        url: fetched?.url || node.url || null,
+        journal: fetched?.journal || node.venue || (node.type === 'reference' ? 'Foundational Literature' : 'Citing Literature'),
+        publicationYear: fetched?.publicationYear || node.year || new Date().getFullYear(),
+        citationCount: fetched?.citationCount !== undefined ? fetched.citationCount : node.citationCount || 0,
+        status: 'TO_READ',
+        priority: 'MEDIUM',
+        tags: ['citation-network', node.type === 'reference' ? 'reference' : 'citation'],
+        literatureReview: {
+          sl: '1',
+          assignedPerson: 'Lead Researcher',
+          selectedPaperTitle: fetched?.title || node.title,
+          paperTitle: fetched?.title || node.title,
+          paperLink: fetched?.url || node.url || '',
+          pdfAccessibility: 'Open Access',
+          researchGap: fetched?.problemSolved || `Connected ${node.type === 'reference' ? 'foundational background' : 'derivative citation'} of "${paperTitle}".`,
+          usedDataset: 'Benchmark datasets',
+          summaryRepository: fetched?.githubUrl || '',
+          remarks: `Added from Interactive Citation Network (${node.type === 'reference' ? 'Cited Reference' : 'Citing Work'}).`,
+          outcome: fetched?.keyContribution || 'Key connected literature reference.',
+        },
+      }
 
       const createRes = await fetch('/api/papers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: fetched.title || node.title,
-          authors: fetched.authors || node.authors,
-          abstract: fetched.abstract || 'Imported via Citation Graph exploration.',
-          doi: fetched.doi || null,
-          url: fetched.url || node.url || null,
-          journal: fetched.journal || node.venue || null,
-          publicationYear: fetched.publicationYear || node.year || null,
-          citationCount: fetched.citationCount || node.citationCount || 0,
-          status: 'TO_READ',
-          priority: 'MEDIUM',
-          literatureReview: {
-            sl: '1',
-            assignedPerson: 'Lead Reviewer',
-            selectedPaperTitle: fetched.title || node.title,
-            paperTitle: fetched.title || node.title,
-            paperLink: fetched.url || node.url || '',
-            pdfAccessibility: 'Open Access',
-            researchGap: fetched.problemSolved || 'Explored from citation network.',
-            usedDataset: 'Standard benchmarks',
-            summaryRepository: fetched.githubUrl || '',
-            remarks: 'Added from Connected Papers Citation Network.',
-            outcome: fetched.keyContribution || 'Key connected literature reference.',
-          },
-        }),
+        body: JSON.stringify(paperPayload),
       })
 
       if (createRes.ok) {
