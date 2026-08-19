@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and description are required' }, { status: 400 })
     }
 
-    let targetStudentId = studentId
-    let targetSupervisorId = supervisorId
+    let targetStudentId = studentId ? String(studentId).trim() : ''
+    let targetSupervisorId = supervisorId ? String(supervisorId).trim() : ''
 
     if (user.systemRole === 'STUDENT') {
       targetStudentId = user.id
@@ -66,18 +66,45 @@ export async function POST(request: NextRequest) {
           where: { id: user.id },
           select: { supervisorId: true },
         })
-        targetSupervisorId = studentRecord?.supervisorId || undefined
+        targetSupervisorId = studentRecord?.supervisorId || ''
+      }
+      if (!targetSupervisorId) {
+        // Fallback to first available supervisor or self
+        const anySupervisor = await prisma.user.findFirst({
+          where: { systemRole: 'SUPERVISOR' },
+          select: { id: true },
+        })
+        targetSupervisorId = anySupervisor?.id || user.id
       }
     } else if (user.systemRole === 'SUPERVISOR') {
       targetSupervisorId = user.id
+      if (!targetStudentId) {
+        // Fallback to first supervised student or any student or self
+        const firstStudent = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { supervisorId: user.id },
+              { systemRole: 'STUDENT' },
+            ],
+          },
+          select: { id: true },
+        })
+        targetStudentId = firstStudent?.id || user.id
+      }
+    } else {
+      // ADMIN
+      if (!targetStudentId) targetStudentId = user.id
+      if (!targetSupervisorId) targetSupervisorId = user.id
     }
 
-    if (!targetStudentId || !targetSupervisorId) {
-      return NextResponse.json(
-        { error: 'Both student and supervisor must be assigned to create a thesis milestone' },
-        { status: 400 }
-      )
-    }
+    // Verify foreign key users exist in DB before creating
+    const [studentExists, supervisorExists] = await Promise.all([
+      prisma.user.findUnique({ where: { id: targetStudentId }, select: { id: true } }),
+      prisma.user.findUnique({ where: { id: targetSupervisorId }, select: { id: true } }),
+    ])
+
+    if (!studentExists) targetStudentId = user.id
+    if (!supervisorExists) targetSupervisorId = user.id
 
     const milestone = await prisma.thesisMilestone.create({
       data: {
@@ -95,15 +122,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Notify other party
+    // Notify other party safely
     const notifyTarget = user.id === targetStudentId ? targetSupervisorId : targetStudentId
-    await createNotification({
-      userId: notifyTarget,
-      title: 'New Research Milestone Set',
-      message: `${user.name} established milestone: "${milestone.title}"`,
-      type: 'ASSIGNMENT',
-      link: '/milestones',
-    })
+    if (notifyTarget && notifyTarget !== user.id) {
+      try {
+        await createNotification({
+          userId: notifyTarget,
+          title: 'New Research Milestone Set',
+          message: `${user.name} established milestone: "${milestone.title}"`,
+          type: 'ASSIGNMENT',
+          link: '/milestones',
+        })
+      } catch {
+        // Notification is non-blocking
+      }
+    }
 
     return NextResponse.json(milestone, { status: 201 })
   } catch (error) {

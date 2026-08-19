@@ -107,11 +107,11 @@ export default function MilestonesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: newTitle,
-          description: newDesc,
+          title: newTitle.trim(),
+          description: newDesc.trim(),
           dueDate: newDueDate || undefined,
-          studentId: isSupervisor ? selectedStudentId : user?.id,
-          supervisorId: isSupervisor ? user?.id : user?.supervisorId,
+          studentId: isSupervisor || isAdmin ? (selectedStudentId || students[0]?.id || user?.id) : user?.id,
+          supervisorId: isSupervisor || isAdmin ? user?.id : (user?.supervisorId || undefined),
         }),
       })
 
