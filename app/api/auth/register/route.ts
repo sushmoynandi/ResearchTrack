@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, createSessionToken, getSessionCookieOptions } from '@/lib/auth'
+import { hashPassword, createSessionToken } from '@/lib/auth'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const validRoles = ['STUDENT', 'SUPERVISOR']
-    const role = validRoles.includes(systemRole) ? systemRole : 'STUDENT'
+    const assignedRole = validRoles.includes(systemRole) ? systemRole : 'STUDENT'
 
     const cleanEmail = email.trim().toLowerCase()
 
@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
         email: cleanEmail,
         passwordHash,
         institution: institution?.trim() || null,
-        role: role,
+        department: department?.trim() || null,
+        systemRole: assignedRole as any,
+        role: assignedRole,
         provider: 'CREDENTIALS',
       },
     })
@@ -100,11 +102,19 @@ export async function POST(request: NextRequest) {
       provider: 'CREDENTIALS',
     })
 
-    const cookieOptions = getSessionCookieOptions(30)
+    const isProd = process.env.NODE_ENV === 'production'
+    const cookieConfig = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+    }
 
     try {
       const cookieStore = await cookies()
-      cookieStore.set({ ...cookieOptions, value: sessionToken })
+      cookieStore.set('researchtrack_session', sessionToken, cookieConfig)
+      cookieStore.set('papertrack_session', sessionToken, cookieConfig)
     } catch {
       // fallback
     }
@@ -126,7 +136,8 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
 
-    response.cookies.set({ ...cookieOptions, value: sessionToken })
+    response.cookies.set('researchtrack_session', sessionToken, cookieConfig)
+    response.cookies.set('papertrack_session', sessionToken, cookieConfig)
     return response
   } catch (error) {
     console.error('Registration error:', error)
