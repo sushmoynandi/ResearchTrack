@@ -70,6 +70,7 @@ export default function PaperDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [isCitationModalOpen, setIsCitationModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -236,6 +237,7 @@ export default function PaperDetailPage() {
   const visibleAssignment = isStudent
     ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
     : paper.assignments?.[0]
+  const canManagePaper = paper.userId === user?.id || isSupervisor || isAdmin
 
   // Parse benchmarks
   const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
@@ -325,13 +327,6 @@ export default function PaperDetailPage() {
             </Button>
           </Link>
 
-          {/* Journal Club Presentation Mode */}
-          <Link href={`/papers/${paper.id}/present`}>
-            <Button size="sm" variant="secondary" icon={<Sparkles size={14} className="text-purple-400" />}>
-              Journal Club
-            </Button>
-          </Link>
-
           {/* 1-Click Supervisor Assignment Action */}
           {(isSupervisor || isAdmin) && (
             <Button
@@ -344,30 +339,43 @@ export default function PaperDetailPage() {
             </Button>
           )}
 
-          {/* Export Matrix / BibTeX */}
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Download size={14} />}
-            onClick={() => setIsExportModalOpen(true)}
-          >
-            Export
-          </Button>
-
-          <Link href={`/papers/${paper.id}/edit`}>
-            <Button size="sm" variant="secondary" icon={<Edit size={14} />}>
-              Edit
-            </Button>
-          </Link>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowDeleteModal(true)}
-            icon={<Trash2 size={14} />}
-            className="text-danger hover:text-danger hover:bg-danger-subtle/30"
-          >
-            Delete
-          </Button>
+          <details className="relative">
+            <summary className="list-none px-3 py-1.5 rounded-lg border border-border-default bg-bg-secondary text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer [&::-webkit-details-marker]:hidden">
+              More actions
+            </summary>
+            <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-border-default bg-bg-secondary p-1.5 shadow-xl space-y-1">
+              <Link
+                href={`/papers/${paper.id}/present`}
+                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
+              >
+                <Sparkles size={13} className="text-purple-400" /> Journal Club
+              </Link>
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(true)}
+                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+              >
+                <Download size={13} /> Export citation
+              </button>
+              {canManagePaper && (
+                <>
+                  <Link
+                    href={`/papers/${paper.id}/edit`}
+                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
+                  >
+                    <Edit size={13} /> Edit paper
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-danger hover:bg-danger-subtle/30 cursor-pointer"
+                  >
+                    <Trash2 size={13} /> Delete paper
+                  </button>
+                </>
+              )}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -476,18 +484,6 @@ export default function PaperDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Sub-Group & Lab Reading Radar */}
-      <GroupReadingRadarCard paperId={paper.id} paperTitle={paper.title} />
-
-      {/* AI Research Assistant & Interactive Paper Q&A */}
-      <PaperChatAssistant paperId={paper.id} paperTitle={paper.title} />
-
-      {/* Interactive Citation Network & Connected Papers Graph */}
-      <CitationGraph paperId={paper.id} paperTitle={paper.title} />
-
-      {/* Semantic Discovery & Connected Literature Engine */}
-      <ConnectedLiteratureExplorer paperId={paper.id} paperTitle={paper.title} />
 
       {/* AI/ML Code, Weights & Datasets Hub */}
       {(paper.codeUrl || paper.modelUrl || paper.datasetUrl || paper.url) && (
@@ -704,14 +700,16 @@ export default function PaperDetailPage() {
               Structured Literature Review &amp; Paper Survey (Q1–Q9 Framework)
             </h3>
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => router.push(`/papers/${paper.id}/edit`)}
-            icon={<Edit size={13} />}
-          >
-            Edit Review
-          </Button>
+          {canManagePaper && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => router.push(`/papers/${paper.id}/edit`)}
+              icon={<Edit size={13} />}
+            >
+              Edit Review
+            </Button>
+          )}
         </div>
 
         <LiteratureReviewView
@@ -864,6 +862,33 @@ export default function PaperDetailPage() {
 
       {/* Supervisor Feedback & Annotation Section */}
       <FeedbackPanel paperId={paper.id} paperOwnerId={paper.userId} />
+
+      {/* Advanced tools stay available without competing with the reading workflow. */}
+      <section className="glass-card p-4 md:p-5">
+        <button
+          type="button"
+          onClick={() => setAdvancedToolsOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 text-left cursor-pointer"
+          aria-expanded={advancedToolsOpen}
+        >
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Advanced research tools</p>
+            <p className="text-xs text-text-tertiary mt-0.5">AI discussion, group reading progress, citation maps, and related literature.</p>
+          </div>
+          <span className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium bg-bg-tertiary text-text-secondary">
+            {advancedToolsOpen ? 'Hide tools' : 'Open tools'}
+          </span>
+        </button>
+
+        {advancedToolsOpen && (
+          <div className="mt-5 pt-5 border-t border-border-default space-y-6">
+            <GroupReadingRadarCard paperId={paper.id} paperTitle={paper.title} />
+            <PaperChatAssistant paperId={paper.id} paperTitle={paper.title} />
+            <CitationGraph paperId={paper.id} paperTitle={paper.title} />
+            <ConnectedLiteratureExplorer paperId={paper.id} paperTitle={paper.title} />
+          </div>
+        )}
+      </section>
 
       {/* Citation Modal */}
       <CitationModal

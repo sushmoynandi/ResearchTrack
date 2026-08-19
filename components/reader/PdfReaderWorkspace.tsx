@@ -144,7 +144,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
   const [activeTab, setActiveTab] = useState<SidebarTab>('ai')
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const [embedEngine, setEmbedEngine] = useState<'stream' | 'gdocs'>('stream')
@@ -589,17 +589,18 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       }`}
     >
       {/* Top Action Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-secondary border-b border-border-default shrink-0">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 px-4 py-3 bg-bg-secondary border-b border-border-default shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href={`/papers/${paper.id}`}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-text-primary border border-border-default transition-colors shrink-0"
           >
-            <ArrowLeft size={13} /> Paper Details
+            <ArrowLeft size={13} /> Details
           </Link>
 
-          <div className="truncate">
-            <h2 className="text-xs font-bold text-text-primary truncate">
+        <div className="truncate">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-accent">Paper workspace</p>
+            <h2 className="text-sm font-bold text-text-primary truncate">
               {paper.title}
             </h2>
             <p className="text-[10px] text-text-tertiary truncate">
@@ -609,7 +610,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         </div>
 
         {/* Source Selector & Viewer Controls */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* View Mode Toggle: PDF vs Full-Text Article */}
           <div className="flex items-center bg-bg-tertiary p-1 rounded-lg border border-border-default text-xs font-medium">
             <button
@@ -619,7 +620,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                 viewMode === 'pdf' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              <FileText size={13} /> PDF View
+              <FileText size={13} /> PDF
             </button>
             {fullTextSections.length > 0 && (
               <button
@@ -629,7 +630,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   viewMode === 'article' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <BookOpen size={13} /> Structured Article
+              <BookOpen size={13} /> Article
                 <span className="ml-0.5 px-1 py-0.2 text-[9px] bg-white/20 rounded font-mono font-bold">
                   {fullTextSections.length}
                 </span>
@@ -694,13 +695,13 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer"
           >
-            {isSidebarOpen ? 'Hide Assistant' : 'Show Assistant'}
+            {isSidebarOpen ? 'Hide workspace' : 'Open workspace'}
           </button>
         </div>
       </div>
 
-      {/* Interactive Reading Velocity & Session Tracker Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-bg-secondary/70 border-b border-border-default text-xs shrink-0">
+      {/* Reading progress and focused next action */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-bg-secondary/70 border-b border-border-default text-xs shrink-0">
         {/* Left: Active Session Timer & Streak */}
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default font-mono">
@@ -722,35 +723,27 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           </div>
         </div>
 
-        {/* Center: Reading Progress Slider / Visual Bar */}
-        <div className="flex items-center gap-2 flex-1 max-w-xs">
-          <span className="text-[11px] text-text-tertiary font-mono">{readingProgress}%</span>
-          <div className="flex-1 bg-bg-tertiary h-2 rounded-full overflow-hidden relative cursor-pointer group">
-            <div
-              className="bg-accent h-full rounded-full transition-all duration-300 group-hover:bg-accent-hover"
-              style={{ width: `${readingProgress}%` }}
-            />
-          </div>
-          <div className="flex items-center gap-1 text-[10px] text-text-tertiary font-mono">
-            {[25, 50, 75, 100].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  setReadingProgress(p)
-                  if (p === 100 && readingStatus !== 'COMPLETED') {
-                    handleUpdateStatus('COMPLETED')
-                  }
-                }}
-                className={`px-1.5 py-0.2 rounded hover:bg-bg-tertiary transition-colors cursor-pointer ${
-                  readingProgress === p ? 'text-accent font-bold' : ''
-                }`}
-              >
-                {p}%
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Center: simple, accessible progress control */}
+        <label className="flex items-center gap-2 flex-1 min-w-[180px] max-w-sm text-[11px] text-text-secondary">
+          <span className="font-medium whitespace-nowrap">Reading progress</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={readingProgress}
+            onChange={(event) => {
+              const nextProgress = Number(event.target.value)
+              setReadingProgress(nextProgress)
+              if (nextProgress === 100 && readingStatus !== 'COMPLETED') {
+                handleUpdateStatus('COMPLETED')
+              }
+            }}
+            className="flex-1 accent-accent cursor-pointer"
+            aria-label="Reading progress"
+          />
+          <span className="font-mono text-text-tertiary w-8 text-right">{readingProgress}%</span>
+        </label>
 
         {/* Right: 1-Click Status Transition Button */}
         <div className="flex items-center gap-2">
@@ -762,11 +755,11 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             <Button
               size="xs"
               variant="primary"
-              onClick={() => handleUpdateStatus('COMPLETED')}
+              onClick={() => handleUpdateStatus(readingStatus === 'TO_READ' ? 'READING' : 'COMPLETED')}
               loading={updatingStatus}
-              icon={<Trophy size={13} />}
+              icon={readingStatus === 'TO_READ' ? <BookOpen size={13} /> : <Trophy size={13} />}
             >
-              Mark as Finished
+              {readingStatus === 'TO_READ' ? 'Start reading' : 'Mark complete'}
             </Button>
           )}
 
