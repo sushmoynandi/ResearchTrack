@@ -51,11 +51,11 @@ interface AiMessage {
 function getAutoResolvedPdfSources(paper: Paper) {
   const sources: { id: string; label: string; url: string; isHtml?: boolean }[] = []
 
-  // 1. Local uploaded PDF
+  // 1. Direct PDF (Uploaded or Auto-Fetched Open Access URL)
   if (paper.pdfPath) {
     sources.push({
-      id: 'local',
-      label: 'Uploaded PDF',
+      id: 'primary-pdf',
+      label: paper.pdfPath.startsWith('http') ? 'Open Access PDF' : 'Uploaded PDF',
       url: paper.pdfPath,
     })
   }
@@ -95,15 +95,17 @@ function getAutoResolvedPdfSources(paper: Paper) {
         })
       }
     } else if (paper.url.endsWith('.pdf') || paper.url.includes('.pdf')) {
-      sources.push({
-        id: 'direct-pdf',
-        label: 'Direct PDF URL',
-        url: paper.url,
-      })
+      if (!sources.some((s) => s.url === paper.url)) {
+        sources.push({
+          id: 'direct-pdf',
+          label: 'Direct PDF Stream',
+          url: paper.url,
+        })
+      }
     }
   }
 
-  // 4. ArXiv DOI in paper.doi
+  // 4. DOI Resolution (arXiv DOI or Universal Publisher Article)
   if (paper.doi) {
     const arxivDoiMatch = paper.doi.match(/(?:arxiv\.|10\.48550\/arXiv\.)([0-9]{4}\.[0-9]{4,5})/i)
     if (arxivDoiMatch && !sources.some((s) => s.url.includes(arxivDoiMatch[1]))) {
@@ -114,6 +116,14 @@ function getAutoResolvedPdfSources(paper: Paper) {
         url: `https://arxiv.org/pdf/${rawId}.pdf`,
       })
     }
+
+    const cleanDoi = paper.doi.replace(/^https?:\/\/doi\.org\//i, '').trim()
+    sources.push({
+      id: 'publisher-article',
+      label: 'Publisher Article View',
+      url: `https://doi.org/${cleanDoi}`,
+      isHtml: true,
+    })
   }
 
   return sources
@@ -126,11 +136,45 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Auto-resolve all available PDF and reading sources
-  const availableSources = React.useMemo(() => getAutoResolvedPdfSources(paper), [paper])
+  // Auto-resolve all initial available PDF and reading sources
+  const baseSources = React.useMemo(() => getAutoResolvedPdfSources(paper), [paper])
+  const [dynamicSources, setDynamicSources] = useState<{ id: string; label: string; url: string; isHtml?: boolean }[]>([])
+
+  const availableSources = React.useMemo(() => {
+    const combined = [...baseSources]
+    for (const extra of dynamicSources) {
+      if (!combined.some((s) => s.url === extra.url)) {
+        combined.unshift(extra) // Place resolved direct PDF at top
+      }
+    }
+    return combined
+  }, [baseSources, dynamicSources])
+
   const [selectedSourceId, setSelectedSourceId] = useState<string>(
     availableSources.length > 0 ? availableSources[0].id : ''
   )
+
+  // Background auto-resolver for publisher DOIs & non-arXiv Open Access papers
+  useEffect(() => {
+    if ((paper.doi || paper.url) && !paper.pdfPath && !paper.arxivId) {
+      const query = paper.doi || paper.url || ''
+      fetch(`/api/arxiv?id=${encodeURIComponent(query)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.pdfUrl && data.pdfUrl.startsWith('http')) {
+            setDynamicSources([
+              {
+                id: 'oa-resolved-pdf',
+                label: 'Direct Open Access PDF',
+                url: data.pdfUrl,
+              },
+            ])
+            setSelectedSourceId('oa-resolved-pdf')
+          }
+        })
+        .catch(() => {})
+    }
+  }, [paper.doi, paper.url, paper.pdfPath, paper.arxivId])
 
   const activeSource = availableSources.find((s) => s.id === selectedSourceId) || availableSources[0] || null
   const pdfUrl = activeSource ? activeSource.url : ''

@@ -245,10 +245,10 @@ export default function PaperDetailPage() {
             <Button
               size="sm"
               variant="primary"
-              icon={<BookOpen size={14} className={Boolean(paper.pdfPath || paper.arxivId || paper.url?.includes('arxiv.org') || paper.url?.endsWith('.pdf') || paper.doi?.includes('arXiv')) ? 'text-cyan-200' : ''} />}
+              icon={<BookOpen size={14} className={Boolean(paper.pdfPath || paper.arxivId || paper.doi || paper.url) ? 'text-cyan-200' : ''} />}
             >
               PDF Reader
-              {Boolean(paper.pdfPath || paper.arxivId || paper.url?.includes('arxiv.org') || paper.url?.endsWith('.pdf') || paper.doi?.includes('arXiv')) && (
+              {Boolean(paper.pdfPath || paper.arxivId || paper.doi || paper.url) && (
                 <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-white/25 rounded-md font-mono font-bold">
                   PDF Ready
                 </span>

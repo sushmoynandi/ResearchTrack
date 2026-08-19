@@ -326,6 +326,7 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
         setUrl(data.url || '')
         setArxivId(data.arxivId || '')
         setCitationCount(data.citationCount !== undefined && data.citationCount !== null ? data.citationCount.toString() : '0')
+        if (data.pdfUrl) setPdfPath(data.pdfUrl)
 
         if (data.githubUrl) setCodeUrl(data.githubUrl)
         if (data.modelUrl) setModelUrl(data.modelUrl)

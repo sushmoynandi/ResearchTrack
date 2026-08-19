@@ -352,10 +352,16 @@ export async function GET(request: NextRequest) {
           if (s2Data.citationCount) citationCount = s2Data.citationCount
           if (s2Data.influentialCitationCount) influentialCitationCount = s2Data.influentialCitationCount
           if (s2Data.url) s2Url = s2Data.url
-          if (s2Data.openAccessPdf?.url) pdfUrl = s2Data.openAccessPdf.url
+          if (s2Data.openAccessPdf?.url && s2Data.openAccessPdf.url.includes('.pdf')) {
+            pdfUrl = s2Data.openAccessPdf.url
+          }
           if (s2Data.externalIds?.ArXiv) {
             arxivId = s2Data.externalIds.ArXiv
             if (!pdfUrl) pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`
+          }
+          if (s2Data.externalIds?.PubMedCentral) {
+            const pmcId = s2Data.externalIds.PubMedCentral.replace(/^PMC/i, '')
+            if (!pdfUrl) pdfUrl = `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${pmcId}/pdf/`
           }
           if (s2Data.tldr?.text) {
             keyContribution = s2Data.tldr.text
@@ -370,68 +376,102 @@ export async function GET(request: NextRequest) {
         // Continue to Crossref fallback
       }
 
-      // 2. Query Crossref API (Universal registry for all DOIs)
-      if (!title || authors.length === 0 || !abstract) {
-        try {
-          const crossrefRes = await fetch(
-            `https://api.crossref.org/works/${encodeURIComponent(doi)}`,
-            {
-              headers: {
-                'User-Agent': 'PaperTrack/1.0 (mailto:support@papertrack.local)',
-              },
-              next: { revalidate: 3600 },
-            }
-          )
+      // 2. Query Crossref API (Universal registry for all publisher DOIs)
+      try {
+        const crossrefRes = await fetch(
+          `https://api.crossref.org/works/${encodeURIComponent(doi)}`,
+          {
+            headers: {
+              'User-Agent': 'ResearchTrack/1.0 (mailto:support@researchtrack.edu)',
+            },
+            next: { revalidate: 3600 },
+          }
+        )
 
-          if (crossrefRes.ok) {
-            const crJson = await crossrefRes.json()
-            const cr = crJson.message
+        if (crossrefRes.ok) {
+          const crJson = await crossrefRes.json()
+          const cr = crJson.message
 
-            if (!title && cr.title && cr.title[0]) {
-              title = cleanText(cr.title[0])
-            }
+          if (!title && cr.title && cr.title[0]) {
+            title = cleanText(cr.title[0])
+          }
 
-            if (authors.length === 0 && cr.author && Array.isArray(cr.author)) {
-              authors = cr.author.map((a: { given?: string; family?: string; name?: string }) => {
-                if (a.given && a.family) return `${cleanText(a.given)} ${cleanText(a.family)}`
-                return cleanText(a.name || a.family || a.given || 'Unknown')
-              })
-            }
+          if (authors.length === 0 && cr.author && Array.isArray(cr.author)) {
+            authors = cr.author.map((a: { given?: string; family?: string; name?: string }) => {
+              if (a.given && a.family) return `${cleanText(a.given)} ${cleanText(a.family)}`
+              return cleanText(a.name || a.family || a.given || 'Unknown')
+            })
+          }
 
-            if (!abstract && cr.abstract) {
-              abstract = cleanText(cr.abstract)
-            }
+          if (!abstract && cr.abstract) {
+            abstract = cleanText(cr.abstract)
+          }
 
-            if (!publishedYear) {
-              const yearObj =
-                cr['published-print'] || cr['published-online'] || cr.created
-              if (yearObj?.['date-parts']?.[0]?.[0]) {
-                publishedYear = yearObj['date-parts'][0][0]
-              }
-            }
-
-            if (!journal && cr['container-title'] && cr['container-title'][0]) {
-              journal = cleanText(cr['container-title'][0])
-            }
-
-            if (!citationCount && cr['is-referenced-by-count']) {
-              citationCount = cr['is-referenced-by-count']
-            }
-
-            if (!pdfUrl && cr.link && Array.isArray(cr.link)) {
-              const pdfLink = cr.link.find(
-                (l: { 'content-type'?: string; URL?: string }) =>
-                  l['content-type']?.includes('pdf') || l.URL?.endsWith('.pdf')
-              )
-              if (pdfLink?.URL) pdfUrl = pdfLink.URL
-            }
-
-            if (cr.subject && Array.isArray(cr.subject)) {
-              cr.subject.forEach((s: string) => s2Fields.push(s))
+          if (!publishedYear) {
+            const yearObj =
+              cr['published-print'] || cr['published-online'] || cr.created
+            if (yearObj?.['date-parts']?.[0]?.[0]) {
+              publishedYear = yearObj['date-parts'][0][0]
             }
           }
-        } catch (err) {
-          console.warn('Crossref lookup error:', err)
+
+          if (!journal && cr['container-title'] && cr['container-title'][0]) {
+            journal = cleanText(cr['container-title'][0])
+          }
+
+          if (!citationCount && cr['is-referenced-by-count']) {
+            citationCount = cr['is-referenced-by-count']
+          }
+
+          // Scan Crossref direct PDF links (Oxford Academic, Springer Nature, Wiley, etc.)
+          if (!pdfUrl && cr.link && Array.isArray(cr.link)) {
+            const pdfLink = cr.link.find(
+              (l: { 'content-type'?: string; URL?: string }) =>
+                l['content-type']?.includes('pdf') || l.URL?.includes('.pdf')
+            )
+            if (pdfLink?.URL) pdfUrl = pdfLink.URL
+          }
+
+          if (cr.subject && Array.isArray(cr.subject)) {
+            cr.subject.forEach((s: string) => s2Fields.push(s))
+          }
+        }
+      } catch (err) {
+        console.warn('Crossref lookup error:', err)
+      }
+
+      // 3. NCBI PubMed Central (PMC) ID converter for open access biomedical & CS literature
+      if (!pdfUrl) {
+        try {
+          const pmcRes = await fetch(
+            `https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${encodeURIComponent(doi)}&format=json`
+          )
+          if (pmcRes.ok) {
+            const pmcJson = await pmcRes.json()
+            const record = pmcJson.records?.[0]
+            if (record?.pmcid) {
+              pdfUrl = `https://www.ncbi.nlm.nih.gov/pmc/articles/${record.pmcid}/pdf/`
+            }
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      // 4. Unpaywall Global Open Access Database fallback
+      if (!pdfUrl) {
+        try {
+          const unpaywallRes = await fetch(
+            `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=researchtrack_oa@unpaywall.org`
+          )
+          if (unpaywallRes.ok) {
+            const upwData = await unpaywallRes.json()
+            if (upwData.best_oa_location?.url_for_pdf) {
+              pdfUrl = upwData.best_oa_location.url_for_pdf
+            }
+          }
+        } catch {
+          // Non-blocking
         }
       }
     }
