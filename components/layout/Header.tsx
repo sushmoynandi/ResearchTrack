@@ -109,11 +109,15 @@ export function Header() {
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
-              onClick={openMobile}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                openMobile()
+              }}
               className="md:hidden p-2 -ml-1 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
               aria-label="Open mobile navigation menu"
             >
-              <Menu size={20} />
+              <Menu size={22} />
             </button>
 
             <h1 className="text-base sm:text-xl font-semibold text-text-primary font-display tracking-tight truncate max-w-[160px] xs:max-w-[200px] sm:max-w-xs md:max-w-md">

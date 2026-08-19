@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 
 interface SidebarContextValue {
   isCollapsed: boolean
@@ -27,55 +27,52 @@ export function useSidebar() {
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem('sidebar-collapsed')
-    if (stored === 'true') setIsCollapsed(true)
-    setMounted(true)
+    try {
+      const stored = localStorage.getItem('sidebar-collapsed')
+      if (stored === 'true') setIsCollapsed(true)
+    } catch {
+      // ignore localStorage errors in private browsing
+    }
   }, [])
 
-  const toggleCollapsed = () => {
+  const toggleCollapsed = useCallback(() => {
     setIsCollapsed((prev) => {
       const next = !prev
-      localStorage.setItem('sidebar-collapsed', String(next))
+      try {
+        localStorage.setItem('sidebar-collapsed', String(next))
+      } catch {}
       return next
     })
-  }
+  }, [])
 
-  const openMobile = () => setIsMobileOpen(true)
-  const closeMobile = () => setIsMobileOpen(false)
-  const toggleMobile = () => setIsMobileOpen((prev) => !prev)
+  const openMobile = useCallback(() => {
+    setIsMobileOpen(true)
+  }, [])
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <SidebarContext.Provider
-        value={{
-          isCollapsed: false,
-          toggleCollapsed,
-          isMobileOpen: false,
-          openMobile,
-          closeMobile,
-          toggleMobile,
-        }}
-      >
-        {children}
-      </SidebarContext.Provider>
-    )
-  }
+  const closeMobile = useCallback(() => {
+    setIsMobileOpen(false)
+  }, [])
+
+  const toggleMobile = useCallback(() => {
+    setIsMobileOpen((prev) => !prev)
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      isCollapsed,
+      toggleCollapsed,
+      isMobileOpen,
+      openMobile,
+      closeMobile,
+      toggleMobile,
+    }),
+    [isCollapsed, toggleCollapsed, isMobileOpen, openMobile, closeMobile, toggleMobile]
+  )
 
   return (
-    <SidebarContext.Provider
-      value={{
-        isCollapsed,
-        toggleCollapsed,
-        isMobileOpen,
-        openMobile,
-        closeMobile,
-        toggleMobile,
-      }}
-    >
+    <SidebarContext.Provider value={value}>
       {children}
     </SidebarContext.Provider>
   )

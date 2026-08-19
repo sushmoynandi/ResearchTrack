@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -26,12 +26,16 @@ import { useAuth } from '@/components/auth/AuthProvider'
 
 export function Sidebar() {
   const pathname = usePathname()
+  const prevPathname = useRef(pathname)
   const { isCollapsed, toggleCollapsed, isMobileOpen, closeMobile } = useSidebar()
   const { user, isSupervisor, isAdmin } = useAuth()
 
-  // Close mobile drawer on route transition
+  // Close mobile drawer only when pathname genuinely changes
   useEffect(() => {
-    closeMobile()
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname
+      closeMobile()
+    }
   }, [pathname, closeMobile])
 
   const navItems = isAdmin
@@ -152,15 +156,15 @@ export function Sidebar() {
 
       {/* ─── 2. Mobile Slide-Out Drawer (Full Navigation) ──────────── */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
+        <div className="fixed inset-0 z-50 md:hidden flex" role="dialog" aria-modal="true">
           {/* Backdrop blur overlay */}
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 animate-fade-in"
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-200"
             onClick={closeMobile}
           />
 
           {/* Slide-out Drawer Panel */}
-          <div className="relative w-[280px] max-w-[85vw] bg-bg-secondary border-r border-border-default h-full shadow-2xl flex flex-col z-10 animate-slide-in-left">
+          <div className="relative w-[280px] max-w-[85vw] bg-bg-secondary border-r border-border-default h-full shadow-2xl flex flex-col z-10">
             {/* Header */}
             <div className="flex items-center justify-between h-16 px-5 border-b border-border-default shrink-0">
               <div className="flex items-center gap-3">
@@ -227,8 +231,8 @@ export function Sidebar() {
       )}
 
       {/* ─── 3. Mobile Floating Bottom Quick Bar ───────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-bg-secondary/95 backdrop-blur-lg border-t border-border-default pb-safe">
-        <div className="flex items-center justify-around h-15 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-bg-secondary/95 backdrop-blur-lg border-t border-border-default">
+        <div className="flex items-center justify-around h-16 px-2">
           {mobileQuickItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
@@ -237,7 +241,7 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg
+                  flex flex-col items-center justify-center flex-1 py-1 rounded-lg
                   transition-all duration-200
                   ${
                     active
@@ -246,8 +250,8 @@ export function Sidebar() {
                   }
                 `}
               >
-                <Icon size={20} className={active ? 'scale-110 transition-transform' : ''} />
-                <span className="text-[10px] font-medium mt-0.5">{item.label}</span>
+                <Icon size={20} className={active ? 'scale-110' : ''} />
+                <span className="text-[10px] font-medium mt-1">{item.label}</span>
               </Link>
             )
           })}
