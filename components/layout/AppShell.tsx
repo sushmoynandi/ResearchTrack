@@ -21,7 +21,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
       `}
     >
       <Header />
-      <main className="p-6">{children}</main>
+      <main className="p-3.5 sm:p-6">{children}</main>
     </div>
   )
 }

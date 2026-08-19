@@ -40,6 +40,7 @@ import {
   ArrowLeft,
   GraduationCap,
   User,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
@@ -903,9 +904,35 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
         {/* Right Side: Collapsible Research Workspace */}
         {isSidebarOpen && (
-          <div className="w-[420px] max-w-[45%] flex flex-col bg-bg-secondary border-l border-border-default shrink-0 shadow-lg animate-slide-in">
+          <div className="fixed inset-0 z-50 md:relative md:inset-auto md:w-[420px] md:max-w-[45%] flex flex-col bg-bg-secondary border-l border-border-default shrink-0 shadow-2xl md:shadow-lg animate-slide-in min-h-0">
+            {/* Mobile Header Bar with Close Button */}
+            <div className="md:hidden flex items-center justify-between p-3.5 border-b border-border-default bg-bg-tertiary shrink-0">
+              <span className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                {activeTab === 'ai' ? (
+                  <>
+                    <Bot size={14} className="text-accent" /> AI Research Assistant
+                  </>
+                ) : activeTab === 'notes' ? (
+                  <>
+                    <MessageSquare size={14} className="text-amber-400" /> Margin Notes &amp; Highlights ({notes.length})
+                  </>
+                ) : (
+                  <>
+                    <FileCheck size={14} className="text-purple-400" /> Literature Review Survey
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(false)}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-bg-elevated text-text-primary border border-border-default cursor-pointer flex items-center gap-1"
+              >
+                <X size={13} /> Close
+              </button>
+            </div>
+
             {/* Sidebar Tabs */}
-            <div className="flex items-center border-b border-border-default bg-bg-tertiary text-xs font-semibold">
+            <div className="flex items-center border-b border-border-default bg-bg-tertiary text-xs font-semibold shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab('ai')}
@@ -1456,6 +1483,42 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             title="Copy quote with academic citation"
           >
             <Copy size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Floating Action Tray (when workspace drawer is closed) */}
+      {!isSidebarOpen && (
+        <div className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-bg-secondary/95 backdrop-blur-md border border-border-default rounded-2xl shadow-2xl p-1.5 flex items-center justify-around gap-1.5 text-xs animate-slide-in">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('ai')
+              setIsSidebarOpen(true)
+            }}
+            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-accent cursor-pointer transition-all shadow-sm"
+          >
+            <Bot size={15} /> AI Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('notes')
+              setIsSidebarOpen(true)
+            }}
+            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-text-primary cursor-pointer transition-all shadow-sm"
+          >
+            <MessageSquare size={15} className="text-amber-400" /> Notes ({notes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('survey')
+              setIsSidebarOpen(true)
+            }}
+            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-text-primary cursor-pointer transition-all shadow-sm"
+          >
+            <FileCheck size={15} className="text-purple-400" /> Survey
           </button>
         </div>
       )}

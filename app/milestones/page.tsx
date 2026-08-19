@@ -425,7 +425,7 @@ export default function MilestonesPage() {
       {/* Create Milestone Modal */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md p-6 shadow-modal space-y-4 animate-scale-in">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
                 <Trophy size={18} className="text-amber-400" /> Create Research Milestone
@@ -632,7 +632,7 @@ export default function MilestonesPage() {
       {/* Submit Deliverable Modal */}
       {submitMilestone && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md p-6 shadow-modal space-y-4 animate-scale-in">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
                 <Send size={18} className="text-accent" /> Submit Research Deliverable
@@ -689,7 +689,7 @@ export default function MilestonesPage() {
       {/* Evaluate Deliverable Modal */}
       {evalMilestone && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md p-6 shadow-modal space-y-4 animate-scale-in">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
                 <Award size={18} className="text-purple-400" /> Evaluate Milestone Deliverable

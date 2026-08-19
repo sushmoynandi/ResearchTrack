@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, Plus, FileText, ArrowRight, X } from 'lucide-react'
+import { Search, Plus, FileText, ArrowRight, X, Menu } from 'lucide-react'
 import { StatusBadge } from '@/components/papers/StatusBadge'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { UserMenu } from '@/components/auth/UserMenu'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { useSidebar } from './SidebarContext'
 import type { Paper } from '@/lib/types'
 
 const pageTitles: Record<string, string> = {
@@ -42,6 +43,7 @@ export function Header() {
   const router = useRouter()
   const title = getPageTitle(pathname)
   const { isAdmin } = useAuth()
+  const { openMobile } = useSidebar()
 
   // Spotlight search modal state
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false)
@@ -102,14 +104,25 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-30 h-16 border-b border-border-default bg-bg-primary/80 backdrop-blur-md">
-        <div className="flex items-center justify-between h-full px-6">
-          {/* Page title */}
-          <h1 className="text-xl font-semibold text-text-primary font-display tracking-tight truncate max-w-xs md:max-w-md">
-            {title}
-          </h1>
+        <div className="flex items-center justify-between h-full px-4 sm:px-6">
+          {/* Left: Mobile Drawer Button & Page Title */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={openMobile}
+              className="md:hidden p-2 -ml-1 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
+              aria-label="Open mobile navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            <h1 className="text-base sm:text-xl font-semibold text-text-primary font-display tracking-tight truncate max-w-[160px] xs:max-w-[200px] sm:max-w-xs md:max-w-md">
+              {title}
+            </h1>
+          </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Search trigger button (non-admin) */}
             {!isAdmin && (
               <>

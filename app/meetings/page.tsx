@@ -393,7 +393,7 @@ export default function MeetingsPage() {
       {/* Schedule Meeting Modal */}
       {isScheduleOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md p-6 shadow-modal space-y-4 animate-scale-in">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
                 <Calendar size={18} className="text-accent" /> Schedule 1-on-1 Research Meeting

@@ -276,11 +276,11 @@ export default function ReadingTracksPage() {
       </div>
 
       {/* Lane Filter Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-bg-secondary rounded-xl border border-border-default text-xs font-semibold">
+      <div className="flex items-center gap-1 p-1 bg-bg-secondary rounded-xl border border-border-default text-xs font-semibold overflow-x-auto whitespace-nowrap min-w-0">
         <button
           type="button"
           onClick={() => setActiveLaneTab('all')}
-          className={`flex-1 py-2 rounded-lg cursor-pointer transition-all ${
+          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg cursor-pointer transition-all ${
             activeLaneTab === 'all'
               ? 'bg-bg-elevated text-text-primary shadow-sm'
               : 'text-text-tertiary hover:text-text-secondary'

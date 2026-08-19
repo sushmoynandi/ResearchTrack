@@ -98,29 +98,29 @@ export function PaperFilters({
       />
 
       {/* Filters row */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[140px]">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <Select
             options={statusOptions}
             value={status}
             onChange={(e) => onStatusChange(e.target.value)}
           />
         </div>
-        <div className="min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <Select
             options={priorityOptions}
             value={priority}
             onChange={(e) => onPriorityChange(e.target.value)}
           />
         </div>
-        <div className="min-w-[130px]">
+        <div className="w-full sm:w-auto sm:min-w-[130px]">
           <Select
             options={tagOptions}
             value={tag}
             onChange={(e) => onTagChange(e.target.value)}
           />
         </div>
-        <div className="min-w-[150px]">
+        <div className="w-full sm:w-auto sm:min-w-[150px]">
           <Select
             options={sortOptions}
             value={sort}
@@ -132,7 +132,7 @@ export function PaperFilters({
         <button
           onClick={onFavoritesToggle}
           className={`
-            flex items-center gap-1.5 h-10 px-3 rounded-lg border text-sm font-medium
+            col-span-1 sm:w-auto flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg border text-xs sm:text-sm font-medium
             transition-all duration-200 cursor-pointer
             ${favoritesOnly
               ? 'bg-warning-subtle border-warning/30 text-warning'
@@ -145,9 +145,11 @@ export function PaperFilters({
         </button>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={onClear} icon={<X size={14} />}>
-            Clear
-          </Button>
+          <div className="col-span-1 sm:w-auto">
+            <Button variant="ghost" size="sm" onClick={onClear} icon={<X size={14} />} className="w-full sm:w-auto">
+              Clear
+            </Button>
+          </div>
         )}
       </div>
     </div>
