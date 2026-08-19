@@ -205,35 +205,25 @@ function LoginForm() {
                 <p className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider text-center">
                   Quick Demo Logins (1-Click):
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => handleCredentialsSubmit(undefined, 'student@researchtrack.edu', 'password123')}
-                    className="p-2 rounded-lg bg-bg-tertiary hover:bg-blue-500/10 border border-border-default hover:border-blue-500/30 text-center transition-all cursor-pointer group"
+                    className="p-2.5 rounded-lg bg-bg-tertiary hover:bg-blue-500/10 border border-border-default hover:border-blue-500/30 text-center transition-all cursor-pointer group"
                     title="1-Click Instant Sign In as Student"
                   >
-                    <p className="text-[11px] font-bold text-text-primary group-hover:text-blue-400">Student</p>
-                    <p className="text-[9px] text-text-tertiary truncate">Sophia Chen</p>
+                    <p className="text-xs font-bold text-text-primary group-hover:text-blue-400">Student</p>
+                    <p className="text-[10px] text-text-tertiary truncate">Sophia Chen</p>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleCredentialsSubmit(undefined, 'supervisor@researchtrack.edu', 'password123')}
-                    className="p-2 rounded-lg bg-bg-tertiary hover:bg-purple-500/10 border border-border-default hover:border-purple-500/30 text-center transition-all cursor-pointer group"
+                    className="p-2.5 rounded-lg bg-bg-tertiary hover:bg-purple-500/10 border border-border-default hover:border-purple-500/30 text-center transition-all cursor-pointer group"
                     title="1-Click Instant Sign In as Supervisor"
                   >
-                    <p className="text-[11px] font-bold text-text-primary group-hover:text-purple-400">Supervisor</p>
-                    <p className="text-[9px] text-text-tertiary truncate">Dr. Rostova</p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCredentialsSubmit(undefined, 'admin@researchtrack.edu', 'password123')}
-                    className="p-2 rounded-lg bg-bg-tertiary hover:bg-red-500/10 border border-border-default hover:border-red-500/30 text-center transition-all cursor-pointer group"
-                    title="1-Click Instant Sign In as Admin"
-                  >
-                    <p className="text-[11px] font-bold text-text-primary group-hover:text-red-400">Admin</p>
-                    <p className="text-[9px] text-text-tertiary truncate">Dean Admin</p>
+                    <p className="text-xs font-bold text-text-primary group-hover:text-purple-400">Supervisor</p>
+                    <p className="text-[10px] text-text-tertiary truncate">Dr. Rostova</p>
                   </button>
                 </div>
               </div>

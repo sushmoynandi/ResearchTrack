@@ -37,3 +37,7 @@
 
 ## Database
 - Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`.
+
+## Recent Changes
+- 2026-08-19: Fixed the Vercel connection flow so team-owned projects link correctly during deployment.
+- 2026-08-19: Fixed the existing-project list so connected Vercel projects appear correctly.
