@@ -350,14 +350,16 @@ export default function AssignmentsPage() {
                         Start Reading
                       </Button>
                     )}
-                    <Button
-                      size="xs"
-                      variant="primary"
-                      onClick={() => handleStatusChange(a.id, 'COMPLETED')}
-                      icon={<CheckCircle2 size={13} />}
-                    >
-                      Mark Completed
-                    </Button>
+                    {a.status === 'IN_PROGRESS' && (
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        onClick={() => handleStatusChange(a.id, 'COMPLETED')}
+                        icon={<CheckCircle2 size={13} />}
+                      >
+                        Mark Complete
+                      </Button>
+                    )}
                   </div>
                 )}
 

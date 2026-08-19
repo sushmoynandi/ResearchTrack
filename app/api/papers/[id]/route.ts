@@ -24,7 +24,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         tags: true,
         collections: { select: { id: true, name: true, color: true } },
         user: { select: { id: true, name: true, email: true, systemRole: true, institution: true, supervisorId: true } },
-        notes: { orderBy: { createdAt: 'desc' } },
+        notes: {
+          include: {
+            user: { select: { id: true, name: true, systemRole: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
         assignments: {
           include: {
             assignedBy: { select: { id: true, name: true } },
@@ -77,6 +82,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       include: {
         user: true,
         assignments: true,
+        tags: true,
       },
     })
 
@@ -158,23 +164,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update tags if provided
     if (tags !== undefined && Array.isArray(tags)) {
-      const tagConnectOrCreate = tags.map((tagName: string) => {
-        const cleanName = tagName.trim().toLowerCase()
+      const tagNames = [...new Set(
+        tags
+          .filter((tagName): tagName is string => typeof tagName === 'string')
+          .map((tagName) => tagName.trim().toLowerCase())
+          .filter(Boolean)
+      )]
+      const tagConnectOrCreate = tagNames.map((cleanName) => {
         return {
           where: {
             userId_name: {
-              userId: existing.userId,
+              userId: user.id,
               name: cleanName,
             },
           },
           create: {
             name: cleanName,
-            userId: existing.userId,
+            userId: user.id,
           },
         }
       })
+
+      // A paper can carry each collaborator's private tag taxonomy. Replace only
+      // the current editor's tags and retain every tag created by other users.
+      const collaboratorTags = existing.tags
+        .filter((tag) => tag.userId !== user.id)
+        .map((tag) => ({ id: tag.id }))
+
       updateData.tags = {
-        set: [],
+        set: collaboratorTags,
         connectOrCreate: tagConnectOrCreate,
       }
     }
@@ -197,9 +215,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     })
 
     // Synchronize corresponding Assignment status & notify Supervisor if assigned
-    if (status !== undefined) {
-      const activeAssignment = existing.assignments?.find(
-        (a) => a.studentId === user.id || a.paperId === id
+    if (status !== undefined && user.systemRole === 'STUDENT') {
+      const activeAssignment = existing.assignments.find(
+        (assignment) => assignment.studentId === user.id
       )
       if (activeAssignment) {
         const newAssignmentStatus =
@@ -221,7 +239,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
               userId: activeAssignment.assignedById,
               title: 'Reading Assignment Completed',
               message: `${user.name} finished reading assigned paper: "${existing.title}"`,
-              type: 'ASSIGNMENT',
+              type: 'STATUS_UPDATE',
               link: `/papers/${id}`,
             })
           } catch {

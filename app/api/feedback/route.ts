@@ -18,6 +18,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Paper ID is required' }, { status: 400 })
     }
 
+    const paper = await prisma.paper.findUnique({
+      where: { id: paperId },
+      include: {
+        user: { select: { supervisorId: true } },
+        assignments: { select: { studentId: true, assignedById: true } },
+      },
+    })
+
+    if (!paper) {
+      return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (paper.userId === user.id ||
+        paper.user.supervisorId === user.id ||
+        paper.assignments.some((assignment) => assignment.assignedById === user.id))
+
+    if (!isOwner && !isAdmin && !isSupervisor && !paper.assignments.some((assignment) => assignment.studentId === user.id)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const feedback = await prisma.feedback.findMany({
       where: { paperId },
       include: {
@@ -66,13 +90,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Only supervisors and administrators can post feedback' },
+        { status: 403 }
+      )
+    }
+
     const paper = await prisma.paper.findUnique({
       where: { id: paperId },
-      include: { user: true },
+      include: {
+        user: { select: { supervisorId: true } },
+        assignments: { select: { studentId: true, assignedById: true } },
+      },
     })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (paper.userId === user.id ||
+        paper.user.supervisorId === user.id ||
+        paper.assignments.some((assignment) => assignment.assignedById === user.id))
+
+    if (!isOwner && !isAdmin && !isSupervisor) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const feedback = await prisma.feedback.create({
@@ -96,16 +142,27 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Notify paper owner / student
-    if (paper.userId !== user.id) {
-      await createNotification({
-        userId: paper.userId,
-        title: 'New Feedback on Paper',
-        message: `${user.name} left ${type.toLowerCase().replace('_', ' ')} on "${paper.title}"`,
-        type: 'FEEDBACK',
-        link: `/papers/${paperId}`,
-      })
-    }
+    // Feedback on a supervisor-owned paper belongs to the shared assignment,
+    // so notify every assigned student rather than only the paper owner.
+    const notificationRecipients = new Set(
+      paper.assignments.length > 0
+        ? paper.assignments.map((assignment) => assignment.studentId)
+        : [paper.userId]
+    )
+
+    await Promise.all(
+      [...notificationRecipients]
+        .filter((recipientId) => recipientId !== user.id)
+        .map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            title: 'New Feedback on Paper',
+            message: `${user.name} left ${type.toLowerCase().replace('_', ' ')} on "${paper.title}"`,
+            type: 'FEEDBACK',
+            link: `/papers/${paperId}`,
+          })
+        )
+    )
 
     return NextResponse.json(feedback, { status: 201 })
   } catch (error) {

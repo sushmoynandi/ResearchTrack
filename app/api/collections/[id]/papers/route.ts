@@ -30,13 +30,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Collection not found' }, { status: 404 })
     }
 
-    const paper = await prisma.paper.findUnique({ where: { id: paperId } })
+    const paper = await prisma.paper.findUnique({
+      where: { id: paperId },
+      include: {
+        user: { select: { supervisorId: true } },
+        assignments: { select: { studentId: true } },
+      },
+    })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
     }
 
-    if (paper.userId !== user.id && user.systemRole !== 'ADMIN' && user.systemRole !== 'SUPERVISOR') {
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (paper.userId === user.id || paper.user.supervisorId === user.id)
+    const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
+
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Unauthorized to add this paper' }, { status: 403 })
     }
 

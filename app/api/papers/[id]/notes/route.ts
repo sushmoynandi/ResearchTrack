@@ -6,7 +6,7 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-// GET /api/papers/[id]/notes — List all notes for a paper belonging to current user
+// GET /api/papers/[id]/notes — List collaborative notes for an accessible paper
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser()
@@ -15,8 +15,34 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
+    const paper = await prisma.paper.findUnique({
+      where: { id },
+      include: {
+        user: { select: { supervisorId: true } },
+        assignments: { select: { studentId: true } },
+      },
+    })
+
+    if (!paper) {
+      return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (paper.userId === user.id || paper.user.supervisorId === user.id)
+    const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
+
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const notes = await prisma.note.findMany({
-      where: { paperId: id, userId: user.id },
+      where: { paperId: id },
+      include: {
+        user: { select: { id: true, name: true, systemRole: true } },
+      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -71,6 +97,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         userId: user.id,
         content: content.trim(),
         paperId: id,
+      },
+      include: {
+        user: { select: { id: true, name: true, systemRole: true } },
       },
     })
 

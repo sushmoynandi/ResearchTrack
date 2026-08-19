@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/components/auth/AuthProvider'
 import {
   MessageSquare,
   Plus,
@@ -24,6 +25,7 @@ interface NotesSectionProps {
 }
 
 export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) {
+  const { user } = useAuth()
   const { addToast } = useToast()
   const [notes, setNotes] = useState<Note[]>(initialNotes)
   const [newContent, setNewContent] = useState('')
@@ -297,36 +299,46 @@ export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) 
                         >
                           <Copy size={13} />
                         </button>
-                        <button
-                          onClick={() => {
-                            setEditingNoteId(note.id)
-                            setEditContent(note.content)
-                          }}
-                          className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
-                          title="Edit note"
-                        >
-                          <Edit3 size={13} />
-                        </button>
-                        <button
-                          onClick={() => setDeletingNote(note)}
-                          className="p-1.5 rounded-md text-text-tertiary hover:text-danger hover:bg-danger-subtle transition-colors cursor-pointer"
-                          title="Delete note"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {note.userId === user?.id && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingNoteId(note.id)
+                                setEditContent(note.content)
+                              }}
+                              className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
+                              title="Edit note"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              onClick={() => setDeletingNote(note)}
+                              className="p-1.5 rounded-md text-text-tertiary hover:text-danger hover:bg-danger-subtle transition-colors cursor-pointer"
+                              title="Delete note"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
                     <div className="mt-3 pt-2.5 border-t border-border-default/60 flex items-center justify-between text-xs text-text-tertiary">
-                      <span>
-                        {new Date(note.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-text-secondary">
+                          {note.user?.name || 'Researcher'}
+                          {note.user?.systemRole ? ` · ${note.user.systemRole}` : ''}
+                        </span>
+                        <span>
+                          {new Date(note.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
                       {note.updatedAt && note.updatedAt !== note.createdAt && (
                         <span className="italic text-[11px]">edited</span>
                       )}

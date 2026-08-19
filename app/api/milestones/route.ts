@@ -143,6 +143,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    if (isStudent && status !== undefined && status !== 'SUBMITTED') {
+      return NextResponse.json(
+        { error: 'Students can only submit their own milestone deliverables' },
+        { status: 403 }
+      )
+    }
+
+    if (isStudent && feedback !== undefined) {
+      return NextResponse.json(
+        { error: 'Only supervisors can provide milestone feedback' },
+        { status: 403 }
+      )
+    }
+
     const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
     if (deliverableUrl !== undefined) updateData.deliverableUrl = deliverableUrl?.trim() || null

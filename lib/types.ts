@@ -134,6 +134,7 @@ export interface Collection {
 export interface Note {
   id: string
   userId?: string
+  user?: { id: string; name: string; systemRole: SystemRole }
   content: string
   paperId: string
   createdAt: string

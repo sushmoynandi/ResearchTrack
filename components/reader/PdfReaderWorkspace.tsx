@@ -1169,7 +1169,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                         return true
                       })
                       .map((note) => {
-                        const isFacultyNote = note.content.includes('Faculty Guidance')
+                        const isFacultyNote = note.user?.systemRole === 'SUPERVISOR' || note.content.includes('Faculty Guidance')
                         const isHighlight = note.content.includes('Highlight') || note.content.includes('> "')
 
                         return (
@@ -1211,7 +1211,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
                             <div className="flex items-center justify-between text-[10px] text-text-tertiary pt-1 border-t border-border-default/40">
                               <span>
-                                {new Date(note.createdAt).toLocaleDateString([], {
+                                {note.user?.name || 'Researcher'} · {new Date(note.createdAt).toLocaleDateString([], {
                                   month: 'short',
                                   day: 'numeric',
                                   hour: '2-digit',
@@ -1228,14 +1228,16 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                                 >
                                   {copiedNoteId === note.id ? <Check size={11} className="text-success" /> : <Copy size={11} />}
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteNote(note.id)}
-                                  className="p-1 text-text-tertiary hover:text-danger cursor-pointer"
-                                  title="Delete Note"
-                                >
-                                  <Trash2 size={11} />
-                                </button>
+                                {note.userId === user?.id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNote(note.id)}
+                                    className="p-1 text-text-tertiary hover:text-danger cursor-pointer"
+                                    title="Delete Note"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

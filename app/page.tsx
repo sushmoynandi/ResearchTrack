@@ -52,8 +52,23 @@ interface DashboardData {
   topCollections: { id: string; name: string; color: string | null; count: number }[]
   completionRate: number
   myAssignments?: any[]
+  pendingAssignments?: any[]
   supervisedStudents?: any[]
   issuedAssignments?: any[]
+  supervisor?: {
+    id: string
+    name: string
+    email: string
+    institution?: string | null
+    department?: string | null
+  } | null
+  recentNotifications?: {
+    id: string
+    title: string
+    message: string
+    type: string
+    createdAt: string
+  }[]
 }
 
 export default function DashboardPage() {
@@ -75,6 +90,16 @@ export default function DashboardPage() {
         const res = await fetch('/api/stats')
         if (res.ok) {
           const stats = await res.json()
+          if (isStudent) {
+            const [assignmentsRes, notificationsRes] = await Promise.all([
+              fetch('/api/assignments?status=PENDING'),
+              fetch('/api/notifications'),
+            ])
+            const assignments = assignmentsRes.ok ? await assignmentsRes.json() : []
+            const notificationsPayload = notificationsRes.ok ? await notificationsRes.json() : { notifications: [] }
+            stats.pendingAssignments = assignments
+            stats.recentNotifications = (notificationsPayload.notifications || []).slice(0, 4)
+          }
           setData(stats)
         }
       } catch (err) {
@@ -84,7 +109,7 @@ export default function DashboardPage() {
       }
     }
     loadStats()
-  }, [])
+  }, [isAdmin, isStudent])
 
   if (loading) {
     return (
@@ -118,8 +143,11 @@ export default function DashboardPage() {
     topCollections: [],
     completionRate: 0,
     myAssignments: [],
+    pendingAssignments: [],
     supervisedStudents: [],
     issuedAssignments: [],
+    supervisor: null,
+    recentNotifications: [],
   }
 
   const roleBadgeColor = isAdmin
@@ -232,42 +260,70 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. Assigned Papers from Supervisor Section for Students */}
-      {isStudent && stats.myAssignments && stats.myAssignments.length > 0 && (
+      {/* 2. Student advisor context, pending work, and recent feedback */}
+      {isStudent && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2 font-display">
-              <ClipboardList size={18} className="text-blue-500" /> Assigned Paper by Supervisor
+              <GraduationCap size={18} className="text-blue-500" /> Assigned by {stats.supervisor?.name || 'Your Supervisor'}
             </h3>
             <Link href="/assignments" className="text-xs text-accent hover:underline flex items-center gap-1">
               View All Assignments <ChevronRight size={14} />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {stats.myAssignments.map((a: any) => (
-              <div key={a.id} className="glass-card p-4 border-l-4 border-l-blue-500 flex flex-col justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-text-tertiary">
-                    <span>Assigned by {a.assignedBy.name}</span>
-                    <Badge variant={a.status === 'COMPLETED' ? 'success' : a.status === 'IN_PROGRESS' ? 'warning' : 'info'} size="sm">
-                      {a.status}
-                    </Badge>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="glass-card p-4 border-l-4 border-l-purple-500 space-y-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-purple-400">Supervisor Contact</p>
+              <p className="text-sm font-semibold text-text-primary">{stats.supervisor?.name || 'Supervisor not assigned'}</p>
+              {stats.supervisor?.email && <p className="text-xs text-text-secondary">{stats.supervisor.email}</p>}
+              {stats.supervisor?.department && <p className="text-[11px] text-text-tertiary">{stats.supervisor.department}</p>}
+            </div>
+
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {stats.pendingAssignments && stats.pendingAssignments.length > 0 ? (
+                stats.pendingAssignments.map((a: any) => (
+                  <div key={a.id} className="glass-card p-4 border-l-4 border-l-blue-500 flex flex-col justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] text-text-tertiary">
+                        <span>Assigned by {a.assignedBy.name}</span>
+                        <Badge variant="info" size="sm">PENDING</Badge>
+                      </div>
+                      <h4 className="text-sm font-semibold text-text-primary hover:text-accent transition-colors line-clamp-1">
+                        <Link href={`/papers/${a.paper.id}`}>{a.paper.title}</Link>
+                      </h4>
+                      <p className="text-xs text-text-secondary line-clamp-1">{a.paper.authors}</p>
+                    </div>
+                    {a.dueDate && (
+                      <div className="flex items-center gap-1 text-[11px] text-text-tertiary">
+                        <Calendar size={12} className="text-accent" />
+                        <span>Due {new Date(a.dueDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
                   </div>
-                  <h4 className="text-sm font-semibold text-text-primary hover:text-accent transition-colors line-clamp-1">
-                    <Link href={`/papers/${a.paper.id}`}>{a.paper.title}</Link>
-                  </h4>
-                  <p className="text-xs text-text-secondary line-clamp-1">{a.paper.authors}</p>
+                ))
+              ) : (
+                <div className="glass-card p-4 text-xs text-text-tertiary flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-success" /> No pending supervisor assignments.
                 </div>
-                {a.dueDate && (
-                  <div className="flex items-center gap-1 text-[11px] text-text-tertiary">
-                    <Calendar size={12} className="text-accent" />
-                    <span>Due {new Date(a.dueDate).toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+              )}
+            </div>
           </div>
+
+          {stats.recentNotifications && stats.recentNotifications.length > 0 && (
+            <div className="glass-card p-4 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-text-secondary">Recent Supervisor Feedback &amp; Updates</p>
+              {stats.recentNotifications.map((notification) => (
+                <div key={notification.id} className="flex items-start justify-between gap-3 text-xs border-t border-border-default pt-2 first:border-0 first:pt-0">
+                  <div>
+                    <p className="font-medium text-text-primary">{notification.title}</p>
+                    <p className="text-text-secondary">{notification.message}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] text-text-tertiary">{new Date(notification.createdAt).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

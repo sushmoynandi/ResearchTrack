@@ -50,6 +50,7 @@ export async function GET() {
       myAssignments,
       supervisedStudents,
       issuedAssignments,
+      supervisorRecord,
     ] = await Promise.all([
       prisma.paper.count({ where: paperWhere }),
       prisma.paper.count({ where: { ...paperWhere, status: 'TO_READ' } }),
@@ -132,6 +133,23 @@ export async function GET() {
             orderBy: { createdAt: 'desc' },
           })
         : [],
+      // Advisor contact context for the student dashboard
+      user.systemRole === 'STUDENT'
+        ? prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+              supervisor: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  institution: true,
+                  department: true,
+                },
+              },
+            },
+          })
+        : null,
     ])
 
     const stats = {
@@ -161,6 +179,7 @@ export async function GET() {
       myAssignments,
       supervisedStudents,
       issuedAssignments,
+      supervisor: supervisorRecord?.supervisor || null,
     }
 
     return NextResponse.json(stats)
@@ -183,6 +202,7 @@ export async function GET() {
       myAssignments: [],
       supervisedStudents: [],
       issuedAssignments: [],
+      supervisor: null,
     })
   }
 }

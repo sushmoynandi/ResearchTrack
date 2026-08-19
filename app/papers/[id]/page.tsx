@@ -60,7 +60,7 @@ import { REPLICATION_LABELS } from '@/lib/types'
 export default function PaperDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { user, isSupervisor, isAdmin } = useAuth()
+  const { user, isStudent, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
   const [paper, setPaper] = useState<Paper | null>(null)
   const [loading, setLoading] = useState(true)
@@ -233,6 +233,10 @@ export default function PaperDetailPage() {
 
   if (!paper) return null
 
+  const visibleAssignment = isStudent
+    ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
+    : paper.assignments?.[0]
+
   // Parse benchmarks
   const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
     ? (() => {
@@ -368,7 +372,7 @@ export default function PaperDetailPage() {
       </div>
 
       {/* Assigned Person / Supervisor Details Banner */}
-      {paper.assignments && paper.assignments.length > 0 && (
+      {visibleAssignment && (
         <div className="glass-card p-4 md:p-5 border-purple-500/30 bg-purple-500/5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -380,37 +384,37 @@ export default function PaperDetailPage() {
                   Supervisory Reading Assignment
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  Assigned by <strong className="text-purple-400 font-semibold">{paper.assignments[0].assignedBy?.name || 'Supervisor'}</strong> to{' '}
-                  <strong className="text-cyan-400 font-semibold">{paper.assignments[0].student?.name || 'Student Researcher'}</strong>
+                  Assigned by <strong className="text-purple-400 font-semibold">{visibleAssignment.assignedBy?.name || 'Supervisor'}</strong> to{' '}
+                  <strong className="text-cyan-400 font-semibold">{visibleAssignment.student?.name || 'Student Researcher'}</strong>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5">
-              {paper.assignments[0].dueDate && (
+              {visibleAssignment.dueDate && (
                 <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
                   <Calendar size={13} className="text-accent" />
-                  Due: {new Date(paper.assignments[0].dueDate).toLocaleDateString()}
+                  Due: {new Date(visibleAssignment.dueDate).toLocaleDateString()}
                 </span>
               )}
               <Badge
                 variant={
-                  paper.assignments[0].status === 'COMPLETED'
+                  visibleAssignment.status === 'COMPLETED'
                     ? 'success'
-                    : paper.assignments[0].status === 'IN_PROGRESS'
+                    : visibleAssignment.status === 'IN_PROGRESS'
                     ? 'warning'
                     : 'info'
                 }
                 size="md"
               >
-                {paper.assignments[0].status}
+                {visibleAssignment.status}
               </Badge>
             </div>
           </div>
 
-          {paper.assignments[0].note && (
+          {visibleAssignment.note && (
             <p className="text-xs text-text-secondary bg-bg-tertiary/70 p-3 rounded-xl italic border border-border-default/50">
-              &ldquo;{paper.assignments[0].note}&rdquo;
+              &ldquo;{visibleAssignment.note}&rdquo;
             </p>
           )}
         </div>

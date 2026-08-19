@@ -41,6 +41,7 @@ export function Sidebar() {
         { href: '/tags', label: 'Tags', icon: Tags },
         { href: '/assignments', label: 'Assignments', icon: ClipboardList },
         { href: '/meetings', label: '1-on-1 Meetings', icon: Calendar },
+        { href: '/milestones', label: 'Milestones', icon: Milestone },
         ...(isSupervisor
           ? [{ href: '/students', label: 'My Students', icon: Users }]
           : []),
