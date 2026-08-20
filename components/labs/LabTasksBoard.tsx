@@ -694,8 +694,8 @@ export function LabTasksBoard({
         <Modal
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
-          title="Assign Research Deliverable & Task"
-          description="Create a research milestone, experiment ablation, or code deliverable for lab students."
+          title="Assign Research Task"
+          description="Create a research milestone, experiment ablation, or task for lab students."
           size="md"
         >
           <form onSubmit={handleCreateTask} className="space-y-4 pt-2">
@@ -715,7 +715,7 @@ export function LabTasksBoard({
 
             <div>
               <label className="block text-xs font-semibold text-text-secondary mb-1">
-                Description &amp; Deliverable Objectives
+                Description &amp; Task Objectives
               </label>
               <textarea
                 value={description}
@@ -766,7 +766,7 @@ export function LabTasksBoard({
             {/* Assignment Target Scope */}
             <div className="space-y-2 pt-1">
               <label className="block text-xs font-semibold text-text-secondary">
-                Assign Deliverable To *
+                Assign Task To *
               </label>
 
               <div className="grid grid-cols-3 gap-2">

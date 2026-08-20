@@ -197,7 +197,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await createNotification({
         userId: uid,
         title: `New Lab Task: "${task.title}" 📋`,
-        message: `${user.name} assigned you a research deliverable in ${lab.name}${dueInfo}.`,
+        message: `${user.name} assigned you a research task in ${lab.name}${dueInfo}.`,
         type: 'ASSIGNMENT',
         link: `/labs/${lab.slug}?tab=tasks`,
       })
