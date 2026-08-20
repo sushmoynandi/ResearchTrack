@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           include: {
             members: {
               include: {
-                user: { select: { id: true, name: true, email: true } },
+                user: { select: { id: true, name: true, email: true, department: true, systemRole: true } },
               },
             },
           },

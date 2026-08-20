@@ -54,9 +54,9 @@ interface LabTasksBoardProps {
     id: string
     name: string
     color: string
-    members?: { id: string; role?: string; user: { id: string; name: string; email: string } }[]
+    members?: { id: string; role?: string; user: { id: string; name: string; email: string; systemRole?: string } }[]
   }[]
-  members: { id: string; role: string; user: { id: string; name: string; email: string } }[]
+  members: { id: string; role: string; user: { id: string; name: string; email: string; systemRole?: string } }[]
   isLeadOrSupervisor: boolean
 }
 
@@ -86,6 +86,19 @@ export function LabTasksBoard({
 }: LabTasksBoardProps) {
   const { user } = useAuth()
   const { addToast } = useToast()
+
+  // Strictly filter student researchers only (never assign to or list supervisors/admins/leads as assignees)
+  const isStudentResearcher = (memberUser: { id: string; systemRole?: string; role?: string }) => {
+    if (memberUser.id === user?.id && isLeadOrSupervisor) return false
+    if (memberUser.systemRole === 'SUPERVISOR' || memberUser.systemRole === 'ADMIN') return false
+    if (memberUser.role === 'LEAD') return false
+    return true
+  }
+
+  // All eligible student researchers enrolled in this laboratory
+  const studentMembers = members.filter((m) =>
+    isStudentResearcher({ id: m.user.id, systemRole: m.user.systemRole, role: m.role })
+  )
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -738,7 +751,7 @@ export function LabTasksBoard({
                     <Building size={13} /> Whole Lab
                   </span>
                   <span className="text-[10px] opacity-80 line-clamp-1">
-                    All {members.filter((m) => m.user.id !== user?.id).length} students
+                    All {studentMembers.length} students
                   </span>
                 </button>
 
@@ -770,7 +783,7 @@ export function LabTasksBoard({
                   type="button"
                   onClick={() => {
                     setTargetScope('INDIVIDUAL')
-                    const firstStudent = members.find((m) => m.user.id !== user?.id)
+                    const firstStudent = studentMembers[0]
                     setSelectedAssigneeId(firstStudent ? firstStudent.user.id : '')
                   }}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
@@ -797,73 +810,96 @@ export function LabTasksBoard({
                     <Users size={13} className="text-accent" /> Automatically Assigns All Enrolled Students
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold">
-                    {members.filter((m) => m.user.id !== user?.id).length} Students
+                    {studentMembers.length} Students
                   </span>
                 </div>
                 <p className="text-[11px] text-text-secondary leading-relaxed">
                   Every enrolled student researcher will receive their own trackable deliverable instance with instant in-app &amp; background phone push alerts.
                 </p>
                 <div className="flex flex-wrap gap-1 pt-1">
-                  {members
-                    .filter((m) => m.user.id !== user?.id)
-                    .map((m) => (
-                      <span
-                        key={m.user.id}
-                        className="px-2 py-0.5 rounded-md bg-bg-secondary text-text-primary text-[10px] border border-border-default"
-                      >
-                        {m.user.name}
-                      </span>
-                    ))}
+                  {studentMembers.map((m) => (
+                    <span
+                      key={m.user.id}
+                      className="px-2 py-0.5 rounded-md bg-bg-secondary text-text-primary text-[10px] border border-border-default"
+                    >
+                      {m.user.name}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
-            {targetScope === 'SUB_GROUP' && (
-              <div className="space-y-3 p-3 rounded-xl bg-bg-tertiary border border-border-default">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Select Target Research Sub-Group *
-                  </label>
-                  <select
-                    value={selectedGroupId}
-                    onChange={(e) => {
-                      setSelectedGroupId(e.target.value)
-                      setSelectedAssigneeId('ALL_GROUP')
-                    }}
-                    required
-                    className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                  >
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name} ({g.members ? g.members.length : 0} members)
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {targetScope === 'SUB_GROUP' && (() => {
+              const currentGroup = groups.find((g) => g.id === selectedGroupId)
+              const groupStudentMembers =
+                currentGroup?.members?.filter((m) =>
+                  isStudentResearcher({ id: m.user.id, systemRole: m.user.systemRole, role: m.role })
+                ) || []
 
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Sub-Group Assignee Option
-                  </label>
-                  <select
-                    value={selectedAssigneeId}
-                    onChange={(e) => setSelectedAssigneeId(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                  >
-                    <option value="ALL_GROUP">
-                      👥 All Members of this Sub-Group (Automatically Assigned)
-                    </option>
-                    {groups
-                      .find((g) => g.id === selectedGroupId)
-                      ?.members?.map((m) => (
+              return (
+                <div className="space-y-3 p-3 rounded-xl bg-bg-tertiary border border-border-default">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">
+                      Select Target Research Sub-Group *
+                    </label>
+                    <select
+                      value={selectedGroupId}
+                      onChange={(e) => {
+                        setSelectedGroupId(e.target.value)
+                        setSelectedAssigneeId('ALL_GROUP')
+                      }}
+                      required
+                      className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} (
+                          {
+                            g.members?.filter((m) =>
+                              isStudentResearcher({ id: m.user.id, systemRole: m.user.systemRole, role: m.role })
+                            ).length || 0
+                          }{' '}
+                          students)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">
+                      Sub-Group Assignee Option
+                    </label>
+                    <select
+                      value={selectedAssigneeId}
+                      onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                      className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      <option value="ALL_GROUP">
+                        👥 All {groupStudentMembers.length} Students in this Sub-Group (Automatically Assigned)
+                      </option>
+                      {groupStudentMembers.map((m) => (
                         <option key={m.user.id} value={m.user.id}>
                           👤 {m.user.name} ({m.user.email})
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+
+                  {groupStudentMembers.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {groupStudentMembers.map((m) => (
+                        <span
+                          key={m.user.id}
+                          className="px-2 py-0.5 rounded-md bg-bg-secondary text-text-primary text-[10px] border border-border-default"
+                        >
+                          {m.user.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {targetScope === 'INDIVIDUAL' && (
               <div>
@@ -877,13 +913,11 @@ export function LabTasksBoard({
                   className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
                 >
                   <option value="">Select a student...</option>
-                  {members
-                    .filter((m) => m.user.id !== user?.id)
-                    .map((m) => (
-                      <option key={m.user.id} value={m.user.id}>
-                        {m.user.name} ({m.user.email})
-                      </option>
-                    ))}
+                  {studentMembers.map((m) => (
+                    <option key={m.user.id} value={m.user.id}>
+                      {m.user.name} ({m.user.email})
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -1010,7 +1044,7 @@ export function LabTasksBoard({
                   className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
                 >
                   <option value="">Unassigned</option>
-                  {members.map((m) => (
+                  {studentMembers.map((m) => (
                     <option key={m.user.id} value={m.user.id}>
                       {m.user.name} ({m.user.email})
                     </option>

@@ -112,18 +112,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (targetScope === 'ALL_LAB' || assigneeId === 'ALL_LAB') {
       const labMembers = await prisma.labMember.findMany({
-        where: { labId: lab.id, userId: { not: user.id } },
+        where: {
+          labId: lab.id,
+          userId: { notIn: [user.id, lab.leadId] },
+          user: {
+            systemRole: { notIn: ['SUPERVISOR', 'ADMIN'] },
+          },
+        },
         select: { userId: true },
       })
       targetUserIds = labMembers.map((m) => m.userId)
     } else if ((targetScope === 'SUB_GROUP' || assigneeId === 'ALL_GROUP') && groupId) {
       const groupMembers = await prisma.groupMember.findMany({
-        where: { groupId: groupId, userId: { not: user.id } },
+        where: {
+          groupId: groupId,
+          userId: { notIn: [user.id, lab.leadId] },
+          user: {
+            systemRole: { notIn: ['SUPERVISOR', 'ADMIN'] },
+          },
+        },
         select: { userId: true },
       })
       targetUserIds = groupMembers.map((m) => m.userId)
     } else if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
-      targetUserIds = assigneeIds.filter((id: string) => id && id !== user.id)
+      targetUserIds = assigneeIds.filter((id: string) => id && id !== user.id && id !== lab.leadId)
     } else if (assigneeId && assigneeId !== 'ALL_LAB' && assigneeId !== 'ALL_GROUP') {
       targetUserIds = [assigneeId]
     }
