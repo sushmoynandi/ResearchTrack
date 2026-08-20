@@ -618,7 +618,12 @@ export default function LabDetailPage() {
               groupId={activeGroup.id}
               groupName={activeGroup.name}
               groupMembers={activeGroup.members}
-              isLeadOrSupervisor={Boolean(isLabLead)}
+              isLeadOrSupervisor={Boolean(
+                isLabLead ||
+                user?.systemRole === 'SUPERVISOR' ||
+                user?.systemRole === 'ADMIN' ||
+                lab.members.some((m) => m.user.id === user?.id && ['LEAD', 'CO_LEAD'].includes(m.role))
+              )}
             />
           ) : (
             <div className="glass-card p-12 text-center text-xs text-text-tertiary">

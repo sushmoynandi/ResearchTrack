@@ -40,8 +40,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const sessions = await prisma.journalClubSession.findMany({
       where: { groupId },
       include: {
-        paper: { select: { id: true, title: true, authors: true, journal: true, publicationYear: true } },
-        presenter: { select: { id: true, name: true, email: true, department: true } },
+        paper: {
+          select: {
+            id: true,
+            title: true,
+            authors: true,
+            journal: true,
+            publicationYear: true,
+            abstract: true,
+            doi: true,
+            url: true,
+            replicationStatus: true,
+            architecture: true,
+            parameters: true,
+            tags: { select: { id: true, name: true } },
+          },
+        },
+        presenter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            department: true,
+            systemRole: true,
+          },
+        },
       },
       orderBy: { scheduledAt: 'asc' },
     })
@@ -88,8 +112,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: 'SCHEDULED',
       },
       include: {
-        paper: { select: { id: true, title: true } },
-        presenter: { select: { id: true, name: true } },
+        paper: {
+          select: {
+            id: true,
+            title: true,
+            authors: true,
+            journal: true,
+            publicationYear: true,
+            replicationStatus: true,
+          },
+        },
+        presenter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            department: true,
+          },
+        },
       },
     })
 
@@ -122,7 +163,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PUT /api/labs/[id]/groups/[groupId]/journal-club — Update session status (COMPLETED, CANCELLED)
+// PUT /api/labs/[id]/groups/[groupId]/journal-club — Update session status (COMPLETED, CANCELLED) or details
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser()
@@ -131,17 +172,42 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { sessionId, status, notes } = body
+    const { sessionId, status, notes, scheduledAt, presenterId, paperId } = body
 
-    if (!sessionId || !status) {
-      return NextResponse.json({ error: 'Session ID and status are required' }, { status: 400 })
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 })
     }
+
+    const updateData: Record<string, unknown> = {}
+    if (status) updateData.status = status
+    if (notes !== undefined) updateData.notes = notes?.trim() || null
+    if (scheduledAt) updateData.scheduledAt = new Date(scheduledAt)
+    if (presenterId) updateData.presenterId = presenterId
+    if (paperId) updateData.paperId = paperId
 
     const updated = await prisma.journalClubSession.update({
       where: { id: sessionId },
-      data: {
-        status,
-        ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
+      data: updateData,
+      include: {
+        paper: {
+          select: {
+            id: true,
+            title: true,
+            authors: true,
+            journal: true,
+            publicationYear: true,
+            replicationStatus: true,
+          },
+        },
+        presenter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            department: true,
+          },
+        },
       },
     })
 
@@ -149,5 +215,31 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Error updating journal club session:', error)
     return NextResponse.json({ error: 'Failed to update journal club session' }, { status: 500 })
+  }
+}
+
+// DELETE /api/labs/[id]/groups/[groupId]/journal-club — Remove or cancel session
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get('sessionId')
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 })
+    }
+
+    await prisma.journalClubSession.delete({
+      where: { id: sessionId },
+    })
+
+    return NextResponse.json({ success: true, message: 'Journal Club seminar removed' })
+  } catch (error) {
+    console.error('Error deleting journal club session:', error)
+    return NextResponse.json({ error: 'Failed to delete journal club session' }, { status: 500 })
   }
 }
