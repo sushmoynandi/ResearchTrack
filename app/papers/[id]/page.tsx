@@ -75,6 +75,7 @@ export default function PaperDetailPage() {
   const [isCitationModalOpen, setIsCitationModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
+  const [selectedReviewerId, setSelectedReviewerId] = useState<string>('SUPERVISOR')
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -238,9 +239,6 @@ export default function PaperDetailPage() {
   }
 
   if (!paper) return null
-
-  // Multi-student reviewer selection state (Supervisor view)
-  const [selectedReviewerId, setSelectedReviewerId] = useState<string>('SUPERVISOR')
 
   const visibleAssignment = isStudent
     ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
