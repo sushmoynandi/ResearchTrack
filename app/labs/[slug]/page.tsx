@@ -535,7 +535,11 @@ export default function LabDetailPage() {
 
       {/* Tab 2: Noticeboard & Deadlines */}
       {activeTab === 'noticeboard' && (
-        <LabBroadcastsBoard labId={lab.id} isLeadOrSupervisor={Boolean(isLabLead)} />
+        <LabBroadcastsBoard
+          labId={lab.id}
+          groups={lab.groups}
+          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
+        />
       )}
 
       {/* Tab 3: Meetings & Syncs */}

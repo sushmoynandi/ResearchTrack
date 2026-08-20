@@ -412,6 +412,7 @@ model ResearchGroup {
   journalClubSessions JournalClubSession[]
   meetings            LabMeeting[]
   tasks               LabTask[]
+  broadcasts          LabBroadcast[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -451,17 +452,19 @@ enum RequestStatus {
 
 // ─── Lab Broadcast / Announcement ───────────────────────────
 model LabBroadcast {
-  id        String    @id @default(cuid())
+  id        String         @id @default(cuid())
   labId     String
-  lab       Lab       @relation(fields: [labId], references: [id], onDelete: Cascade)
+  lab       Lab            @relation(fields: [labId], references: [id], onDelete: Cascade)
+  groupId   String?
+  group     ResearchGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
+  author    User           @relation(fields: [authorId], references: [id])
   title     String
-  content   String    @db.Text
-  category  String    @default("ANNOUNCEMENT") // CONFERENCE_DEADLINE, PAPER_ACCEPTED, COMPUTE_NOTICE, ANNOUNCEMENT
+  content   String         @db.Text
+  category  String         @default("ANNOUNCEMENT") // CONFERENCE_DEADLINE, PAPER_ACCEPTED, COMPUTE_NOTICE, ANNOUNCEMENT
   deadline  DateTime? // Optional conference deadline for countdown
-  isPinned  Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  isPinned  Boolean        @default(false)
+  createdAt DateTime       @default(now())
 }
 
 // ─── Sub-Group Starter Pack (Onboarding Syllabus) ────────────

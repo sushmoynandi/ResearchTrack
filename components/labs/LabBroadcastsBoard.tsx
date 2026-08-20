@@ -13,6 +13,9 @@ import {
   Award,
   Cpu,
   Edit2,
+  Globe,
+  Layers,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -28,10 +31,13 @@ interface BroadcastItem {
   isPinned: boolean
   createdAt: string
   author: { id: string; name: string; email: string }
+  groupId?: string | null
+  group?: { id: string; name: string; color: string } | null
 }
 
 interface LabBroadcastsBoardProps {
   labId: string
+  groups?: { id: string; name: string; color: string; members?: any[] }[]
   isLeadOrSupervisor: boolean
 }
 
@@ -42,13 +48,14 @@ const CATEGORY_CONFIG: Record<string, { label: string; bg: string; icon: any }> 
   ANNOUNCEMENT: { label: 'Lab Notice', bg: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30', icon: Megaphone },
 }
 
-export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsBoardProps) {
+export function LabBroadcastsBoard({ labId, groups = [], isLeadOrSupervisor }: LabBroadcastsBoardProps) {
   const { user } = useAuth()
   const { addToast } = useToast()
 
   const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL')
 
   // Form State
   const [title, setTitle] = useState('')
@@ -56,6 +63,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
   const [category, setCategory] = useState('CONFERENCE_DEADLINE')
   const [deadline, setDeadline] = useState('')
   const [isPinned, setIsPinned] = useState(true)
+  const [groupId, setGroupId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
   // Edit Broadcast State
@@ -65,6 +73,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
   const [editCategory, setEditCategory] = useState('CONFERENCE_DEADLINE')
   const [editDeadline, setEditDeadline] = useState('')
   const [editIsPinned, setEditIsPinned] = useState(false)
+  const [editGroupId, setEditGroupId] = useState<string>('')
   const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchBroadcasts = async () => {
@@ -99,6 +108,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
           category,
           deadline: deadline.trim() || undefined,
           isPinned,
+          groupId: groupId || undefined,
         }),
       })
 
@@ -108,6 +118,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
         setTitle('')
         setContent('')
         setDeadline('')
+        setGroupId('')
         fetchBroadcasts()
       } else {
         const err = await res.json()
@@ -142,6 +153,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
     setEditCategory(b.category)
     setEditDeadline(b.deadline ? b.deadline.slice(0, 10) : '')
     setEditIsPinned(b.isPinned)
+    setEditGroupId(b.groupId || b.group?.id || '')
   }
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -159,6 +171,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
           category: editCategory,
           deadline: editDeadline.trim() || undefined,
           isPinned: editIsPinned,
+          groupId: editGroupId || '',
         }),
       })
 
@@ -184,12 +197,24 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
     return days
   }
 
+  const filteredBroadcasts = broadcasts.filter((b) => {
+    if (selectedGroupFilter === 'ALL') return true
+    if (selectedGroupFilter === 'WHOLE_LAB') return !b.group
+    return b.group?.id === selectedGroupFilter || b.groupId === selectedGroupFilter
+  })
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-          <Megaphone size={16} className="text-accent" /> Lab Noticeboard &amp; Conference Deadlines
-        </h3>
+      {/* Header & Post Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5 font-display">
+            <Megaphone size={16} className="text-accent" /> Lab Notices &amp; Conference Deadlines
+          </h3>
+          <p className="text-xs text-text-tertiary mt-0.5">
+            Post lab announcements, conference submission countdowns, or cluster-targeted updates.
+          </p>
+        </div>
 
         {isLeadOrSupervisor && (
           <Button size="xs" variant="primary" onClick={() => setIsModalOpen(true)} icon={<Plus size={13} />}>
@@ -198,11 +223,56 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
         )}
       </div>
 
+      {/* Scope Filter Pills */}
+      {groups && groups.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+          <span className="text-text-tertiary text-[11px] font-semibold mr-1 flex items-center gap-1 shrink-0">
+            Audience:
+          </span>
+          <button
+            onClick={() => setSelectedGroupFilter('ALL')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
+              selectedGroupFilter === 'ALL'
+                ? 'bg-accent text-white font-bold shadow-sm'
+                : 'bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/80'
+            }`}
+          >
+            All Notices ({broadcasts.length})
+          </button>
+          <button
+            onClick={() => setSelectedGroupFilter('WHOLE_LAB')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
+              selectedGroupFilter === 'WHOLE_LAB'
+                ? 'bg-accent text-white font-bold shadow-sm'
+                : 'bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/80'
+            }`}
+          >
+            🏛️ Whole Lab ({broadcasts.filter((b) => !b.group).length})
+          </button>
+          {groups.map((g) => {
+            const count = broadcasts.filter((b) => b.group?.id === g.id || b.groupId === g.id).length
+            return (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGroupFilter(g.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
+                  selectedGroupFilter === g.id
+                    ? 'bg-accent text-white font-bold shadow-sm'
+                    : 'bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/80'
+                }`}
+              >
+                👥 {g.name} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {loading ? (
         <div className="p-8 text-center text-xs text-text-tertiary">Loading noticeboard...</div>
-      ) : broadcasts.length > 0 ? (
+      ) : filteredBroadcasts.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {broadcasts.map((b) => {
+          {filteredBroadcasts.map((b) => {
             const config = CATEGORY_CONFIG[b.category] || CATEGORY_CONFIG.ANNOUNCEMENT
             const Icon = config.icon
             const daysLeft = b.deadline ? getDaysRemaining(b.deadline) : null
@@ -215,15 +285,28 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
                 }`}
               >
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border flex items-center gap-1 ${config.bg}`}>
-                      <Icon size={11} /> {config.label}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border flex items-center gap-1 ${config.bg}`}>
+                        <Icon size={11} /> {config.label}
+                      </span>
+
+                      {/* Audience Badge: Subgroup vs Whole Lab */}
+                      {b.group ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-md border flex items-center gap-1 bg-purple-500/15 text-purple-400 border-purple-500/30">
+                          <Layers size={10} /> {b.group.name}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-md border flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                          <Globe size={10} /> Whole Lab
+                        </span>
+                      )}
+                    </div>
 
                     {/* Deadline Countdown Pill */}
                     {daysLeft !== null && (
                       <span
-                        className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded-md border ${
+                        className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded-md border shrink-0 ${
                           daysLeft <= 7
                             ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
                             : 'bg-bg-tertiary text-text-secondary border-border-default'
@@ -276,7 +359,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
       ) : (
         <div className="glass-card p-10 text-center text-xs text-text-tertiary space-y-2">
           <Megaphone size={24} className="mx-auto opacity-30 text-accent" />
-          <p>No active notices or conference countdowns posted yet.</p>
+          <p>No notices found in this view.</p>
         </div>
       )}
 
@@ -286,10 +369,40 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           title="Post Lab Notice or Deadline"
-          description="Post lab notices, paper acceptances, or upcoming conference submission deadlines to all lab members."
+          description="Post notices, paper acceptances, or upcoming conference submission deadlines to all lab members or a specialized sub-group."
           size="md"
         >
           <form onSubmit={handleCreate} className="space-y-4 pt-2">
+            {/* Target Audience / Scope Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                Target Audience / Scope *
+              </label>
+              <div className="space-y-2">
+                <select
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="">🏛️ Whole Research Lab (All Members)</option>
+                  {groups && groups.length > 0 && (
+                    <optgroup label="Specialized Sub-Groups / Project Teams">
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          👥 Sub-Group: {g.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <p className="text-[11px] text-text-tertiary">
+                  {groupId
+                    ? 'Only members assigned to this specific sub-group will receive alerts and view this notice.'
+                    : 'All faculty, supervisors, and student researchers in this lab will receive this notice.'}
+                </p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-text-secondary mb-1">
                 Notice Category
@@ -302,7 +415,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
                 <option value="CONFERENCE_DEADLINE">🚨 Conference Submission Deadline</option>
                 <option value="PAPER_ACCEPTED">🎉 Paper Accepted / Grant Awarded</option>
                 <option value="COMPUTE_NOTICE">⚡ Compute Cluster &amp; GPU Notice</option>
-                <option value="ANNOUNCEMENT">📢 General Lab Announcement</option>
+                <option value="ANNOUNCEMENT">📢 General Lab Notice</option>
               </select>
             </div>
 
@@ -377,10 +490,33 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
           isOpen={Boolean(editingBroadcast)}
           onClose={() => setEditingBroadcast(null)}
           title="Edit Lab Notice"
-          description="Update notice content, conference deadlines, or pin status for the research lab."
+          description="Update notice content, target audience, conference deadlines, or pin status."
           size="md"
         >
           <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
+            {/* Target Audience / Scope Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                Target Audience / Scope *
+              </label>
+              <select
+                value={editGroupId}
+                onChange={(e) => setEditGroupId(e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">🏛️ Whole Research Lab (All Members)</option>
+                {groups && groups.length > 0 && (
+                  <optgroup label="Specialized Sub-Groups / Project Teams">
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        👥 Sub-Group: {g.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-text-secondary mb-1">
                 Notice Title *

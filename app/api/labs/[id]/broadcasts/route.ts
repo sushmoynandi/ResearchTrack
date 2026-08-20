@@ -17,12 +17,38 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId } = await params
 
-    const broadcasts = await prisma.labBroadcast.findMany({
+    const lab = await prisma.lab.findFirst({
       where: {
-        OR: [{ labId }, { lab: { slug: labId } }],
+        OR: [{ id: labId }, { slug: labId }],
       },
+    })
+
+    if (!lab) {
+      return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
+    }
+
+    const isLeadOrSupervisor =
+      lab.leadId === user.id ||
+      user.systemRole === 'SUPERVISOR' ||
+      user.systemRole === 'ADMIN'
+
+    const whereClause: any = {
+      labId: lab.id,
+    }
+
+    // Regular members only see Whole Lab notices OR notices for subgroups they belong to
+    if (!isLeadOrSupervisor) {
+      whereClause.OR = [
+        { groupId: null },
+        { group: { members: { some: { userId: user.id } } } },
+      ]
+    }
+
+    const broadcasts = await prisma.labBroadcast.findMany({
+      where: whereClause,
       include: {
         author: { select: { id: true, name: true, email: true, systemRole: true } },
+        group: { select: { id: true, name: true, color: true } },
       },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
     })
@@ -44,7 +70,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId } = await params
     const body = await request.json()
-    const { title, content, category = 'ANNOUNCEMENT', deadline, isPinned = false } = body
+    const { title, content, category = 'ANNOUNCEMENT', deadline, isPinned = false, groupId } = body
 
     if (!title || !content) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 })
@@ -62,7 +88,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Must be lab lead, supervisor, or admin
     if (lab.leadId !== user.id && user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Only lab leads and supervisors can post broadcasts' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden: Only lab leads and supervisors can post notices' }, { status: 403 })
+    }
+
+    let targetGroupId: string | null = null
+    let targetGroupName: string | null = null
+
+    if (groupId && groupId !== 'all' && groupId !== '') {
+      const group = await prisma.researchGroup.findFirst({
+        where: { id: groupId, labId: lab.id },
+      })
+      if (group) {
+        targetGroupId = group.id
+        targetGroupName = group.name
+      }
     }
 
     let validDeadline: Date | null = null
@@ -76,6 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const broadcast = await prisma.labBroadcast.create({
       data: {
         labId: lab.id,
+        groupId: targetGroupId,
         authorId: user.id,
         title: title.trim(),
         content: content.trim(),
@@ -85,30 +125,51 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
       include: {
         author: { select: { id: true, name: true, email: true, systemRole: true } },
+        group: { select: { id: true, name: true, color: true } },
       },
     })
 
-    // Notify all members of the lab
-    const labMembers = await prisma.labMember.findMany({
-      where: { labId: lab.id },
-    })
+    // Send notifications to the targeted audience
+    if (targetGroupId) {
+      // Subgroup members only
+      const groupMembers = await prisma.groupMember.findMany({
+        where: { groupId: targetGroupId },
+      })
 
-    for (const member of labMembers) {
-      if (member.userId !== user.id) {
-        await createNotification({
-          userId: member.userId,
-          title: `Lab Notice: ${lab.name} 📢`,
-          message: `${user.name} posted: "${broadcast.title}"`,
-          type: 'SYSTEM',
-          link: `/labs/${lab.slug}`,
-        })
+      for (const gm of groupMembers) {
+        if (gm.userId !== user.id) {
+          await createNotification({
+            userId: gm.userId,
+            title: `Lab Notice (${targetGroupName}): ${lab.name} 📢`,
+            message: `${user.name} posted to ${targetGroupName}: "${broadcast.title}"`,
+            type: 'SYSTEM',
+            link: `/labs/${lab.slug}`,
+          })
+        }
+      }
+    } else {
+      // Whole lab members
+      const labMembers = await prisma.labMember.findMany({
+        where: { labId: lab.id },
+      })
+
+      for (const member of labMembers) {
+        if (member.userId !== user.id) {
+          await createNotification({
+            userId: member.userId,
+            title: `Lab Notice (Whole Lab): ${lab.name} 📢`,
+            message: `${user.name} posted: "${broadcast.title}"`,
+            type: 'SYSTEM',
+            link: `/labs/${lab.slug}`,
+          })
+        }
       }
     }
 
     return NextResponse.json(broadcast, { status: 201 })
   } catch (error: any) {
     console.error('Error creating broadcast:', error)
-    return NextResponse.json({ error: error.message || 'Failed to create broadcast' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Failed to create notice' }, { status: 500 })
   }
 }
 
@@ -122,7 +183,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId } = await params
     const body = await request.json()
-    const { broadcastId, title, content, category, deadline, isPinned } = body
+    const { broadcastId, title, content, category, deadline, isPinned, groupId } = body
 
     if (!broadcastId) {
       return NextResponse.json({ error: 'Broadcast ID is required' }, { status: 400 })
@@ -134,7 +195,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     })
 
     if (!broadcast) {
-      return NextResponse.json({ error: 'Broadcast message not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Notice not found' }, { status: 404 })
     }
 
     if (broadcast.authorId !== user.id && broadcast.lab.leadId !== user.id && user.systemRole !== 'ADMIN') {
@@ -146,6 +207,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (content) updateData.content = content.trim()
     if (category) updateData.category = category
     if (isPinned !== undefined) updateData.isPinned = Boolean(isPinned)
+
+    if (groupId !== undefined) {
+      if (groupId && groupId !== 'all' && groupId !== '') {
+        const group = await prisma.researchGroup.findFirst({
+          where: { id: groupId, labId: broadcast.labId },
+        })
+        updateData.groupId = group ? group.id : null
+      } else {
+        updateData.groupId = null
+      }
+    }
 
     if (deadline !== undefined) {
       if (deadline && typeof deadline === 'string' && deadline.trim()) {
@@ -163,6 +235,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updateData,
       include: {
         author: { select: { id: true, name: true, email: true, systemRole: true } },
+        group: { select: { id: true, name: true, color: true } },
       },
     })
 
@@ -186,7 +259,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(updated)
   } catch (error: any) {
     console.error('Error updating broadcast:', error)
-    return NextResponse.json({ error: error.message || 'Failed to update broadcast' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Failed to update notice' }, { status: 500 })
   }
 }
 
@@ -211,7 +284,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     })
 
     if (!broadcast) {
-      return NextResponse.json({ error: 'Broadcast not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Notice not found' }, { status: 404 })
     }
 
     if (broadcast.authorId !== user.id && broadcast.lab.leadId !== user.id && user.systemRole !== 'ADMIN') {
@@ -225,6 +298,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting broadcast:', error)
-    return NextResponse.json({ error: 'Failed to delete broadcast' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete notice' }, { status: 500 })
   }
 }
