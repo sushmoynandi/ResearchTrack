@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Edit2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ScheduleMeetingModal } from '@/components/labs/ScheduleMeetingModal'
@@ -57,6 +58,15 @@ export function LabMeetingsBoard({
   const [filter, setFilter] = useState<'all' | 'labwide' | 'groups'>('all')
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
   const [expandedAgendaId, setExpandedAgendaId] = useState<string | null>(null)
+
+  // Edit Meeting State
+  const [editingMeeting, setEditingMeeting] = useState<MeetingItem | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editStartTime, setEditStartTime] = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editMeetingUrl, setEditMeetingUrl] = useState('')
+  const [editAgenda, setEditAgenda] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchMeetings = async () => {
     try {
@@ -109,6 +119,54 @@ export function LabMeetingsBoard({
       }
     } catch {
       addToast('error', 'Network error')
+    }
+  }
+
+  const handleOpenEdit = (m: MeetingItem) => {
+    setEditingMeeting(m)
+    setEditTitle(m.title)
+    const localDate = new Date(m.startTime)
+    const year = localDate.getFullYear()
+    const month = String(localDate.getMonth() + 1).padStart(2, '0')
+    const day = String(localDate.getDate()).padStart(2, '0')
+    const hours = String(localDate.getHours()).padStart(2, '0')
+    const minutes = String(localDate.getMinutes()).padStart(2, '0')
+    setEditStartTime(`${year}-${month}-${day}T${hours}:${minutes}`)
+    setEditLocation(m.location || '')
+    setEditMeetingUrl(m.meetingUrl || '')
+    setEditAgenda(m.agenda || '')
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingMeeting) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/labs/${labId}/meetings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meetingId: editingMeeting.id,
+          title: editTitle.trim(),
+          startTime: new Date(editStartTime).toISOString(),
+          location: editLocation.trim() || undefined,
+          meetingUrl: editMeetingUrl.trim() || undefined,
+          agenda: editAgenda.trim() || undefined,
+        }),
+      })
+
+      if (res.ok) {
+        addToast('success', 'Lab meeting updated and members notified!')
+        setEditingMeeting(null)
+        fetchMeetings()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update meeting')
+      }
+    } catch {
+      addToast('error', 'Network error')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -301,6 +359,18 @@ export function LabMeetingsBoard({
                     {isLeadOrSupervisor && !isCompleted && !isCancelled && (
                       <Button
                         size="xs"
+                        variant="secondary"
+                        onClick={() => handleOpenEdit(m)}
+                        icon={<Edit2 size={12} />}
+                        title="Edit / Reschedule meeting"
+                      >
+                        Edit
+                      </Button>
+                    )}
+
+                    {isLeadOrSupervisor && !isCompleted && !isCancelled && (
+                      <Button
+                        size="xs"
                         variant="ghost"
                         onClick={() => handleStatusChange(m.id, 'COMPLETED')}
                         icon={<CheckCircle2 size={12} className="text-success" />}
@@ -353,6 +423,106 @@ export function LabMeetingsBoard({
           groups={groups}
           onMeetingScheduled={fetchMeetings}
         />
+      )}
+
+      {/* Edit Lab Meeting Modal */}
+      {editingMeeting && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-border-default pb-3">
+              <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
+                <Edit2 size={18} className="text-accent" /> Edit / Reschedule Meeting
+              </h3>
+              <button
+                onClick={() => setEditingMeeting(null)}
+                className="text-text-tertiary hover:text-text-primary text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Meeting Title *
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Date &amp; Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                  required
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+                <p className="text-[10px] text-text-tertiary mt-1">
+                  All invited members will receive an instant reschedule notification.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Location / Room
+                  </label>
+                  <input
+                    type="text"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="e.g. Lab Room 402"
+                    className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Meeting URL / Call Link
+                  </label>
+                  <input
+                    type="url"
+                    value={editMeetingUrl}
+                    onChange={(e) => setEditMeetingUrl(e.target.value)}
+                    placeholder="https://meet.google.com/..."
+                    className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Agenda &amp; Discussion Points
+                </label>
+                <textarea
+                  value={editAgenda}
+                  onChange={(e) => setEditAgenda(e.target.value)}
+                  rows={4}
+                  placeholder="Meeting agenda items..."
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg p-3 text-xs text-text-primary focus:outline-none focus:border-accent resize-none font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-default">
+                <Button type="button" variant="ghost" onClick={() => setEditingMeeting(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={savingEdit}>
+                  Save Changes &amp; Notify Members
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

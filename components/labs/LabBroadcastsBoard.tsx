@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Award,
   Cpu,
+  Edit2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -56,6 +57,15 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
   const [deadline, setDeadline] = useState('')
   const [isPinned, setIsPinned] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  // Edit Broadcast State
+  const [editingBroadcast, setEditingBroadcast] = useState<BroadcastItem | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [editCategory, setEditCategory] = useState('CONFERENCE_DEADLINE')
+  const [editDeadline, setEditDeadline] = useState('')
+  const [editIsPinned, setEditIsPinned] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchBroadcasts = async () => {
     try {
@@ -122,6 +132,48 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
       }
     } catch {
       addToast('error', 'Failed to delete')
+    }
+  }
+
+  const handleOpenEdit = (b: BroadcastItem) => {
+    setEditingBroadcast(b)
+    setEditTitle(b.title)
+    setEditContent(b.content)
+    setEditCategory(b.category)
+    setEditDeadline(b.deadline ? b.deadline.slice(0, 10) : '')
+    setEditIsPinned(b.isPinned)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingBroadcast) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/labs/${labId}/broadcasts`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broadcastId: editingBroadcast.id,
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          category: editCategory,
+          deadline: editDeadline.trim() || undefined,
+          isPinned: editIsPinned,
+        }),
+      })
+
+      if (res.ok) {
+        addToast('success', 'Notice updated and lab members notified!')
+        setEditingBroadcast(null)
+        fetchBroadcasts()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update notice')
+      }
+    } catch {
+      addToast('error', 'Network error')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -197,6 +249,15 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
                   <span>Posted by <strong className="text-text-secondary">{b.author.name}</strong></span>
                   <div className="flex items-center gap-2">
                     <span>{new Date(b.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                    {isLeadOrSupervisor && (
+                      <button
+                        onClick={() => handleOpenEdit(b)}
+                        className="text-text-tertiary hover:text-accent p-1 cursor-pointer"
+                        title="Edit notice"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    )}
                     {isLeadOrSupervisor && (
                       <button
                         onClick={() => handleDelete(b.id)}
@@ -304,6 +365,97 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
               </Button>
               <Button type="submit" variant="primary" loading={submitting} icon={<Sparkles size={13} />}>
                 Publish Notice
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Broadcast / Notice Modal */}
+      {editingBroadcast && (
+        <Modal
+          isOpen={Boolean(editingBroadcast)}
+          onClose={() => setEditingBroadcast(null)}
+          title="Edit Lab Notice / Broadcast"
+          description="Update notice content, conference deadlines, or pin status for the research lab."
+          size="md"
+        >
+          <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-text-secondary mb-1">
+                Notice Title *
+              </label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                required
+                className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Category *
+                </label>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="CONFERENCE_DEADLINE">Conference Deadline</option>
+                  <option value="PAPER_ACCEPTED">Paper Accepted 🎉</option>
+                  <option value="COMPUTE_NOTICE">Compute &amp; Cluster</option>
+                  <option value="ANNOUNCEMENT">Lab Announcement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Target Deadline (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={editDeadline}
+                  onChange={(e) => setEditDeadline(e.target.value)}
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-secondary mb-1">
+                Message Content *
+              </label>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                required
+                rows={4}
+                className="w-full bg-bg-tertiary border border-border-default rounded-lg p-3 text-xs text-text-primary focus:outline-none focus:border-accent resize-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="editPinNotice"
+                checked={editIsPinned}
+                onChange={(e) => setEditIsPinned(e.target.checked)}
+                className="rounded border-border-default text-accent focus:ring-accent"
+              />
+              <label htmlFor="editPinNotice" className="text-xs text-text-primary font-medium cursor-pointer">
+                Pin this notice to top of lab dashboard
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-default">
+              <Button type="button" variant="ghost" onClick={() => setEditingBroadcast(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" loading={savingEdit} icon={<Sparkles size={13} />}>
+                Save Changes &amp; Notify Lab
               </Button>
             </div>
           </form>

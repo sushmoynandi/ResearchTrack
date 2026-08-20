@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Save,
   Check,
+  Edit2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -50,6 +51,13 @@ export default function MeetingsPage() {
   const [scheduledAt, setScheduledAt] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Edit Meeting Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editScheduledAt, setEditScheduledAt] = useState('')
+  const [editStatus, setEditStatus] = useState<'SCHEDULED' | 'COMPLETED' | 'CANCELLED'>('SCHEDULED')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Active meeting editable notes
   const [studentNotes, setStudentNotes] = useState('')
@@ -196,6 +204,54 @@ export default function MeetingsPage() {
 
   const activeMeeting = meetings.find((m) => m.id === activeMeetingId)
 
+  const handleOpenEdit = () => {
+    if (!activeMeeting) return
+    setEditTitle(activeMeeting.title)
+    const localDate = new Date(activeMeeting.scheduledAt)
+    const year = localDate.getFullYear()
+    const month = String(localDate.getMonth() + 1).padStart(2, '0')
+    const day = String(localDate.getDate()).padStart(2, '0')
+    const hours = String(localDate.getHours()).padStart(2, '0')
+    const minutes = String(localDate.getMinutes()).padStart(2, '0')
+    setEditScheduledAt(`${year}-${month}-${day}T${hours}:${minutes}`)
+    setEditStatus(activeMeeting.status)
+    setIsEditOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!activeMeetingId) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/meetings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeMeetingId,
+          title: editTitle.trim(),
+          scheduledAt: new Date(editScheduledAt).toISOString(),
+          status: editStatus,
+        }),
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        addToast('success', 'Meeting updated and notification sent to student!')
+        setIsEditOpen(false)
+        setMeetings((prev) =>
+          prev.map((m) => (m.id === activeMeetingId ? { ...m, ...updated } : m))
+        )
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update meeting')
+      }
+    } catch {
+      addToast('error', 'Network error updating meeting')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
       {/* Header */}
@@ -305,9 +361,14 @@ export default function MeetingsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {(isSupervisor || isAdmin || activeMeeting.supervisor.id === user?.id) && (
+                    <Button size="xs" variant="secondary" onClick={handleOpenEdit} icon={<Edit2 size={13} />}>
+                      Edit / Reschedule
+                    </Button>
+                  )}
                   {activeMeeting.status !== 'COMPLETED' && (
-                    <Button size="xs" variant="secondary" onClick={handleCompleteMeeting} icon={<CheckCircle2 size={13} />}>
-                      Complete Session
+                    <Button size="xs" variant="ghost" onClick={handleCompleteMeeting} icon={<CheckCircle2 size={13} />}>
+                      Complete
                     </Button>
                   )}
                   <Button size="xs" variant="primary" onClick={handleSaveNotes} loading={savingNotes} icon={<Save size={13} />}>
@@ -461,6 +522,80 @@ export default function MeetingsPage() {
                 </Button>
                 <Button type="submit" loading={submitting}>
                   Confirm Schedule
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit / Reschedule Meeting Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-secondary border border-border-default rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-modal space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-border-default pb-3">
+              <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
+                <Edit2 size={18} className="text-accent" /> Edit / Reschedule Meeting
+              </h3>
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="text-text-tertiary hover:text-text-primary text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Meeting Title *
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Reschedule Date &amp; Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editScheduledAt}
+                  onChange={(e) => setEditScheduledAt(e.target.value)}
+                  required
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+                <p className="text-[10px] text-text-tertiary mt-1">
+                  Student will receive an instant notification with the updated meeting time.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  Meeting Status
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as any)}
+                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-default">
+                <Button type="button" variant="ghost" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={savingEdit}>
+                  Save Changes &amp; Notify Student
                 </Button>
               </div>
             </form>

@@ -180,36 +180,45 @@ export async function PUT(request: NextRequest) {
       },
     })
 
-    // Notify the other participant about reschedule or status change
-    const isRescheduled = scheduledAt !== undefined
-    const isStatusChanged = status !== undefined
-    if (isRescheduled || isStatusChanged) {
-      const notifyTarget = user.id === existing.studentId ? existing.supervisorId : existing.studentId
+    // Notify the other participant about reschedule, title edit, guidance notes, or status change
+    const isRescheduled = scheduledAt !== undefined && new Date(scheduledAt).getTime() !== new Date(existing.scheduledAt).getTime()
+    const isStatusChanged = status !== undefined && status !== existing.status
+    const isTitleChanged = title !== undefined && title.trim() !== existing.title
+    const isGuidanceUpdated = supervisorNotes !== undefined && supervisorNotes.trim() !== (existing.supervisorNotes || '')
 
-      if (isRescheduled) {
-        const newTimeStr = new Date(scheduledAt).toLocaleDateString([], {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-        await createNotification({
-          userId: notifyTarget,
-          title: `Meeting Rescheduled 🔄`,
-          message: `${user.name} rescheduled "${updated.title}" to ${newTimeStr}.`,
-          type: 'SYSTEM',
-          link: '/meetings',
-        })
-      } else if (isStatusChanged) {
-        await createNotification({
-          userId: notifyTarget,
-          title: `Meeting ${status}: "${updated.title}"`,
-          message: `${user.name} marked your 1-on-1 meeting as ${status}.`,
-          type: 'SYSTEM',
-          link: '/meetings',
-        })
-      }
+    const notifyTarget = user.id === existing.studentId ? existing.supervisorId : existing.studentId
+
+    if (isRescheduled) {
+      const newTimeStr = new Date(scheduledAt).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      await createNotification({
+        userId: notifyTarget,
+        title: `Meeting Rescheduled 🔄`,
+        message: `${user.name} rescheduled "${updated.title}" to ${newTimeStr}.`,
+        type: 'SYSTEM',
+        link: '/meetings',
+      })
+    } else if (isStatusChanged) {
+      await createNotification({
+        userId: notifyTarget,
+        title: `Meeting ${status}: "${updated.title}"`,
+        message: `${user.name} marked your 1-on-1 meeting as ${status}.`,
+        type: 'SYSTEM',
+        link: '/meetings',
+      })
+    } else if (isTitleChanged || isGuidanceUpdated) {
+      await createNotification({
+        userId: notifyTarget,
+        title: `Meeting Updated 📝`,
+        message: `${user.name} updated the meeting details/guidance for "${updated.title}".`,
+        type: 'SYSTEM',
+        link: '/meetings',
+      })
     }
 
     return NextResponse.json(updated)

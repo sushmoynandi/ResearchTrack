@@ -112,6 +112,84 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 }
 
+// PUT /api/labs/[id]/broadcasts — Edit noticeboard announcement / message
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: labId } = await params
+    const body = await request.json()
+    const { broadcastId, title, content, category, deadline, isPinned } = body
+
+    if (!broadcastId) {
+      return NextResponse.json({ error: 'Broadcast ID is required' }, { status: 400 })
+    }
+
+    const broadcast = await prisma.labBroadcast.findUnique({
+      where: { id: broadcastId },
+      include: { lab: true },
+    })
+
+    if (!broadcast) {
+      return NextResponse.json({ error: 'Broadcast message not found' }, { status: 404 })
+    }
+
+    if (broadcast.authorId !== user.id && broadcast.lab.leadId !== user.id && user.systemRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const updateData: any = {}
+    if (title) updateData.title = title.trim()
+    if (content) updateData.content = content.trim()
+    if (category) updateData.category = category
+    if (isPinned !== undefined) updateData.isPinned = Boolean(isPinned)
+
+    if (deadline !== undefined) {
+      if (deadline && typeof deadline === 'string' && deadline.trim()) {
+        const parsed = new Date(deadline.trim())
+        if (!isNaN(parsed.getTime())) {
+          updateData.deadline = parsed
+        }
+      } else {
+        updateData.deadline = null
+      }
+    }
+
+    const updated = await prisma.labBroadcast.update({
+      where: { id: broadcastId },
+      data: updateData,
+      include: {
+        author: { select: { id: true, name: true, email: true, systemRole: true } },
+      },
+    })
+
+    // Notify lab members of updated message
+    const labMembers = await prisma.labMember.findMany({
+      where: { labId: broadcast.labId },
+    })
+
+    for (const member of labMembers) {
+      if (member.userId !== user.id) {
+        await createNotification({
+          userId: member.userId,
+          title: `Updated Notice: ${broadcast.lab.name} 📢`,
+          message: `${user.name} updated: "${updated.title}"`,
+          type: 'SYSTEM',
+          link: `/labs/${broadcast.lab.slug}`,
+        })
+      }
+    }
+
+    return NextResponse.json(updated)
+  } catch (error: any) {
+    console.error('Error updating broadcast:', error)
+    return NextResponse.json({ error: error.message || 'Failed to update broadcast' }, { status: 500 })
+  }
+}
+
 // DELETE /api/labs/[id]/broadcasts — Delete announcement
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
