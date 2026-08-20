@@ -103,37 +103,49 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
         </div>
       </div>
 
-      {/* 20-Column Responsive Matrix Table */}
-      <div className="rounded-xl border border-border-default bg-bg-primary overflow-x-auto shadow-sm max-h-[700px] overflow-y-auto">
-        <table className="w-full border-collapse text-left text-xs whitespace-normal">
-          <thead className="sticky top-0 z-20 bg-bg-tertiary border-b border-border-default shadow-xs text-text-secondary uppercase tracking-wider font-semibold text-[11px]">
+      {/* 20-Column Responsive Matrix Table with Frozen Header and Pinned Columns */}
+      <div className="rounded-xl border border-border-default bg-bg-primary overflow-auto shadow-sm max-h-[720px] relative">
+        <table className="w-full border-separate border-spacing-0 text-left text-xs whitespace-normal">
+          <thead className="sticky top-0 z-30 bg-bg-tertiary border-b border-border-default shadow-xs text-text-secondary uppercase tracking-wider font-semibold text-[11px]">
             <tr>
-              <th className="p-3 min-w-[60px] border-r border-border-default/60">SL</th>
-              <th className="p-3 min-w-[170px] border-r border-border-default/60">Assigned Reviewer &amp; Workflow</th>
-              <th className="p-3 min-w-[180px] border-r border-border-default/60">Selected Paper Title</th>
-              <th className="p-3 min-w-[200px] border-r border-border-default/60">Paper Title</th>
-              <th className="p-3 min-w-[110px] border-r border-border-default/60">Paper Link</th>
-              <th className="p-3 min-w-[130px] border-r border-border-default/60">PDF Accessibility</th>
-              <th className="p-3 min-w-[220px] border-r border-border-default/60">Research Gap</th>
-              <th className="p-3 min-w-[180px] border-r border-border-default/60">Used Dataset</th>
-              <th className="p-3 min-w-[120px] border-r border-border-default/60">Summary Repo</th>
-              <th className="p-3 min-w-[180px] border-r border-border-default/60">Remarks / Comments</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q1. Problem &amp; Importance</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q2. Data Used</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q3. Features / Inputs</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q4. Methods &amp; Pipeline</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q5. Baselines</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q6. Performance Evaluation</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q7. Key Results</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q8. Limitations &amp; Biases</th>
-              <th className="p-3 min-w-[240px] border-r border-border-default/60">Q9. Code &amp; Artifacts</th>
-              <th className="p-3 min-w-[220px]">OutCome</th>
+              {/* 1. Frozen SL */}
+              <th className="p-3 w-[54px] min-w-[54px] max-w-[54px] sticky top-0 left-0 z-40 bg-bg-tertiary border-b border-r border-border-default/80 text-center">
+                SL
+              </th>
+
+              {/* 2. Frozen Assigned Reviewer & Workflow */}
+              <th className="p-3 w-[176px] min-w-[176px] max-w-[176px] sticky top-0 left-[54px] z-40 bg-bg-tertiary border-b border-r border-border-default/80">
+                Assigned &amp; Workflow
+              </th>
+
+              {/* 3. Frozen Paper Title */}
+              <th className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky top-0 left-[230px] z-40 bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_rgba(0,0,0,0.35)]">
+                Paper Title
+              </th>
+
+              {/* Scrollable Survey Columns */}
+              <th className="p-3 min-w-[110px] border-b border-r border-border-default/60">Paper Link</th>
+              <th className="p-3 min-w-[130px] border-b border-r border-border-default/60">PDF Accessibility</th>
+              <th className="p-3 min-w-[220px] border-b border-r border-border-default/60">Research Gap</th>
+              <th className="p-3 min-w-[180px] border-b border-r border-border-default/60">Used Dataset</th>
+              <th className="p-3 min-w-[120px] border-b border-r border-border-default/60">Summary Repo</th>
+              <th className="p-3 min-w-[180px] border-b border-r border-border-default/60">Remarks / Comments</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q1. Problem &amp; Importance</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q2. Data Used</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q3. Features / Inputs</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q4. Methods &amp; Pipeline</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q5. Baselines</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q6. Performance Evaluation</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q7. Key Results</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q8. Limitations &amp; Biases</th>
+              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q9. Code &amp; Artifacts</th>
+              <th className="p-3 min-w-[220px] border-b border-border-default/60">OutCome</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-default/60 text-text-primary">
             {filteredPapers.length === 0 ? (
               <tr>
-                <td colSpan={20} className="p-8 text-center text-text-tertiary">
+                <td colSpan={19} className="p-8 text-center text-text-tertiary">
                   No literature review records match your search query.
                 </td>
               </tr>
@@ -198,15 +210,15 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
                 }
 
                 return (
-                  <tr key={paper.id} className="hover:bg-bg-tertiary/40 transition-colors">
-                    {/* 1. SL */}
-                    <td className="p-3 font-mono font-bold text-accent border-r border-border-default/60 text-center">
+                  <tr key={paper.id} className="group hover:bg-bg-tertiary/40 transition-colors">
+                    {/* 1. Frozen SL */}
+                    <td className="p-3 w-[54px] min-w-[54px] max-w-[54px] sticky left-0 z-20 bg-bg-secondary group-hover:bg-bg-tertiary font-mono font-bold text-accent border-b border-r border-border-default/80 text-center">
                       {sl}
                     </td>
 
-                    {/* 2. Assigned Reviewer & Workflow Status */}
-                    <td className="p-3 border-r border-border-default/60 space-y-1">
-                      <p className="font-bold text-text-primary">
+                    {/* 2. Frozen Assigned Reviewer & Workflow Status */}
+                    <td className="p-3 w-[176px] min-w-[176px] max-w-[176px] sticky left-[54px] z-20 bg-bg-secondary group-hover:bg-bg-tertiary border-b border-r border-border-default/80 space-y-1">
+                      <p className="font-bold text-text-primary truncate">
                         {rev.assignedPerson || <span className="text-text-tertiary">—</span>}
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
@@ -221,22 +233,20 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
                       </div>
                     </td>
 
-                    {/* 3. Selected Paper Title */}
-                    <td className="p-3 border-r border-border-default/60 font-medium line-clamp-2">
-                      <Link href={`/papers/${paper.id}`} className="hover:text-accent transition-colors">
+                    {/* 3. Frozen Paper Title */}
+                    <td className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky left-[230px] z-20 bg-bg-secondary group-hover:bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_rgba(0,0,0,0.35)] font-semibold">
+                      <Link href={`/papers/${paper.id}`} className="hover:text-accent transition-colors line-clamp-2">
                         {rev.selectedPaperTitle || paper.title}
                       </Link>
+                      {paper.authors && (
+                        <p className="text-[10px] text-text-tertiary truncate font-normal mt-0.5">
+                          {paper.authors}
+                        </p>
+                      )}
                     </td>
 
-                    {/* 4. Paper Title */}
-                    <td className="p-3 border-r border-border-default/60 font-semibold">
-                      <Link href={`/papers/${paper.id}`} className="hover:text-accent transition-colors line-clamp-2">
-                        {paper.title}
-                      </Link>
-                    </td>
-
-                    {/* 5. Paper Link */}
-                    <td className="p-3 border-r border-border-default/60">
+                    {/* 4. Paper Link */}
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {effectiveLink ? (
                         <a
                           href={effectiveLink}
@@ -251,27 +261,27 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
                       )}
                     </td>
 
-                    {/* 6. PDF Accessibility */}
-                    <td className="p-3 border-r border-border-default/60">
+                    {/* 5. PDF Accessibility */}
+                    <td className="p-3 border-b border-r border-border-default/60">
                       <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-bg-tertiary text-text-secondary border border-border-default">
                         {rev.pdfAccessibility || 'Open Access'}
                       </span>
                     </td>
 
-                    {/* 7. Research Gap */}
-                    <td className="p-3 border-r border-border-default/60 text-text-secondary">
+                    {/* 6. Research Gap */}
+                    <td className="p-3 border-b border-r border-border-default/60 text-text-secondary">
                       <p className="line-clamp-3 leading-relaxed">
                         {rev.researchGap || <span className="text-text-tertiary italic">—</span>}
                       </p>
                     </td>
 
-                    {/* 8. Used Dataset */}
-                    <td className="p-3 border-r border-border-default/60 text-text-secondary font-mono text-[11px]">
+                    {/* 7. Used Dataset */}
+                    <td className="p-3 border-b border-r border-border-default/60 text-text-secondary font-mono text-[11px]">
                       {rev.usedDataset || <span className="text-text-tertiary italic">—</span>}
                     </td>
 
-                    {/* 9. Summary Repo */}
-                    <td className="p-3 border-r border-border-default/60 font-mono text-[11px]">
+                    {/* 8. Summary Repo */}
+                    <td className="p-3 border-b border-r border-border-default/60 font-mono text-[11px]">
                       {rev.summaryRepository ? (
                         <a
                           href={rev.summaryRepository}
@@ -286,58 +296,58 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
                       )}
                     </td>
 
-                    {/* 10. Remarks */}
-                    <td className="p-3 border-r border-border-default/60 text-text-secondary">
+                    {/* 9. Remarks */}
+                    <td className="p-3 border-b border-r border-border-default/60 text-text-secondary">
                       <p className="line-clamp-2">{rev.remarks || <span className="text-text-tertiary italic">—</span>}</p>
                     </td>
 
                     {/* Q1 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q1`, q1)}
                     </td>
 
                     {/* Q2 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q2`, q2)}
                     </td>
 
                     {/* Q3 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q3`, q3)}
                     </td>
 
                     {/* Q4 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q4`, q4)}
                     </td>
 
                     {/* Q5 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q5`, q5)}
                     </td>
 
                     {/* Q6 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q6`, q6)}
                     </td>
 
                     {/* Q7 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q7`, q7)}
                     </td>
 
                     {/* Q8 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q8`, q8)}
                     </td>
 
                     {/* Q9 */}
-                    <td className="p-3 border-r border-border-default/60">
+                    <td className="p-3 border-b border-r border-border-default/60">
                       {renderQaCell(`${paper.id}-q9`, q9)}
                     </td>
 
-                    {/* 20. OutCome */}
-                    <td className="p-3 text-text-primary font-medium">
+                    {/* 19. OutCome */}
+                    <td className="p-3 border-b border-border-default/60 text-text-primary font-medium">
                       <p className="line-clamp-3 leading-relaxed">
                         {rev.outcome || <span className="text-text-tertiary italic">—</span>}
                       </p>
