@@ -72,6 +72,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       priority = 'MEDIUM',
       groupId,
       assigneeId,
+      assigneeIds,
+      targetScope,
       dueDate,
       deliverableUrl,
       formattedTime,
@@ -105,34 +107,83 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (!isNaN(d.getTime())) parsedDueDate = d
     }
 
-    const task = await prisma.labTask.create({
-      data: {
-        labId: lab.id,
-        groupId: groupId || null,
-        title: title.trim(),
-        description: description?.trim() || null,
-        category: category || 'RESEARCH',
-        priority: priority || 'MEDIUM',
-        status: 'TODO',
-        dueDate: parsedDueDate,
-        assigneeId: assigneeId || null,
-        createdById: user.id,
-        deliverableUrl: deliverableUrl?.trim() || null,
-      },
-      include: {
-        assignee: { select: { id: true, name: true, email: true, department: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        group: { select: { id: true, name: true, color: true } },
-      },
-    })
+    // Collect all target student assignee user IDs automatically based on scope
+    let targetUserIds: string[] = []
 
-    // If assigned to a student, send an instant in-app & mobile background push notification
-    if (assigneeId && assigneeId !== user.id) {
-      const dueStr = formattedTime || (parsedDueDate ? parsedDueDate.toLocaleDateString() : '')
-      const dueInfo = dueStr ? ` (Due: ${dueStr})` : ''
+    if (targetScope === 'ALL_LAB' || assigneeId === 'ALL_LAB') {
+      const labMembers = await prisma.labMember.findMany({
+        where: { labId: lab.id, userId: { not: user.id } },
+        select: { userId: true },
+      })
+      targetUserIds = labMembers.map((m) => m.userId)
+    } else if ((targetScope === 'SUB_GROUP' || assigneeId === 'ALL_GROUP') && groupId) {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: { groupId: groupId, userId: { not: user.id } },
+        select: { userId: true },
+      })
+      targetUserIds = groupMembers.map((m) => m.userId)
+    } else if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+      targetUserIds = assigneeIds.filter((id: string) => id && id !== user.id)
+    } else if (assigneeId && assigneeId !== 'ALL_LAB' && assigneeId !== 'ALL_GROUP') {
+      targetUserIds = [assigneeId]
+    }
 
+    if (targetUserIds.length === 0) {
+      // If no specific student assignee, create one unassigned task for the lab / group
+      const task = await prisma.labTask.create({
+        data: {
+          labId: lab.id,
+          groupId: groupId || null,
+          title: title.trim(),
+          description: description?.trim() || null,
+          category: category || 'RESEARCH',
+          priority: priority || 'MEDIUM',
+          status: 'TODO',
+          dueDate: parsedDueDate,
+          assigneeId: null,
+          createdById: user.id,
+          deliverableUrl: deliverableUrl?.trim() || null,
+        },
+        include: {
+          assignee: { select: { id: true, name: true, email: true, department: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
+          group: { select: { id: true, name: true, color: true } },
+        },
+      })
+      return NextResponse.json(task, { status: 201 })
+    }
+
+    // Create an individual trackable task instance for each student and notify them
+    const createdTasks = []
+    const dueStr = formattedTime || (parsedDueDate ? parsedDueDate.toLocaleDateString() : '')
+    const dueInfo = dueStr ? ` (Due: ${dueStr})` : ''
+
+    for (const uid of targetUserIds) {
+      const task = await prisma.labTask.create({
+        data: {
+          labId: lab.id,
+          groupId: groupId || null,
+          title: title.trim(),
+          description: description?.trim() || null,
+          category: category || 'RESEARCH',
+          priority: priority || 'MEDIUM',
+          status: 'TODO',
+          dueDate: parsedDueDate,
+          assigneeId: uid,
+          createdById: user.id,
+          deliverableUrl: deliverableUrl?.trim() || null,
+        },
+        include: {
+          assignee: { select: { id: true, name: true, email: true, department: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
+          group: { select: { id: true, name: true, color: true } },
+        },
+      })
+      createdTasks.push(task)
+
+      // Send instant notification and background push notification
       await createNotification({
-        userId: assigneeId,
+        userId: uid,
         title: `New Lab Task: "${task.title}" 📋`,
         message: `${user.name} assigned you a research deliverable in ${lab.name}${dueInfo}.`,
         type: 'ASSIGNMENT',
@@ -140,7 +191,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
     }
 
-    return NextResponse.json(task, { status: 201 })
+    return NextResponse.json(createdTasks.length === 1 ? createdTasks[0] : createdTasks, { status: 201 })
   } catch (error: any) {
     console.error('Error creating lab task:', error)
     return NextResponse.json({ error: error.message || 'Failed to create lab task' }, { status: 500 })

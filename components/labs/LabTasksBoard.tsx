@@ -22,6 +22,8 @@ import {
   ShieldCheck,
   Link as LinkIcon,
   MessageSquare,
+  Building,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -48,7 +50,12 @@ export interface TaskItem {
 interface LabTasksBoardProps {
   labId: string
   labSlug: string
-  groups: { id: string; name: string; color: string }[]
+  groups: {
+    id: string
+    name: string
+    color: string
+    members?: { id: string; role?: string; user: { id: string; name: string; email: string } }[]
+  }[]
   members: { id: string; role: string; user: { id: string; name: string; email: string } }[]
   isLeadOrSupervisor: boolean
 }
@@ -92,8 +99,9 @@ export function LabTasksBoard({
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('RESEARCH')
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM')
+  const [targetScope, setTargetScope] = useState<'ALL_LAB' | 'SUB_GROUP' | 'INDIVIDUAL'>('ALL_LAB')
   const [selectedGroupId, setSelectedGroupId] = useState('')
-  const [selectedAssigneeId, setSelectedAssigneeId] = useState('')
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState('ALL_LAB')
   const [dueDate, setDueDate] = useState('')
   const [deliverableUrl, setDeliverableUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -139,8 +147,9 @@ export function LabTasksBoard({
     setDescription('')
     setCategory('RESEARCH')
     setPriority('MEDIUM')
-    setSelectedGroupId('')
-    setSelectedAssigneeId(members.length > 0 ? members[0].user.id : '')
+    setTargetScope('ALL_LAB')
+    setSelectedGroupId(groups.length > 0 ? groups[0].id : '')
+    setSelectedAssigneeId('ALL_LAB')
     const defaultDue = new Date()
     defaultDue.setDate(defaultDue.getDate() + 7)
     setDueDate(defaultDue.toISOString().slice(0, 10))
@@ -161,6 +170,13 @@ export function LabTasksBoard({
           })
         : undefined
 
+      const effectiveAssigneeId =
+        targetScope === 'ALL_LAB'
+          ? 'ALL_LAB'
+          : targetScope === 'SUB_GROUP'
+          ? selectedAssigneeId || 'ALL_GROUP'
+          : selectedAssigneeId
+
       const res = await fetch(`/api/labs/${labId}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,8 +185,9 @@ export function LabTasksBoard({
           description: description.trim() || undefined,
           category,
           priority,
-          groupId: selectedGroupId || undefined,
-          assigneeId: selectedAssigneeId || undefined,
+          targetScope,
+          groupId: targetScope === 'SUB_GROUP' ? selectedGroupId : undefined,
+          assigneeId: effectiveAssigneeId,
           dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
           deliverableUrl: deliverableUrl.trim() || undefined,
           formattedTime: formattedLocalTime,
@@ -178,7 +195,14 @@ export function LabTasksBoard({
       })
 
       if (res.ok) {
-        addToast('success', 'Research task created and assigned!')
+        addToast(
+          'success',
+          targetScope === 'ALL_LAB'
+            ? 'Research task assigned to all lab students!'
+            : targetScope === 'SUB_GROUP' && effectiveAssigneeId === 'ALL_GROUP'
+            ? 'Research task assigned to all sub-group members!'
+            : 'Research task created and assigned!'
+        )
         setIsCreateOpen(false)
         fetchTasks()
       } else {
@@ -690,10 +714,161 @@ export function LabTasksBoard({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Assignment Target Scope */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-semibold text-text-secondary">
+                Assign Deliverable To *
+              </label>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetScope('ALL_LAB')
+                    setSelectedAssigneeId('ALL_LAB')
+                    setSelectedGroupId('')
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                    targetScope === 'ALL_LAB'
+                      ? 'bg-accent/15 border-accent text-accent shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-border-hover'
+                  }`}
+                >
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Building size={13} /> Whole Lab
+                  </span>
+                  <span className="text-[10px] opacity-80 line-clamp-1">
+                    All {members.filter((m) => m.user.id !== user?.id).length} students
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetScope('SUB_GROUP')
+                    if (groups.length > 0 && !selectedGroupId) setSelectedGroupId(groups[0].id)
+                    setSelectedAssigneeId('ALL_GROUP')
+                  }}
+                  disabled={groups.length === 0}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                    targetScope === 'SUB_GROUP'
+                      ? 'bg-accent/15 border-accent text-accent shadow-sm'
+                      : groups.length === 0
+                      ? 'opacity-40 cursor-not-allowed bg-bg-tertiary border-border-default text-text-tertiary'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-border-hover'
+                  }`}
+                >
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Layers size={13} /> Sub-Group
+                  </span>
+                  <span className="text-[10px] opacity-80 line-clamp-1">
+                    Cluster members
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetScope('INDIVIDUAL')
+                    const firstStudent = members.find((m) => m.user.id !== user?.id)
+                    setSelectedAssigneeId(firstStudent ? firstStudent.user.id : '')
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                    targetScope === 'INDIVIDUAL'
+                      ? 'bg-accent/15 border-accent text-accent shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-border-hover'
+                  }`}
+                >
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <User size={13} /> Individual
+                  </span>
+                  <span className="text-[10px] opacity-80 line-clamp-1">
+                    Single researcher
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scope Specific Details */}
+            {targetScope === 'ALL_LAB' && (
+              <div className="p-3 rounded-xl bg-accent/10 border border-accent/30 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-text-primary flex items-center gap-1.5">
+                    <Users size={13} className="text-accent" /> Automatically Assigns All Enrolled Students
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold">
+                    {members.filter((m) => m.user.id !== user?.id).length} Students
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-secondary leading-relaxed">
+                  Every enrolled student researcher will receive their own trackable deliverable instance with instant in-app &amp; background phone push alerts.
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {members
+                    .filter((m) => m.user.id !== user?.id)
+                    .map((m) => (
+                      <span
+                        key={m.user.id}
+                        className="px-2 py-0.5 rounded-md bg-bg-secondary text-text-primary text-[10px] border border-border-default"
+                      >
+                        {m.user.name}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {targetScope === 'SUB_GROUP' && (
+              <div className="space-y-3 p-3 rounded-xl bg-bg-tertiary border border-border-default">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Select Target Research Sub-Group *
+                  </label>
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => {
+                      setSelectedGroupId(e.target.value)
+                      setSelectedAssigneeId('ALL_GROUP')
+                    }}
+                    required
+                    className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.members ? g.members.length : 0} members)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Sub-Group Assignee Option
+                  </label>
+                  <select
+                    value={selectedAssigneeId}
+                    onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                    className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="ALL_GROUP">
+                      👥 All Members of this Sub-Group (Automatically Assigned)
+                    </option>
+                    {groups
+                      .find((g) => g.id === selectedGroupId)
+                      ?.members?.map((m) => (
+                        <option key={m.user.id} value={m.user.id}>
+                          👤 {m.user.name} ({m.user.email})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {targetScope === 'INDIVIDUAL' && (
               <div>
                 <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Assign to Student Researcher *
+                  Select Student Researcher *
                 </label>
                 <select
                   value={selectedAssigneeId}
@@ -702,32 +877,16 @@ export function LabTasksBoard({
                   className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
                 >
                   <option value="">Select a student...</option>
-                  {members.map((m) => (
-                    <option key={m.user.id} value={m.user.id}>
-                      {m.user.name} ({m.user.email})
-                    </option>
-                  ))}
+                  {members
+                    .filter((m) => m.user.id !== user?.id)
+                    .map((m) => (
+                      <option key={m.user.id} value={m.user.id}>
+                        {m.user.name} ({m.user.email})
+                      </option>
+                    ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Target Sub-Group (Optional)
-                </label>
-                <select
-                  value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">Lab-Wide Task</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
