@@ -307,11 +307,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     // If supervisor updated task or reassigned, notify student
     else if (!isAssignee && updated.assigneeId && updated.assigneeId !== user.id) {
+      const isApproved = status === 'COMPLETED'
+      const isRejected = status === 'IN_PROGRESS' && task.status === 'IN_REVIEW'
+
+      const notifTitle = isApproved
+        ? `Task Approved! 🎉`
+        : isRejected
+        ? `Task Revision Requested 🔄`
+        : `Task Updated: "${updated.title}" 📝`
+
+      const notifMessage = isApproved
+        ? `${user.name} approved your work on "${updated.title}".`
+        : isRejected
+        ? `${user.name} reviewed your submission for "${updated.title}" and requested revisions.`
+        : `${user.name} updated the task details / status to ${updated.status}.`
+
       await createNotification({
         userId: updated.assigneeId,
-        title: `Task Updated: "${updated.title}" 📝`,
-        message: `${user.name} updated the task details / status to ${updated.status}.`,
-        type: 'STATUS_UPDATE',
+        title: notifTitle,
+        message: notifMessage,
+        type: isApproved ? 'STATUS_UPDATE' : isRejected ? 'FEEDBACK' : 'STATUS_UPDATE',
         link: `/labs/${task.lab.slug}?tab=tasks`,
       })
     }

@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Building,
   Users,
+  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -288,10 +289,18 @@ export function LabTasksBoard({
       })
 
       if (res.ok) {
-        addToast('success', `Task marked as ${newStatus}`)
+        addToast(
+          'success',
+          newStatus === 'COMPLETED'
+            ? '🎉 Task approved successfully!'
+            : newStatus === 'IN_PROGRESS'
+            ? '🔄 Task returned for revision.'
+            : `Task marked as ${newStatus}`
+        )
         fetchTasks()
       } else {
-        addToast('error', 'Failed to update status')
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update status')
       }
     } catch {
       addToast('error', 'Network error')
@@ -634,15 +643,26 @@ export function LabTasksBoard({
                         </span>
 
                         {isLeadOrSupervisor && isInReview && (
-                          <Button
-                            size="xs"
-                            variant="primary"
-                            onClick={() => handleQuickStatusChange(t.id, 'COMPLETED')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white"
-                            icon={<CheckCircle2 size={12} />}
-                          >
-                            Approve Deliverable
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="xs"
+                              variant="primary"
+                              onClick={() => handleQuickStatusChange(t.id, 'COMPLETED')}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                              icon={<CheckCircle2 size={12} />}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => handleQuickStatusChange(t.id, 'IN_PROGRESS')}
+                              className="text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 border border-rose-500/30"
+                              icon={<XCircle size={12} />}
+                            >
+                              Reject
+                            </Button>
+                          </div>
                         )}
                       </>
                     )}
