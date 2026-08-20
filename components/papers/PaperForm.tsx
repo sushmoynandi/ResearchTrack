@@ -440,81 +440,6 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
     if (extracted.citationCount) setCitationCount(extracted.citationCount.toString())
   }
 
-  // Synthesize ALL answers for literature review questions from existing paper specs
-  const handleAutoDraftReview = () => {
-    if (!title && !abstract) {
-      addToast('error', 'Please fill in the Title and Abstract first (or use Auto-Fetch).')
-      return
-    }
-
-    const sentences = abstract ? abstract.split(/(?<=[.!?])\s+/) : []
-    const problemText = problemSolved || (sentences.length > 0 ? sentences[0] : 'Scalability and efficiency bottlenecks in prior methods.')
-    const contributionText = keyContribution || (sentences.length > 1 ? sentences[1] : 'Novel algorithmic mechanism and training formulation.')
-    const limitationText = limitations || 'Computational scaling costs and memory bandwidth overhead on ultra-long sequences.'
-    const replicationText = codeUrl
-      ? `Open source implementation is hosted at ${codeUrl}. ${modelUrl ? `Weights accessible at ${modelUrl}.` : ''}`
-      : 'Implementation details and hyperparameter tables provided in paper appendix.'
-
-    setLiteratureReview((prev) => ({
-      ...prev,
-      sl: prev.sl || '1',
-      assignedPerson: prev.assignedPerson || 'Lead Research Reviewer',
-      selectedPaperTitle: title || prev.selectedPaperTitle || 'Selected Research Paper',
-      paperTitle: title || prev.paperTitle,
-      paperLink: url || (doi ? `https://doi.org/${doi}` : prev.paperLink || 'https://arxiv.org'),
-      pdfAccessibility: prev.pdfAccessibility || 'Open Access',
-      researchGap: prev.researchGap || problemText,
-      usedDataset: prev.usedDataset || (benchmarks.length > 0 ? benchmarks.map((b) => b.name).join(', ') : 'Standard benchmark test suites and pretraining corpora'),
-      summaryRepository: prev.summaryRepository || codeUrl || 'https://github.com/research-lab/paper-summaries',
-      remarks: prev.remarks || 'Thorough literature survey and comparative experimental analysis completed.',
-      q1ProblemImportance: {
-        detailedAnswer: `The authors address: ${problemText} This is critical for improving foundational model capability, efficiency, and generalization.`,
-        shortSummary: problemText.slice(0, 100) || 'Primary limitation in prior paradigm.',
-      },
-      q2DataDetails: {
-        detailedAnswer: prev.q2DataDetails?.detailedAnswer || 'Trained on standardized curated pretraining datasets and evaluated on benchmark splits with ethical data filtering.',
-        shortSummary: prev.q2DataDetails?.shortSummary || 'Standard curated dataset splits.',
-      },
-      q3FeaturesInputs: {
-        detailedAnswer: prev.q3FeaturesInputs?.detailedAnswer || (contextWindow ? `Context window input of ${contextWindow} with tokenized sequence representations.` : 'Tokenized sequence embeddings and positional representations.'),
-        shortSummary: prev.q3FeaturesInputs?.shortSummary || (contextWindow || 'Embedding representations'),
-      },
-      q4MethodsPipeline: {
-        detailedAnswer: architecture ? `Employs ${architecture}. Key novel contribution: ${contributionText}` : contributionText,
-        shortSummary: architecture || 'Core architectural approach.',
-      },
-      q5Baselines: {
-        detailedAnswer: benchmarks.length > 0 && benchmarks[0].baseline
-          ? `Evaluated against standard baselines including ${benchmarks.map((b) => b.baseline).filter(Boolean).join(', ')}.`
-          : 'Standard prior domain state-of-the-art baseline models.',
-        shortSummary: 'Domain SOTA baseline architectures.',
-      },
-      q6Evaluation: {
-        detailedAnswer: benchmarks.length > 0
-          ? `Evaluated across ${benchmarks.map((b) => b.name).join(', ')} with statistical ablation studies.`
-          : 'Standard downstream validation datasets, task accuracy metrics, and latency profiling.',
-        shortSummary: 'Task benchmark accuracy metrics.',
-      },
-      q7KeyResults: {
-        detailedAnswer: benchmarks.length > 0
-          ? `Achieved: ${benchmarks.map((b) => `${b.name} = ${b.score}`).join(', ')}.`
-          : 'Demonstrated superior quantitative performance over established baselines across target benchmarks.',
-        shortSummary: benchmarks.length > 0 ? `${benchmarks[0].name}: ${benchmarks[0].score}` : 'Outperforms prior baselines',
-      },
-      q8LimitationsBiases: {
-        detailedAnswer: limitationText,
-        shortSummary: limitationText.slice(0, 80),
-      },
-      q9ArtifactsReplication: {
-        detailedAnswer: replicationText,
-        shortSummary: codeUrl ? 'Code available on GitHub' : 'Artifacts in publication',
-      },
-      outcome: contributionText || prev.outcome || 'Advanced the state of the art in the domain.',
-    }))
-
-    addToast('success', 'Auto-drafted all required review answers and survey fields!')
-  }
-
   const toggleCollection = (id: string) => {
     setSelectedCollections((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
@@ -819,12 +744,11 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
         </div>
       </div>
 
-      {/* NEW: Mandatory Literature Review & Research Questionnaire Section */}
+      {/* Optional Literature Review & Research Questionnaire Section */}
       <div className="space-y-4">
         <LiteratureReviewEditor
           data={literatureReview}
           onChange={setLiteratureReview}
-          onAutoDraft={handleAutoDraftReview}
         />
       </div>
 

@@ -48,8 +48,8 @@ export const QUESTION_CONFIG = [
     key: 'q1ProblemImportance',
     num: 'Q1',
     title: 'What problem do the authors address and why is it important?',
-    placeholderDetailed: 'Describe the core motivation, scientific or industrial significance, and the primary bottleneck (Required)...',
-    placeholderSummary: 'Short summary: Key problem and why it matters (Required)...',
+    placeholderDetailed: 'Describe the core motivation, scientific or industrial significance, and the primary bottleneck...',
+    placeholderSummary: 'Short summary: Key problem and why it matters...',
     placeholderComment: 'Add reviewer comment, discussion note, or critique for Q1...',
     icon: HelpCircle,
     color: 'text-amber-400',
@@ -58,8 +58,8 @@ export const QUESTION_CONFIG = [
     key: 'q2DataDetails',
     num: 'Q2',
     title: 'What data is used (source, size, timeframe, splits, collection process, ethics or consent)?',
-    placeholderDetailed: 'Detail the dataset provenance, training/validation/test splits, token counts, curation process, consent (Required)...',
-    placeholderSummary: 'Short summary: Primary dataset name, size, and source (Required)...',
+    placeholderDetailed: 'Detail the dataset provenance, training/validation/test splits, token counts, curation process, consent...',
+    placeholderSummary: 'Short summary: Primary dataset name, size, and source...',
     placeholderComment: 'Add reviewer comment on data quality, curation, or biases...',
     icon: Database,
     color: 'text-sky-400',
@@ -68,8 +68,8 @@ export const QUESTION_CONFIG = [
     key: 'q3FeaturesInputs',
     num: 'Q3',
     title: 'What features or inputs are used, and how were they selected or engineered?',
-    placeholderDetailed: 'Specify token representations, embeddings, modalities (text, vision, audio), pre-processing filters, prompt templates (Required)...',
-    placeholderSummary: 'Short summary: Key feature representations and input modalities (Required)...',
+    placeholderDetailed: 'Specify token representations, embeddings, modalities (text, vision, audio), pre-processing filters, prompt templates...',
+    placeholderSummary: 'Short summary: Key feature representations and input modalities...',
     placeholderComment: 'Add reviewer comment on feature selection or engineering...',
     icon: Layers,
     color: 'text-indigo-400',
@@ -78,8 +78,8 @@ export const QUESTION_CONFIG = [
     key: 'q4MethodsPipeline',
     num: 'Q4',
     title: 'What methods or models are applied, and what is the overall pipeline?',
-    placeholderDetailed: 'Explain the core algorithmic mechanism, model architecture, loss formulation, optimization hyperparameters, inference steps (Required)...',
-    placeholderSummary: 'Short summary: Model family and end-to-end processing pipeline (Required)...',
+    placeholderDetailed: 'Explain the core algorithmic mechanism, model architecture, loss formulation, optimization hyperparameters, inference steps...',
+    placeholderSummary: 'Short summary: Model family and end-to-end processing pipeline...',
     placeholderComment: 'Add reviewer comment on methodology novelty or sound engineering...',
     icon: Cpu,
     color: 'text-emerald-400',
@@ -88,8 +88,8 @@ export const QUESTION_CONFIG = [
     key: 'q5Baselines',
     num: 'Q5',
     title: 'What baselines are used for comparison, and why were they chosen?',
-    placeholderDetailed: 'List standard state-of-the-art baselines compared against and the rationale for their selection (Required)...',
-    placeholderSummary: 'Short summary: Prior SOTA methods and baseline models compared (Required)...',
+    placeholderDetailed: 'List standard state-of-the-art baselines compared against and the rationale for their selection...',
+    placeholderSummary: 'Short summary: Prior SOTA methods and baseline models compared...',
     placeholderComment: 'Add reviewer comment on fairness or strength of chosen baselines...',
     icon: BarChart3,
     color: 'text-cyan-400',
@@ -98,8 +98,8 @@ export const QUESTION_CONFIG = [
     key: 'q6Evaluation',
     num: 'Q6',
     title: 'How is performance evaluated (metrics, experimental setup, statistical tests, user studies if applicable)?',
-    placeholderDetailed: 'Describe benchmarks, evaluation metrics (accuracy, BLEU, perplexity, latency, win rates), statistical significance tests (Required)...',
-    placeholderSummary: 'Short summary: Primary evaluation metrics and benchmark setups (Required)...',
+    placeholderDetailed: 'Describe benchmarks, evaluation metrics (accuracy, BLEU, perplexity, latency, win rates), statistical significance tests...',
+    placeholderSummary: 'Short summary: Primary evaluation metrics and benchmark setups...',
     placeholderComment: 'Add reviewer comment on evaluation rigor or missing metrics...',
     icon: ShieldCheck,
     color: 'text-blue-400',
@@ -108,8 +108,8 @@ export const QUESTION_CONFIG = [
     key: 'q7KeyResults',
     num: 'Q7',
     title: 'What are the key results with numbers, and how do they compare to baselines or prior work?',
-    placeholderDetailed: 'State numerical findings, percentage improvements over baselines, ablation study takeaways (Required)...',
-    placeholderSummary: 'Short summary: Quantitative gains and headline metric scores (Required)...',
+    placeholderDetailed: 'State numerical findings, percentage improvements over baselines, ablation study takeaways...',
+    placeholderSummary: 'Short summary: Quantitative gains and headline metric scores...',
     placeholderComment: 'Add reviewer comment on significance of results or ablation insights...',
     icon: Sparkles,
     color: 'text-teal-400',
@@ -118,8 +118,8 @@ export const QUESTION_CONFIG = [
     key: 'q8LimitationsBiases',
     num: 'Q8',
     title: 'What are the limitations and potential biases?',
-    placeholderDetailed: 'Discuss computational cost, memory footprint, data bias, failure modes, safety considerations, out-of-domain degradation (Required)...',
-    placeholderSummary: 'Short summary: Key weaknesses and unaddressed failure modes (Required)...',
+    placeholderDetailed: 'Discuss computational cost, memory footprint, data bias, failure modes, safety considerations, out-of-domain degradation...',
+    placeholderSummary: 'Short summary: Key weaknesses and unaddressed failure modes...',
     placeholderComment: 'Add reviewer comment on unmentioned limitations or safety concerns...',
     icon: AlertCircle,
     color: 'text-rose-400',
@@ -128,8 +128,8 @@ export const QUESTION_CONFIG = [
     key: 'q9ArtifactsReplication',
     num: 'Q9',
     title: 'Is code, data, or other artifacts available to enable replication?',
-    placeholderDetailed: 'Document links to open-source GitHub repositories, Hugging Face model weights, training scripts, checkpoints (Required)...',
-    placeholderSummary: 'Short summary: Availability of code, weights, and replication assets (Required)...',
+    placeholderDetailed: 'Document links to open-source GitHub repositories, Hugging Face model weights, training scripts, checkpoints...',
+    placeholderSummary: 'Short summary: Availability of code, weights, and replication assets...',
     placeholderComment: 'Add reviewer comment on reproducibility or code cleanliness...',
     icon: GitBranch,
     color: 'text-purple-400',
@@ -139,13 +139,11 @@ export const QUESTION_CONFIG = [
 interface LiteratureReviewEditorProps {
   data: LiteratureReviewData
   onChange: (updated: LiteratureReviewData) => void
-  onAutoDraft?: () => void
 }
 
 export function LiteratureReviewEditor({
   data,
   onChange,
-  onAutoDraft,
 }: LiteratureReviewEditorProps) {
   // All questions open by default so reviewers see everything that is required
   const [openAccordion, setOpenAccordion] = useState<Record<string, boolean>>({
@@ -279,7 +277,7 @@ export function LiteratureReviewEditor({
 
   return (
     <div className="space-y-6 pt-2">
-      {/* Header with Auto-Draft helper & Completion Progress Bar */}
+      {/* Header & Progress Tracker */}
       <div className="p-4 rounded-xl bg-bg-tertiary border border-border-default space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-default pb-3">
           <div className="flex items-center gap-2">
@@ -288,10 +286,10 @@ export function LiteratureReviewEditor({
             </div>
             <div>
               <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                Mandatory Literature Review &amp; Survey Questionnaire (All Questions Required)
+                Literature Review &amp; Survey Questionnaire (Optional)
               </h3>
               <p className="text-xs text-text-secondary">
-                Every question and field is required — complete detailed analyses, summaries, and reviewer comments.
+                Modular research survey sections — fill out any notes, summaries, or questions as needed. All fields are optional.
               </p>
             </div>
           </div>
@@ -306,32 +304,20 @@ export function LiteratureReviewEditor({
             >
               Add Question
             </Button>
-
-            {onAutoDraft && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={onAutoDraft}
-                icon={<Sparkles size={13} />}
-              >
-                Auto-Draft All Answers
-              </Button>
-            )}
           </div>
         </div>
 
-        {/* Live Completion Progress Bar */}
+        {/* Optional Progress Tracker */}
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-text-primary flex items-center gap-1.5">
-              {isAllComplete ? (
-                <span className="text-success flex items-center gap-1">
-                  <CheckCircle2 size={13} /> 100% Complete — All Required Review Questions Answered
+              {filledMandatoryCount > 0 ? (
+                <span className="text-text-secondary flex items-center gap-1">
+                  <CheckCircle2 size={13} className="text-accent" /> {filledMandatoryCount} of {totalMandatoryFields} Review Sections Filled
                 </span>
               ) : (
-                <span className="text-warning flex items-center gap-1">
-                  <AlertTriangle size={13} /> Incomplete ({filledMandatoryCount} of {totalMandatoryFields} Mandatory Review Fields Filled)
+                <span className="text-text-tertiary">
+                  0 of {totalMandatoryFields} Optional Review Sections Filled
                 </span>
               )}
             </span>
@@ -340,15 +326,9 @@ export function LiteratureReviewEditor({
             </span>
           </div>
 
-          <div className="w-full h-2 rounded-full bg-bg-primary overflow-hidden border border-border-default/60">
+          <div className="w-full h-1.5 rounded-full bg-bg-primary overflow-hidden border border-border-default/60">
             <div
-              className={`h-full transition-all duration-300 ${
-                isAllComplete
-                  ? 'bg-success'
-                  : completionPct > 60
-                  ? 'bg-accent'
-                  : 'bg-warning'
-              }`}
+              className="h-full bg-accent transition-all duration-300"
               style={{ width: `${completionPct}%` }}
             />
           </div>
@@ -360,60 +340,53 @@ export function LiteratureReviewEditor({
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2">
             <User size={14} className="text-accent" /> Review Assignment &amp; Tracking Meta
-            <span className="text-[10px] text-danger font-bold uppercase tracking-wider">(All Required *)</span>
           </h4>
           <span className="text-[11px] text-text-tertiary font-mono">Columns: SL, Assigned, Title, Link, Access</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input
-            label="SL (Serial Number) *"
+            label="SL (Serial Number)"
             placeholder="e.g. 01, 1"
             value={data.sl?.toString() || ''}
             onChange={(e) => updateField('sl', e.target.value)}
-            required
           />
           <Input
-            label="Assigned Person's Name *"
+            label="Assigned Person's Name"
             placeholder="e.g. Dr. Alex Morgan"
             value={data.assignedPerson || ''}
             onChange={(e) => updateField('assignedPerson', e.target.value)}
-            required
           />
           <Select
-            label="PDF Accessibility Status *"
+            label="PDF Accessibility Status"
             options={PDF_ACCESSIBILITY_OPTIONS}
             value={data.pdfAccessibility || 'Open Access'}
             onChange={(e) => updateField('pdfAccessibility', e.target.value)}
-            required
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="Selected Paper Title *"
+            label="Selected Paper Title"
             placeholder="e.g. Attention Is All You Need (Vaswani et al.)"
             value={data.selectedPaperTitle || ''}
             onChange={(e) => updateField('selectedPaperTitle', e.target.value)}
-            required
           />
           <Input
-            label="Repository of the Summary *"
+            label="Repository of the Summary"
             placeholder="e.g. https://github.com/lab/review-summaries or Overleaf link"
             value={data.summaryRepository || ''}
             onChange={(e) => updateField('summaryRepository', e.target.value)}
             type="url"
-            required
           />
         </div>
 
         <Textarea
-          label="Remarks or Comments *"
+          label="Remarks or Comments"
           placeholder="General reviewer remarks, initial impressions, conference notes, or reading group discussion points..."
           value={data.remarks || ''}
           onChange={(e) => updateField('remarks', e.target.value)}
           rows={2}
-          required
         />
       </div>
 
@@ -421,40 +394,34 @@ export function LiteratureReviewEditor({
       <div className="p-4 rounded-xl bg-bg-tertiary/70 border border-border-default space-y-4">
         <h4 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2">
           <AlertCircle size={14} className="text-amber-400" /> Research Gap &amp; Datasets
-          <span className="text-[10px] text-danger font-bold uppercase tracking-wider">(All Required *)</span>
         </h4>
 
         <div className="space-y-4">
           <Textarea
-            label="Lackings of the Paper or Research Gap *"
+            label="Lackings of the Paper or Research Gap"
             placeholder="What research gap does this paper leave unaddressed? What are the missing validations or unresolved bottlenecks?"
             value={data.researchGap || ''}
             onChange={(e) => updateField('researchGap', e.target.value)}
             rows={2}
-            required
           />
 
           <Textarea
-            label="Used Dataset *"
+            label="Used Dataset"
             placeholder="Datasets utilized in experiments (e.g. Common Crawl, C4, ImageNet-1k, WMT 2014 En-De, GSM8K, MMLU, HumanEval)..."
             value={data.usedDataset || ''}
             onChange={(e) => updateField('usedDataset', e.target.value)}
             rows={2}
-            required
           />
         </div>
       </div>
 
-      {/* Group 3: Core Evaluation Questions (Q1 to Q9) — All Required */}
+      {/* Group 3: Core Evaluation Questions (Q1 to Q9) — Optional */}
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-border-default pb-2">
           <div className="flex items-center gap-2">
             <h4 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2">
               <HelpCircle size={14} className="text-accent" /> Evaluation Questionnaire (Q1 – Q9)
             </h4>
-            <span className="text-[10px] text-danger font-bold uppercase tracking-wider">
-              (All 9 Questions Required *)
-            </span>
           </div>
 
           <div className="flex items-center gap-2 text-xs">
@@ -483,16 +450,16 @@ export function LiteratureReviewEditor({
               shortSummary: '',
               comment: '',
             }
-            const isOpen = openAccordion[q.key] ?? true
-            const isQuestionComplete = Boolean(val.detailedAnswer?.trim() && val.shortSummary?.trim())
+            const isOpen = openAccordion[q.key] ?? false
+            const isQuestionComplete = Boolean(val.detailedAnswer?.trim() || val.shortSummary?.trim())
 
             return (
               <div
                 key={q.key}
                 className={`rounded-xl bg-bg-tertiary border transition-all ${
                   isQuestionComplete
-                    ? 'border-border-default'
-                    : 'border-danger/40 bg-danger-subtle/10'
+                    ? 'border-accent/40 bg-accent/5'
+                    : 'border-border-default'
                 }`}
               >
                 <button
@@ -515,13 +482,9 @@ export function LiteratureReviewEditor({
                         <MessageSquare size={11} /> Comment
                       </span>
                     )}
-                    {isQuestionComplete ? (
+                    {isQuestionComplete && (
                       <span className="text-[10px] text-success flex items-center gap-1 font-mono bg-success/15 px-1.5 py-0.5 rounded">
-                        <CheckCircle2 size={11} /> Complete
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-danger font-bold font-mono bg-danger/15 px-1.5 py-0.5 rounded flex items-center gap-1">
-                        <AlertTriangle size={11} /> Required *
+                        <CheckCircle2 size={11} /> Filled
                       </span>
                     )}
                     {isOpen ? <ChevronUp size={15} className="text-text-tertiary" /> : <ChevronDown size={15} className="text-text-tertiary" />}
@@ -531,25 +494,23 @@ export function LiteratureReviewEditor({
                 {isOpen && (
                   <div className="p-4 pt-1 space-y-3.5 border-t border-border-default/50 bg-bg-primary/40">
                     <Textarea
-                      label="Detailed Analysis / Full Response *"
+                      label="Detailed Analysis / Full Response"
                       placeholder={q.placeholderDetailed}
                       value={val.detailedAnswer || ''}
                       onChange={(e) => updateQuestion(q.key as keyof LiteratureReviewData, 'detailedAnswer', e.target.value)}
                       rows={3}
-                      required
                     />
 
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                        Short Summary (at the end) *
+                        Short Summary (at the end)
                       </label>
                       <Input
                         placeholder={q.placeholderSummary}
                         value={val.shortSummary || ''}
                         onChange={(e) => updateQuestion(q.key as keyof LiteratureReviewData, 'shortSummary', e.target.value)}
                         className="text-xs font-mono"
-                        required
                       />
                     </div>
 
@@ -595,7 +556,7 @@ export function LiteratureReviewEditor({
         {customQuestions.length === 0 ? (
           <div className="p-4 rounded-xl bg-bg-tertiary/40 border border-dashed border-border-default text-center text-text-tertiary space-y-2">
             <p className="text-xs">
-              Need custom research evaluation criteria? Click below to add mandatory custom questions (e.g. Q10, Q11, safety audits, ablation checks).
+              Need custom research evaluation criteria? Add custom questions (e.g. Q10, Q11, safety audits, ablation checks).
             </p>
             <Button
               type="button"
@@ -614,13 +575,13 @@ export function LiteratureReviewEditor({
               const qId = cq.id || `custom-${idx}`
               const isOpen = openAccordion[qId] ?? true
               const labelNum = cq.num || `Q${idx + 10}`
-              const isCustomComplete = Boolean(cq.title?.trim() && cq.detailedAnswer?.trim() && cq.shortSummary?.trim())
+              const isCustomComplete = Boolean(cq.detailedAnswer?.trim() || cq.shortSummary?.trim())
 
               return (
                 <div
                   key={qId}
                   className={`rounded-xl bg-bg-tertiary border overflow-hidden transition-all ${
-                    isCustomComplete ? 'border-accent/40' : 'border-danger/40 bg-danger-subtle/10'
+                    isCustomComplete ? 'border-accent/40 bg-accent/5' : 'border-border-default'
                   }`}
                 >
                   <div className="flex items-center justify-between p-3.5 bg-bg-elevated/40 border-b border-border-default/40">
@@ -629,22 +590,17 @@ export function LiteratureReviewEditor({
                         {labelNum}
                       </span>
                       <input
-                        placeholder="Enter Question Title * (Required)..."
+                        placeholder="Enter Question Title..."
                         value={cq.title || ''}
                         onChange={(e) => updateCustomQuestion(qId, 'title', e.target.value)}
                         className="w-full bg-transparent text-xs font-semibold text-text-primary outline-none border-b border-transparent focus:border-accent pb-0.5 placeholder:text-text-tertiary"
-                        required
                       />
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {isCustomComplete ? (
+                      {isCustomComplete && (
                         <span className="text-[10px] text-success font-mono flex items-center gap-1 bg-success/15 px-1.5 py-0.5 rounded mr-1">
-                          <CheckCircle2 size={11} /> Complete
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-danger font-bold font-mono bg-danger/15 px-1.5 py-0.5 rounded mr-1">
-                          Required *
+                          <CheckCircle2 size={11} /> Filled
                         </span>
                       )}
                       <button
@@ -670,45 +626,41 @@ export function LiteratureReviewEditor({
                     <div className="p-4 space-y-3 bg-bg-primary/40">
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <Input
-                          label="Question Tag / Number *"
+                          label="Question Tag / Number"
                           placeholder="e.g. Q10, Ethics"
                           value={String(cq.num || labelNum)}
                           onChange={(e) => updateCustomQuestion(qId, 'num', e.target.value)}
                           className="text-xs font-mono"
-                          required
                         />
                         <div className="sm:col-span-3">
                           <Input
-                            label="Question Prompt / Title *"
+                            label="Question Prompt / Title"
                             placeholder="e.g. What are the training compute and environmental footprints?"
                             value={cq.title || ''}
                             onChange={(e) => updateCustomQuestion(qId, 'title', e.target.value)}
                             className="text-xs"
-                            required
                           />
                         </div>
                       </div>
 
                       <Textarea
-                        label="Detailed Response / Analysis *"
-                        placeholder="Detailed answer for this custom question (Required)..."
+                        label="Detailed Response / Analysis"
+                        placeholder="Detailed answer for this custom question..."
                         value={cq.detailedAnswer || ''}
                         onChange={(e) => updateCustomQuestion(qId, 'detailedAnswer', e.target.value)}
                         rows={3}
-                        required
                       />
 
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                          Short Summary (at the end) *
+                          Short Summary (at the end)
                         </label>
                         <Input
-                          placeholder="Short summary takeaway (Required)..."
+                          placeholder="Short summary takeaway..."
                           value={cq.shortSummary || ''}
                           onChange={(e) => updateCustomQuestion(qId, 'shortSummary', e.target.value)}
                           className="text-xs font-mono"
-                          required
                         />
                       </div>
 
@@ -734,19 +686,17 @@ export function LiteratureReviewEditor({
         )}
       </div>
 
-      {/* Group 5: OutCome — Required */}
+      {/* Group 5: OutCome — Optional */}
       <div className="p-4 rounded-xl bg-bg-tertiary/70 border border-border-default space-y-3">
         <h4 className="text-xs font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2">
           <Sparkles size={14} className="text-accent" /> Final Research OutCome &amp; Decision
-          <span className="text-[10px] text-danger font-bold uppercase tracking-wider">(Required *)</span>
         </h4>
         <Textarea
-          label="OutCome / Conclusion *"
-          placeholder="Final synthesis, research paper verdict, takeaway impact, or review decision (Required)..."
+          label="OutCome / Conclusion"
+          placeholder="Final synthesis, research paper verdict, takeaway impact, or review decision..."
           value={data.outcome || ''}
           onChange={(e) => updateField('outcome', e.target.value)}
           rows={3}
-          required
         />
       </div>
     </div>
