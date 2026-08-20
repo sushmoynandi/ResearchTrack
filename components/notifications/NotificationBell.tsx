@@ -14,6 +14,7 @@ import {
   Clock,
   Trash2,
   Smartphone,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
@@ -148,11 +149,19 @@ export function NotificationBell() {
         )}
       </button>
 
-      {/* Dropdown Panel */}
+      {/* Mobile Backdrop Overlay */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-bg-secondary border border-border-default shadow-modal overflow-hidden z-50 animate-scale-in">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 sm:hidden animate-fade-in"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Dropdown / Modal Panel */}
+      {isOpen && (
+        <div className="fixed sm:absolute top-16 sm:top-full left-2 right-2 sm:left-auto sm:right-0 sm:mt-2 sm:w-96 max-h-[calc(100vh-80px)] sm:max-h-[500px] rounded-2xl bg-bg-secondary border border-border-default shadow-modal overflow-hidden z-50 flex flex-col animate-scale-in">
           {/* Header */}
-          <div className="p-4 border-b border-border-default flex items-center justify-between bg-bg-tertiary/40">
+          <div className="p-3.5 sm:p-4 border-b border-border-default flex items-center justify-between bg-bg-tertiary/40 shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-text-primary uppercase tracking-wider font-display">
                 Lab Notifications
@@ -164,19 +173,30 @@ export function NotificationBell() {
               )}
             </div>
 
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllAsRead}
+                  className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <Check size={12} /> Mark all read
+                </button>
+              )}
+              {/* Mobile Close Button */}
               <button
                 type="button"
-                onClick={handleMarkAllAsRead}
-                className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                onClick={() => setIsOpen(false)}
+                className="sm:hidden p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+                title="Close"
               >
-                <Check size={12} /> Mark all read
+                <X size={15} />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1 px-3 py-2 bg-bg-secondary border-b border-border-default overflow-x-auto text-[11px]">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-bg-secondary border-b border-border-default overflow-x-auto text-[11px] shrink-0 no-scrollbar">
             {[
               { id: 'ALL', label: 'All' },
               { id: 'ASSIGNMENT', label: 'Assignments' },
@@ -188,7 +208,7 @@ export function NotificationBell() {
                 onClick={() => setFilterType(tab.id)}
                 className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap font-medium ${
                   filterType === tab.id
-                    ? 'bg-accent text-white font-bold'
+                    ? 'bg-accent text-white font-bold shadow-sm'
                     : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary'
                 }`}
               >
@@ -197,8 +217,8 @@ export function NotificationBell() {
             ))}
           </div>
 
-          {/* Notifications List */}
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-border-default/50">
+          {/* Notifications List (Scrollable) */}
+          <div className="flex-1 overflow-y-auto divide-y divide-border-default/50 overscroll-contain">
             {filtered.length > 0 ? (
               filtered.map((item) => {
                 const isAssignment = item.type === 'ASSIGNMENT'
@@ -209,7 +229,7 @@ export function NotificationBell() {
                   <div
                     key={item.id}
                     onClick={() => handleMarkAsRead(item.id, item.link)}
-                    className={`p-3.5 flex items-start gap-3 transition-colors cursor-pointer group ${
+                    className={`p-3 sm:p-3.5 flex items-start gap-2.5 sm:gap-3 transition-colors cursor-pointer group ${
                       item.isRead
                         ? 'bg-bg-secondary hover:bg-bg-tertiary/70 opacity-75'
                         : 'bg-accent/5 hover:bg-accent/10 border-l-2 border-l-accent'
@@ -232,17 +252,17 @@ export function NotificationBell() {
                       {!isAssignment && !isFeedback && !isStatus && <Bell size={14} />}
                     </div>
 
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between gap-1">
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center justify-between gap-1.5">
                         <p className="text-xs font-semibold text-text-primary truncate">
                           {item.title}
                         </p>
-                        <span className="text-[10px] text-text-tertiary font-mono whitespace-nowrap">
+                        <span className="text-[10px] text-text-tertiary font-mono whitespace-nowrap shrink-0">
                           {formatRelativeTime(item.createdAt)}
                         </span>
                       </div>
 
-                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed break-words">
                         {item.message}
                       </p>
                     </div>
@@ -258,16 +278,16 @@ export function NotificationBell() {
           </div>
 
           {/* Footer */}
-          <div className="p-2.5 border-t border-border-default bg-bg-tertiary/50 flex items-center justify-between text-[11px]">
+          <div className="p-2.5 sm:p-3 border-t border-border-default bg-bg-tertiary/60 flex items-center justify-between text-[11px] shrink-0">
             <Link
               href="/profile"
               onClick={() => setIsOpen(false)}
-              className="text-text-secondary hover:text-accent flex items-center gap-1.5 font-medium transition-colors"
+              className="text-text-secondary hover:text-accent flex items-center gap-1.5 font-medium transition-colors cursor-pointer"
             >
-              <Smartphone size={13} className="text-accent" />
-              <span>Device &amp; Phone Alerts</span>
+              <Smartphone size={13} className="text-accent shrink-0" />
+              <span className="truncate">Device &amp; Phone Alerts</span>
             </Link>
-            <span className="text-[10px] text-text-tertiary">Real-time Web Push</span>
+            <span className="text-[10px] text-text-tertiary shrink-0">Real-time Web Push</span>
           </div>
         </div>
       )}
