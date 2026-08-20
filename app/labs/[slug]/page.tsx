@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Building,
@@ -25,6 +25,7 @@ import {
   Megaphone,
   Calendar,
   Video,
+  CheckSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -35,6 +36,7 @@ import { LabBroadcastsBoard } from '@/components/labs/LabBroadcastsBoard'
 import { StarterPackSection } from '@/components/labs/StarterPackSection'
 import { JournalClubSection } from '@/components/labs/JournalClubSection'
 import { LabMeetingsBoard } from '@/components/labs/LabMeetingsBoard'
+import { LabTasksBoard } from '@/components/labs/LabTasksBoard'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 
@@ -74,11 +76,12 @@ interface LabDetail {
   }[]
 }
 
-type TabType = 'groups' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
+type TabType = 'groups' | 'tasks' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
 
 export default function LabDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
 
@@ -91,6 +94,13 @@ export default function LabDetailPage() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false)
   const [managingGroup, setManagingGroup] = useState<{ id: string; name: string; memberUserIds: string[] } | null>(null)
   const [copiedCode, setCopiedCode] = useState(false)
+
+  useEffect(() => {
+    const tabParam = searchParams?.get('tab') as TabType
+    if (tabParam && ['groups', 'tasks', 'noticeboard', 'meetings', 'starter-packs', 'journal-club', 'members', 'requests'].includes(tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
 
   const fetchLabDetails = async () => {
     try {
@@ -264,6 +274,7 @@ export default function LabDetailPage() {
               label: isStudent ? `My Sub-Groups (${visibleGroups.length})` : `Sub-Groups (${lab.groups.length})`,
               icon: Layers,
             },
+            { id: 'tasks', label: 'Tasks & Deliverables', icon: CheckSquare },
             { id: 'noticeboard', label: 'Noticeboard & Deadlines', icon: Megaphone },
             { id: 'meetings', label: 'Meetings & Syncs', icon: Video },
             { id: 'starter-packs', label: 'Starter Packs', icon: BookOpen },
@@ -408,6 +419,17 @@ export default function LabDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Tab: Lab Tasks & Deliverables */}
+      {activeTab === 'tasks' && (
+        <LabTasksBoard
+          labId={lab.id}
+          labSlug={lab.slug}
+          groups={lab.groups}
+          members={lab.members}
+          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
+        />
       )}
 
       {/* Tab 2: Noticeboard & Deadlines */}

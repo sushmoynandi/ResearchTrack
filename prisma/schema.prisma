@@ -83,6 +83,8 @@ model User {
   journalClubSessions    JournalClubSession[]
   hostedLabMeetings      LabMeeting[]      @relation("HostLabMeetings")
   pushSubscriptions      PushSubscription[]
+  assignedLabTasks       LabTask[]         @relation("AssignedLabTasks")
+  createdLabTasks        LabTask[]         @relation("CreatedLabTasks")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -371,6 +373,7 @@ model Lab {
   joinRequests LabJoinRequest[]
   broadcasts   LabBroadcast[]
   meetings     LabMeeting[]
+  tasks        LabTask[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 }
@@ -407,6 +410,7 @@ model ResearchGroup {
   starterPackItems    StarterPackItem[]
   journalClubSessions JournalClubSession[]
   meetings            LabMeeting[]
+  tasks               LabTask[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -524,6 +528,40 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// ─── Lab Research Tasks & Deliverables ──────────────────────
+model LabTask {
+  id             String         @id @default(cuid())
+  labId          String
+  lab            Lab            @relation(fields: [labId], references: [id], onDelete: Cascade)
+  groupId        String?
+  group          ResearchGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  title          String
+  description    String?        @db.Text
+  category       String         @default("RESEARCH") // RESEARCH, EXPERIMENT, CODING, WRITING, DATASET, PRESENTATION, REVIEW, OTHER
+  priority       String         @default("MEDIUM")   // LOW, MEDIUM, HIGH, URGENT
+  status         String         @default("TODO")     // TODO, IN_PROGRESS, IN_REVIEW, COMPLETED
+  
+  dueDate        DateTime?
+  
+  assigneeId     String?
+  assignee       User?          @relation("AssignedLabTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+  
+  createdById    String
+  createdBy      User           @relation("CreatedLabTasks", fields: [createdById], references: [id])
+  
+  deliverableUrl String?
+  progressNotes  String?        @db.Text
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([labId])
+  @@index([assigneeId])
+  @@index([groupId])
+}
+
 
 
 

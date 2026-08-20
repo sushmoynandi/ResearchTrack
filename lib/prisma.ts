@@ -20,7 +20,8 @@ function isClientUpToDate(client: any): boolean {
       'journalClubSession' in client &&
       'labMeeting' in client &&
       'assignment' in client &&
-      'pushSubscription' in client
+      'pushSubscription' in client &&
+      'labTask' in client
   )
 }
 
