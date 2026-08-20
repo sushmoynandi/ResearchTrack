@@ -32,47 +32,26 @@ export async function GET(request: NextRequest) {
         userFilter = { userId: targetUserId }
       }
     } else if (user.systemRole === 'SUPERVISOR') {
-      // Supervisor sphere covers: direct supervisees, lab members where supervisor is lead/admin/supervisor, assigned tasks/papers/milestones/meetings
-      const supervisorSphereStudentCondition = {
-        OR: [
-          { supervisorId: user.id },
-          { labMemberships: { some: { lab: { leadId: user.id } } } },
-          { labMemberships: { some: { lab: { members: { some: { userId: user.id, role: { in: ['LEAD', 'CO_LEAD'] } } } } } } },
-          { assignedPapers: { some: { assignedById: user.id } } },
-          { assignedLabTasks: { some: { createdById: user.id } } },
-          { milestonesAsStudent: { some: { supervisorId: user.id } } },
-          { meetingsAsStudent: { some: { supervisorId: user.id } } },
-          { systemRole: 'STUDENT' as const },
-        ],
-      }
-
       if (targetUserId) {
         if (targetUserId === user.id) {
           userFilter = { userId: user.id }
         } else {
+          // Specific student: papers assigned to this student by this supervisor
           userFilter = {
-            userId: targetUserId,
-            OR: [
-              { user: supervisorSphereStudentCondition },
-              { assignments: { some: { assignedById: user.id, studentId: targetUserId } } },
-            ],
+            assignments: { some: { assignedById: user.id, studentId: targetUserId } },
           }
         }
       } else if (scope === 'own') {
         userFilter = { userId: user.id }
       } else if (scope === 'students') {
         userFilter = {
-          OR: [
-            { user: supervisorSphereStudentCondition },
-            { assignments: { some: { assignedById: user.id } } },
-          ],
+          assignments: { some: { assignedById: user.id } },
         }
       } else {
-        // View own papers + student-added papers across supervision sphere + assigned papers
+        // Supervisor only sees own papers + papers assigned by supervisor
         userFilter = {
           OR: [
             { userId: user.id },
-            { user: supervisorSphereStudentCondition },
             { assignments: { some: { assignedById: user.id } } },
           ],
         }

@@ -171,7 +171,7 @@ export default function PapersPage() {
             }`}
           >
             <BookOpen size={13} />
-            All Library Papers
+            All Assigned &amp; Own Papers
           </button>
           <button
             type="button"
@@ -195,7 +195,7 @@ export default function PapersPage() {
             }`}
           >
             <GraduationCap size={13} />
-            Student-Added Papers
+            Assigned to Students
           </button>
         </div>
       )}

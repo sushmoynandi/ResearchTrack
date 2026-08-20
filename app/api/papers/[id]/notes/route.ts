@@ -31,10 +31,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner ||
-        paper.user?.supervisorId === user.id ||
-        paper.assignments?.some((a) => a.assignedById === user.id) ||
-        paper.user?.systemRole === 'STUDENT')
+      (isOwner || paper.assignments.some((a) => a.assignedById === user.id))
     const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
@@ -92,11 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           { userId: user.id },
           { assignments: { some: { studentId: user.id } } },
           ...(user.systemRole === 'SUPERVISOR'
-            ? [
-                { user: { supervisorId: user.id } },
-                { user: { systemRole: 'STUDENT' as const } },
-                { assignments: { some: { assignedById: user.id } } },
-              ]
+            ? [{ assignments: { some: { assignedById: user.id } } }]
             : []),
           ...(user.systemRole === 'ADMIN' ? [{}] : []),
         ],

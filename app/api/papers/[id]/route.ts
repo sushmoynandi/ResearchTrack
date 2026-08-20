@@ -76,20 +76,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isAssigned = paper.assignments?.some((a) => a.studentId === user.id)
 
-    // Supervisor access: Owner, assigned by supervisor, student in supervisor's lab/sphere, or student paper
+    // Supervisor access: Owner or assigned by supervisor
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner ||
-        paper.user?.supervisorId === user.id ||
-        paper.assignments?.some((a) => a.assignedById === user.id) ||
-        paper.user?.labMemberships?.some(
-          (lm) =>
-            lm.lab.leadId === user.id ||
-            lm.lab.members.some(
-              (m) => m.userId === user.id && ['LEAD', 'CO_LEAD'].includes(m.role)
-            )
-        ) ||
-        paper.user?.systemRole === 'STUDENT')
+      (isOwner || paper.assignments?.some((a) => a.assignedById === user.id))
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -156,17 +146,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner ||
-        existing.user?.supervisorId === user.id ||
-        existing.assignments?.some((a) => a.assignedById === user.id) ||
-        existing.user?.labMemberships?.some(
-          (lm) =>
-            lm.lab.leadId === user.id ||
-            lm.lab.members.some(
-              (m) => m.userId === user.id && ['LEAD', 'CO_LEAD'].includes(m.role)
-            )
-        ) ||
-        existing.user?.systemRole === 'STUDENT')
+      (isOwner || existing.assignments?.some((a) => a.assignedById === user.id))
     const activeAssignment = existing.assignments?.find((a) => a.studentId === user.id)
     const isAssigned = Boolean(activeAssignment)
 
