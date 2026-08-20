@@ -129,15 +129,34 @@ export async function GET(request: NextRequest) {
             dueDate: true,
             createdAt: true,
             assignedById: true,
+            literatureReview: true,
             paper: {
               select: {
                 id: true,
                 title: true,
                 status: true,
+                doi: true,
+                url: true,
               },
             },
           },
           orderBy: { createdAt: 'desc' },
+        },
+        feedbackGiven: {
+          select: {
+            id: true,
+            content: true,
+            type: true,
+            createdAt: true,
+            paper: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 6,
         },
         assignedLabTasks: {
           select: {
@@ -271,9 +290,9 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(studentsWithMetrics)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching students:', error)
-    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Failed to fetch students' }, { status: 500 })
   }
 }
 

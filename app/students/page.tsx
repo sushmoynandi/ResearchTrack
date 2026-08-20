@@ -74,7 +74,15 @@ interface StudentData {
     dueDate: string | null
     createdAt: string
     assignedById: string
-    paper: { id: string; title: string; status: string }
+    literatureReview?: string | null
+    paper: { id: string; title: string; status: string; doi?: string | null; url?: string | null }
+  }[]
+  feedbackGiven?: {
+    id: string
+    content: string
+    type: string
+    createdAt: string
+    paper: { id: string; title: string }
   }[]
   assignedLabTasks: {
     id: string
@@ -162,6 +170,7 @@ export default function StudentsPage() {
   const [schedulingMeeting, setSchedulingMeeting] = useState(false)
 
   const fetchStudents = async () => {
+    if (!user || (!isSupervisor && !isAdmin)) return
     setLoading(true)
     try {
       const modeParam = viewMode === 'DISCOVER' ? '?mode=all' : ''
@@ -170,7 +179,9 @@ export default function StudentsPage() {
         const data = await res.json()
         setStudents(data)
       } else {
-        addToast('error', 'Failed to load students roster')
+        const err = await res.json().catch(() => ({}))
+        console.error('API Error in students page:', err)
+        addToast('error', err.error || 'Failed to load students roster')
       }
     } catch (err) {
       console.error('Failed to load students:', err)
@@ -181,8 +192,12 @@ export default function StudentsPage() {
   }
 
   useEffect(() => {
-    fetchStudents()
-  }, [viewMode])
+    if (user && (isSupervisor || isAdmin)) {
+      fetchStudents()
+    } else if (user) {
+      setLoading(false)
+    }
+  }, [viewMode, user, isSupervisor, isAdmin])
 
   // Direct Link / Claim Student
   const handleLinkStudent = async (studentId: string, studentName: string) => {
@@ -406,6 +421,23 @@ export default function StudentsPage() {
   const totalActiveReading = students.reduce((acc, s) => acc + s.metrics.readingPapers, 0)
   const totalActiveTasks = students.reduce((acc, s) => acc + s.metrics.activeTasks, 0)
   const totalTasksDue = students.filter((s) => s.metrics.healthStatus === 'TASKS_DUE').length
+
+  if (user && !isSupervisor && !isAdmin) {
+    return (
+      <div className="max-w-xl mx-auto glass-card p-12 text-center space-y-4 my-12">
+        <Users size={36} className="mx-auto text-purple-400 opacity-40" />
+        <h3 className="text-lg font-bold text-text-primary font-display">Supervisor Access Only</h3>
+        <p className="text-xs text-text-secondary leading-relaxed">
+          The Student Supervision Roster is dedicated for faculty advisors and lab leads. View your assigned readings and lab tasks from your personal dashboard.
+        </p>
+        <Link href="/">
+          <Button variant="primary" size="sm">
+            Back to Student Dashboard
+          </Button>
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-12">
@@ -735,24 +767,80 @@ export default function StudentsPage() {
                   {/* Active Reading Assignments (if any) */}
                   {student.assignedPapers.length > 0 && (
                     <div className="space-y-1.5 p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
-                        <ClipboardList size={11} /> Assigned Reading
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                          <ClipboardList size={11} /> Assigned Reading ({student.assignedPapers.length})
+                        </span>
+                        <span className="text-[9px] text-text-tertiary">
+                          {student.metrics.completedAssignedPapers} read
+                        </span>
+                      </div>
                       <div className="space-y-1">
-                        {student.assignedPapers.slice(0, 2).map((a) => (
-                          <div
-                            key={a.id}
-                            className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
-                          >
-                            <Link
-                              href={`/papers/${a.paper.id}`}
-                              className="text-text-primary hover:text-accent truncate font-medium flex-1"
+                        {student.assignedPapers.slice(0, 3).map((a) => {
+                          const hasSynthesis = Boolean(a.literatureReview)
+                          return (
+                            <div
+                              key={a.id}
+                              className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
                             >
-                              {a.paper.title}
-                            </Link>
-                            <span className="text-[9px] text-text-tertiary shrink-0 font-mono">
-                              {a.status}
-                            </span>
+                              <Link
+                                href={`/papers/${a.paper.id}`}
+                                className="text-text-primary hover:text-purple-400 truncate font-medium flex-1 flex items-center gap-1"
+                              >
+                                <span className="truncate">{a.paper.title}</span>
+                                {hasSynthesis && (
+                                  <span className="px-1 py-0.2 rounded text-[8px] bg-emerald-500/15 text-emerald-300 font-mono font-bold shrink-0">
+                                    Q1-Q9 ✓
+                                  </span>
+                                )}
+                              </Link>
+                              <span
+                                className={`px-1.5 py-0.2 text-[9px] font-bold rounded font-mono shrink-0 ${
+                                  a.status === 'COMPLETED'
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : a.status === 'IN_PROGRESS'
+                                    ? 'bg-blue-500/20 text-blue-300'
+                                    : 'bg-amber-500/20 text-amber-300'
+                                }`}
+                              >
+                                {a.status}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Student Paper Feedback & Question Activity */}
+                  {student.feedbackGiven && student.feedbackGiven.length > 0 && (
+                    <div className="space-y-1.5 p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                          <MessageSquare size={11} /> Student Paper Feedback ({student.feedbackGiven.length})
+                        </span>
+                        <span className="text-[9px] text-text-tertiary">Recent questions</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {student.feedbackGiven.slice(0, 2).map((fb) => (
+                          <div
+                            key={fb.id}
+                            className="p-2 rounded-lg bg-bg-primary/70 border border-border-default/50 text-[11px] space-y-1"
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <Link
+                                href={`/papers/${fb.paper.id}`}
+                                className="text-text-primary font-semibold hover:text-blue-400 truncate flex-1 flex items-center gap-1 text-[11px]"
+                              >
+                                <span className="truncate">📄 {fb.paper.title}</span>
+                              </Link>
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-blue-500/15 text-blue-300 font-mono shrink-0">
+                                {fb.type}
+                              </span>
+                            </div>
+                            <p className="text-text-secondary text-[10px] line-clamp-1 italic leading-relaxed">
+                              &ldquo;{fb.content}&rdquo;
+                            </p>
                           </div>
                         ))}
                       </div>

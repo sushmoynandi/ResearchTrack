@@ -37,8 +37,10 @@ import { StarterPackSection } from '@/components/labs/StarterPackSection'
 import { JournalClubSection } from '@/components/labs/JournalClubSection'
 import { LabMeetingsBoard } from '@/components/labs/LabMeetingsBoard'
 import { LabTasksBoard } from '@/components/labs/LabTasksBoard'
+import { LabPaperLibrary } from '@/components/labs/LabPaperLibrary'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
+import type { Paper } from '@/lib/types'
 
 interface LabDetail {
   id: string
@@ -76,7 +78,7 @@ interface LabDetail {
   }[]
 }
 
-type TabType = 'groups' | 'tasks' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
+type TabType = 'groups' | 'papers' | 'tasks' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
 
 export default function LabDetailPage() {
   const params = useParams()
@@ -88,6 +90,7 @@ export default function LabDetailPage() {
   const labSlug = params.slug as string
 
   const [lab, setLab] = useState<LabDetail | null>(null)
+  const [labPapers, setLabPapers] = useState<Paper[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('groups')
   const [selectedGroupId, setSelectedGroupId] = useState<string>('')
@@ -97,7 +100,7 @@ export default function LabDetailPage() {
 
   useEffect(() => {
     const tabParam = searchParams?.get('tab') as TabType
-    if (tabParam && ['groups', 'tasks', 'noticeboard', 'meetings', 'starter-packs', 'journal-club', 'members', 'requests'].includes(tabParam)) {
+    if (tabParam && ['groups', 'papers', 'tasks', 'noticeboard', 'meetings', 'starter-packs', 'journal-club', 'members', 'requests'].includes(tabParam)) {
       setActiveTab(tabParam)
     }
   }, [searchParams])
@@ -120,6 +123,22 @@ export default function LabDetailPage() {
       setLoading(false)
     }
   }
+
+  const fetchLabPapers = async () => {
+    try {
+      const res = await fetch(`/api/papers?_t=${Date.now()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLabPapers(data)
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  useEffect(() => {
+    fetchLabPapers()
+  }, [])
 
   const handleDissolveGroup = async (groupId: string, groupName: string) => {
     if (!lab) return
@@ -274,6 +293,11 @@ export default function LabDetailPage() {
               label: isStudent ? `My Sub-Groups (${visibleGroups.length})` : `Sub-Groups (${lab.groups.length})`,
               icon: Layers,
             },
+            {
+              id: 'papers',
+              label: labPapers.length > 0 ? `Paper Library (${labPapers.length})` : 'Paper Library',
+              icon: BookOpen,
+            },
             { id: 'tasks', label: 'Tasks & Deliverables', icon: CheckSquare },
             { id: 'noticeboard', label: 'Noticeboard & Deadlines', icon: Megaphone },
             { id: 'meetings', label: 'Meetings & Syncs', icon: Video },
@@ -419,6 +443,17 @@ export default function LabDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Tab: Research Lab Paper Library */}
+      {activeTab === 'papers' && (
+        <LabPaperLibrary
+          labId={lab.id}
+          labSlug={lab.slug}
+          labName={lab.name}
+          papers={labPapers}
+          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
+        />
       )}
 
       {/* Tab: Lab Tasks & Deliverables */}
