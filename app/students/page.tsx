@@ -777,7 +777,7 @@ export default function StudentsPage() {
                       </div>
                       <div className="space-y-1">
                         {student.assignedPapers.slice(0, 3).map((a) => {
-                          const hasSynthesis = Boolean(a.literatureReview)
+                          const hasSynthesis = a.status === 'COMPLETED'
                           return (
                             <div
                               key={a.id}

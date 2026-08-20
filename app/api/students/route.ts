@@ -129,7 +129,6 @@ export async function GET(request: NextRequest) {
             dueDate: true,
             createdAt: true,
             assignedById: true,
-            literatureReview: true,
             paper: {
               select: {
                 id: true,
