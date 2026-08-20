@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/session'
 import type { LiteratureReviewData, BenchmarkScore } from '@/lib/types'
 
 interface RouteParams {
@@ -13,6 +14,7 @@ interface ChatMessage {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const user = await getCurrentUser()
     const { id } = await params
     const body = await request.json()
     const { message, history } = body as {
@@ -29,7 +31,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       include: {
         tags: true,
         collections: true,
-        notes: { select: { content: true, createdAt: true } },
+        notes: {
+          where: {
+            OR: [
+              ...(user?.id ? [{ userId: user.id }] : []),
+              { isPrivate: false },
+            ],
+          },
+          select: { content: true, createdAt: true },
+        },
       },
     })
 

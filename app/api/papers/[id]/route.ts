@@ -46,6 +46,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           },
         },
         notes: {
+          where: {
+            OR: [
+              { userId: user.id }, // Only author sees their own private notes
+              { isPrivate: false }, // Everyone else only sees public notes
+            ],
+          },
           include: {
             user: { select: { id: true, name: true, systemRole: true } },
           },

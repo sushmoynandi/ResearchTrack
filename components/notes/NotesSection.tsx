@@ -31,12 +31,21 @@ interface NotesSectionProps {
 export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) {
   const { user } = useAuth()
   const { addToast } = useToast()
-  const [notes, setNotes] = useState<Note[]>(initialNotes)
+  const [notes, setNotes] = useState<Note[]>(() =>
+    (initialNotes || []).filter((n) => !n.isPrivate || n.userId === user?.id)
+  )
   const [newContent, setNewContent] = useState('')
   const [newIsPrivate, setNewIsPrivate] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [filterMode, setFilterMode] = useState<'ALL' | 'PUBLIC' | 'PRIVATE'>('ALL')
+
+  React.useEffect(() => {
+    const visible = (initialNotes || []).filter(
+      (n) => !n.isPrivate || n.userId === user?.id
+    )
+    setNotes(visible)
+  }, [initialNotes, user?.id])
 
   // Edit state
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
