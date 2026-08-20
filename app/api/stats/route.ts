@@ -52,6 +52,9 @@ export async function GET() {
       supervisedStudents,
       issuedAssignments,
       supervisorRecord,
+      studentLabTasks,
+      upcomingMeeting,
+      studentMilestones,
     ] = await Promise.all([
       prisma.paper.count({ where: paperWhere }),
       prisma.paper.count({ where: { ...paperWhere, status: 'TO_READ' } }),
@@ -95,11 +98,10 @@ export async function GET() {
       prisma.assignment.findMany({
         where: { studentId: user.id },
         include: {
-          paper: { select: { id: true, title: true, authors: true, status: true } },
+          paper: { select: { id: true, title: true, authors: true, status: true, publicationYear: true } },
           assignedBy: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 5,
       }),
       // Recent notifications for the student / user
       prisma.notification.findMany({
@@ -157,7 +159,60 @@ export async function GET() {
             },
           })
         : null,
+      // Lab tasks assigned to student
+      user.systemRole === 'STUDENT'
+        ? prisma.labTask.findMany({
+            where: { assigneeId: user.id },
+            select: { id: true, title: true, status: true, priority: true, dueDate: true, category: true, deliverableUrl: true },
+            orderBy: { createdAt: 'desc' },
+          })
+        : [],
+      // Upcoming 1-on-1 meeting for student
+      user.systemRole === 'STUDENT'
+        ? prisma.meeting.findFirst({
+            where: {
+              studentId: user.id,
+              scheduledAt: { gte: new Date() },
+              status: 'SCHEDULED',
+            },
+            include: {
+              supervisor: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { scheduledAt: 'asc' },
+          })
+        : null,
+      // Milestones for student
+      user.systemRole === 'STUDENT'
+        ? prisma.thesisMilestone.findMany({
+            where: { studentId: user.id },
+            select: { id: true, status: true },
+          })
+        : [],
     ])
+
+    // Student performance metrics calculation
+    const totalAssignedPapers = myAssignments.length
+    const completedAssignedPapers = myAssignments.filter(
+      (a) => a.status === 'COMPLETED' || a.paper?.status === 'COMPLETED'
+    ).length
+    const readingAssignedPapers = myAssignments.filter(
+      (a) => a.status === 'IN_PROGRESS' || (a.status !== 'COMPLETED' && a.paper?.status === 'READING')
+    ).length
+    const pendingAssignedPapers = myAssignments.filter(
+      (a) => a.status === 'PENDING' && a.paper?.status !== 'READING' && a.paper?.status !== 'COMPLETED'
+    ).length
+    const assignedCompletionRate =
+      totalAssignedPapers > 0 ? Math.round((completedAssignedPapers / totalAssignedPapers) * 100) : 0
+
+    const tasksList = (studentLabTasks || []) as any[]
+    const activeLabTasks = tasksList.filter(
+      (t) => t.status === 'TODO' || t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW'
+    ).length
+    const completedLabTasks = tasksList.filter((t) => t.status === 'COMPLETED').length
+
+    const milestonesList = (studentMilestones || []) as any[]
+    const totalMilestones = milestonesList.length
+    const completedMilestones = milestonesList.filter((m) => m.status === 'APPROVED').length
 
     const stats = {
       systemRole: user.systemRole,
@@ -183,7 +238,23 @@ export async function GET() {
         count: c._count.papers,
       })),
       completionRate: totalPapers > 0 ? Math.round((completed / totalPapers) * 100) : 0,
-      myAssignments,
+
+      // Synced Assigned Paper Reading Stats
+      totalAssignedPapers,
+      completedAssignedPapers,
+      readingAssignedPapers,
+      pendingAssignedPapers,
+      assignedCompletionRate,
+
+      // Synced Lab Tasks & Meetings
+      labTasks: tasksList.slice(0, 4),
+      activeLabTasks,
+      completedLabTasks,
+      upcomingMeeting: upcomingMeeting || null,
+      totalMilestones,
+      completedMilestones,
+
+      myAssignments: myAssignments.slice(0, 5),
       pendingAssignments: myAssignments.filter((a) => a.paper.status !== 'COMPLETED'),
       recentNotifications,
       supervisedStudents,

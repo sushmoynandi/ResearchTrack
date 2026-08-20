@@ -20,10 +20,33 @@ export async function GET(request: NextRequest) {
     if (user.systemRole === 'ADMIN') {
       if (studentId) where.studentId = studentId
     } else if (user.systemRole === 'SUPERVISOR') {
+      const supervisionCondition = {
+        OR: [
+          { assignedById: user.id },
+          { student: { supervisorId: user.id } },
+          {
+            student: {
+              labMemberships: {
+                some: {
+                  lab: {
+                    OR: [
+                      { leadId: user.id },
+                      { members: { some: { userId: user.id } } },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        ],
+      }
       if (studentId) {
-        where = { assignedById: user.id, studentId }
+        where = {
+          studentId,
+          ...supervisionCondition,
+        }
       } else {
-        where = { assignedById: user.id }
+        where = supervisionCondition
       }
     } else {
       // Student: only my assignments

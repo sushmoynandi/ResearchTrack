@@ -27,6 +27,7 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingUp,
+  Trophy,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PaperRow } from '@/components/papers/PaperRow'
@@ -51,6 +52,23 @@ interface DashboardData {
   tagDistribution: { id: string; name: string; count: number }[]
   topCollections: { id: string; name: string; color: string | null; count: number }[]
   completionRate: number
+  totalAssignedPapers?: number
+  completedAssignedPapers?: number
+  readingAssignedPapers?: number
+  pendingAssignedPapers?: number
+  assignedCompletionRate?: number
+  activeLabTasks?: number
+  completedLabTasks?: number
+  labTasks?: any[]
+  upcomingMeeting?: {
+    id: string
+    title: string
+    scheduledAt: string
+    supervisorNotes?: string | null
+    supervisor?: { id: string; name: string; email: string }
+  } | null
+  totalMilestones?: number
+  completedMilestones?: number
   myAssignments?: any[]
   pendingAssignments?: any[]
   supervisedStudents?: any[]
@@ -261,17 +279,126 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. Student advisor context, pending work, and recent feedback */}
+      {/* 2. Student advisor context, performance scorecard, pending work, and recent feedback */}
       {isStudent && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-text-primary flex items-center gap-2 font-display">
-              <GraduationCap size={18} className="text-blue-500" /> Assigned by {stats.supervisor?.name || 'Your Supervisor'}
-            </h3>
-            <Link href="/assignments" className="text-xs text-accent hover:underline flex items-center gap-1">
-              View All Assignments <ChevronRight size={14} />
-            </Link>
+        <div className="space-y-6">
+          {/* Synchronized Performance Scorecard for Student Researcher */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-text-primary flex items-center gap-2 font-display">
+                <GraduationCap size={18} className="text-purple-400" /> Research &amp; Lab Performance
+              </h3>
+              <span className="text-xs text-text-tertiary">
+                Synced with Advisor: <strong>{stats.supervisor?.name || 'Faculty Mentor'}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Pillar 1: Assigned Paper Reading */}
+              <Link href="/assignments" className="p-4 rounded-2xl glass-card space-y-2 hover:border-purple-500/40 transition-all block group">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-text-primary flex items-center gap-1">
+                    <BookOpen size={13} className="text-purple-400" /> Assigned Reading
+                  </span>
+                  <span className="font-mono text-purple-400 font-bold">{stats.assignedCompletionRate || 0}%</span>
+                </div>
+                <div className="w-full bg-bg-primary h-2 rounded-full overflow-hidden">
+                  <div className="bg-purple-500 h-full rounded-full transition-all" style={{ width: `${stats.assignedCompletionRate || 0}%` }} />
+                </div>
+                <p className="text-[11px] text-text-tertiary font-mono">
+                  {stats.completedAssignedPapers || 0} of {stats.totalAssignedPapers || 0} read · {stats.pendingAssignedPapers || 0} pending
+                </p>
+              </Link>
+
+              {/* Pillar 2: Total Library Literature */}
+              <Link href="/papers" className="p-4 rounded-2xl glass-card space-y-2 hover:border-success/40 transition-all block group">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-text-primary flex items-center gap-1">
+                    <TrendingUp size={13} className="text-success" /> Library Read
+                  </span>
+                  <span className="font-mono text-success font-bold">{stats.completionRate || 0}%</span>
+                </div>
+                <div className="w-full bg-bg-primary h-2 rounded-full overflow-hidden">
+                  <div className="bg-success h-full rounded-full transition-all" style={{ width: `${stats.completionRate || 0}%` }} />
+                </div>
+                <p className="text-[11px] text-text-tertiary font-mono">
+                  {stats.completed} of {stats.totalPapers} cataloged · {stats.totalNotes} notes
+                </p>
+              </Link>
+
+              {/* Pillar 3: Active Lab Deliverables */}
+              <Link href="/labs" className="p-4 rounded-2xl glass-card space-y-2 hover:border-accent/40 transition-all block group">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-text-primary flex items-center gap-1">
+                    <CheckCircle2 size={13} className="text-accent" /> Lab Tasks
+                  </span>
+                  <span className="font-mono text-accent font-bold">{stats.activeLabTasks || 0} Active</span>
+                </div>
+                <div className="w-full bg-bg-primary h-2 rounded-full overflow-hidden">
+                  <div className="bg-accent h-full rounded-full transition-all" style={{ width: `${stats.activeLabTasks ? 60 : 100}%` }} />
+                </div>
+                <p className="text-[11px] text-text-tertiary font-mono">
+                  {stats.completedLabTasks || 0} deliverables completed
+                </p>
+              </Link>
+
+              {/* Pillar 4: Thesis Milestones */}
+              <Link href="/milestones" className="p-4 rounded-2xl glass-card space-y-2 hover:border-amber-500/40 transition-all block group">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-text-primary flex items-center gap-1">
+                    <Trophy size={13} className="text-amber-400" /> Milestones
+                  </span>
+                  <span className="font-mono text-amber-400 font-bold">{stats.completedMilestones || 0} / {stats.totalMilestones || 0}</span>
+                </div>
+                <div className="w-full bg-bg-primary h-2 rounded-full overflow-hidden">
+                  <div className="bg-amber-400 h-full rounded-full transition-all" style={{ width: `${stats.totalMilestones ? Math.round(((stats.completedMilestones || 0) / stats.totalMilestones) * 100) : 0}%` }} />
+                </div>
+                <p className="text-[11px] text-text-tertiary font-mono">
+                  {stats.completedMilestones || 0} approved deliverables
+                </p>
+              </Link>
+            </div>
           </div>
+
+          {/* Upcoming 1-on-1 Research Meeting Banner (if scheduled) */}
+          {stats.upcomingMeeting && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-bg-secondary to-accent/10 border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                    <Calendar size={10} /> Upcoming 1-on-1 Sync
+                  </span>
+                  <span className="text-xs font-semibold text-text-primary">
+                    {stats.upcomingMeeting.title}
+                  </span>
+                </div>
+                {stats.upcomingMeeting.supervisorNotes && (
+                  <p className="text-xs text-text-secondary line-clamp-1 italic">
+                    Agenda: {stats.upcomingMeeting.supervisorNotes}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right text-xs font-mono">
+                  <span className="text-accent font-semibold block">
+                    {new Date(stats.upcomingMeeting.scheduledAt).toLocaleDateString(undefined, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <Link href="/meetings">
+                  <Button size="xs" variant="secondary" icon={<ArrowRight size={12} />}>
+                    Open Sync
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="glass-card p-4 border-l-4 border-l-purple-500 space-y-1.5">

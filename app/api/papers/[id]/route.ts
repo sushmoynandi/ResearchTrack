@@ -290,3 +290,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to delete paper' }, { status: 500 })
   }
 }
+
+// PATCH /api/papers/[id] — Alias for PUT to support PATCH requests
+export const PATCH = PUT
+
