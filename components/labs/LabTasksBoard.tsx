@@ -579,36 +579,72 @@ export function LabTasksBoard({
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Status Dropdown */}
-                    <select
-                      value={t.status}
-                      onChange={(e) => handleQuickStatusChange(t.id, e.target.value)}
-                      className={`text-[11px] font-bold rounded-lg px-2.5 py-1 border cursor-pointer focus:outline-none ${
-                        isCompleted
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                          : isInReview
-                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                          : t.status === 'IN_PROGRESS'
-                          ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                          : 'bg-bg-tertiary text-text-secondary border-border-default'
-                      }`}
-                    >
-                      <option value="TODO">To Do</option>
-                      <option value="IN_PROGRESS">In Progress</option>
-                      <option value="IN_REVIEW">In Review</option>
-                      <option value="COMPLETED">Completed</option>
-                    </select>
+                    {/* Student Assignee Actions: Change Working Status & Submit Deliverables */}
+                    {isAssignedToMe ? (
+                      <>
+                        <select
+                          value={t.status}
+                          onChange={(e) => handleQuickStatusChange(t.id, e.target.value)}
+                          className={`text-[11px] font-bold rounded-lg px-2.5 py-1 border cursor-pointer focus:outline-none ${
+                            isCompleted
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : isInReview
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              : t.status === 'IN_PROGRESS'
+                              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                              : 'bg-bg-tertiary text-text-secondary border-border-default'
+                          }`}
+                        >
+                          <option value="TODO">To Do</option>
+                          <option value="IN_PROGRESS">In Progress</option>
+                          <option value="IN_REVIEW">Ready for Review</option>
+                          <option value="COMPLETED">Completed</option>
+                        </select>
 
-                    {/* Submit Deliverables Button for Student */}
-                    {(isAssignedToMe || isLeadOrSupervisor) && (
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={() => handleOpenSubmitDeliverable(t)}
-                        icon={<LinkIcon size={12} />}
-                      >
-                        Submit / Notes
-                      </Button>
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={() => handleOpenSubmitDeliverable(t)}
+                          icon={<LinkIcon size={12} />}
+                        >
+                          Submit / Notes
+                        </Button>
+                      </>
+                    ) : (
+                      /* Supervisor / Observer View: Status Badge & Review Sign-Off */
+                      <>
+                        <span
+                          className={`text-[10px] font-bold rounded-lg px-2.5 py-1 border font-mono flex items-center gap-1 ${
+                            isCompleted
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : isInReview
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              : t.status === 'IN_PROGRESS'
+                              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                              : 'bg-bg-tertiary text-text-secondary border-border-default'
+                          }`}
+                        >
+                          {isCompleted
+                            ? '🟢 Completed'
+                            : isInReview
+                            ? '🟠 In Review'
+                            : t.status === 'IN_PROGRESS'
+                            ? '🔵 In Progress'
+                            : '⚪ To Do'}
+                        </span>
+
+                        {isLeadOrSupervisor && isInReview && (
+                          <Button
+                            size="xs"
+                            variant="primary"
+                            onClick={() => handleQuickStatusChange(t.id, 'COMPLETED')}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                            icon={<CheckCircle2 size={12} />}
+                          >
+                            Approve Deliverable
+                          </Button>
+                        )}
+                      </>
                     )}
 
                     {/* Edit & Delete for Supervisors */}
