@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ExternalLink,
@@ -9,6 +9,8 @@ import {
   MessageSquare,
   Award,
   Calendar,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import type { Paper, LiteratureReviewData, QuestionAnswer } from '@/lib/types'
@@ -21,6 +23,18 @@ interface LiteratureReviewTableProps {
 export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
   const [filterText, setFilterText] = useState('')
   const [expandedCell, setExpandedCell] = useState<string | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Listen for Escape key to exit full screen mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen])
 
   const handleExportMatrix = () => {
     window.open('/api/import-export/export?format=matrix', '_blank')
@@ -75,9 +89,9 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
   })
 
   return (
-    <div className="space-y-4">
+    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-bg-primary p-4 sm:p-6 flex flex-col space-y-4 animate-fade-in' : 'space-y-4'}>
       {/* Top Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-bg-tertiary border border-border-default">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-bg-tertiary border border-border-default shrink-0">
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <Search size={16} className="text-text-tertiary" />
           <input
@@ -90,21 +104,33 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-text-tertiary font-mono">
+          <span className="text-xs text-text-tertiary font-mono hidden sm:inline">
             {filteredPapers.length} of {papers.length} Papers
           </span>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            icon={isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          >
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </Button>
+
           <Button
             size="sm"
             onClick={handleExportMatrix}
             icon={<Download size={13} />}
           >
-            Export Matrix (CSV)
+            Export CSV
           </Button>
         </div>
       </div>
 
       {/* 20-Column Responsive Matrix Table with Frozen Header and Pinned Columns */}
-      <div className="rounded-xl border border-border-default bg-bg-primary overflow-auto shadow-sm max-h-[720px] relative">
+      <div className={`rounded-xl border border-border-default bg-bg-primary overflow-auto shadow-sm relative ${
+        isFullscreen ? 'flex-1 min-h-0' : 'max-h-[720px]'
+      }`}>
         <table className="w-full border-separate border-spacing-0 text-left text-xs whitespace-normal">
           <thead className="sticky top-0 z-30 bg-bg-tertiary border-b border-border-default shadow-xs text-text-secondary uppercase tracking-wider font-semibold text-[11px]">
             <tr>
@@ -124,22 +150,22 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
               </th>
 
               {/* Scrollable Survey Columns */}
-              <th className="p-3 min-w-[110px] border-b border-r border-border-default/60">Paper Link</th>
-              <th className="p-3 min-w-[130px] border-b border-r border-border-default/60">PDF Accessibility</th>
-              <th className="p-3 min-w-[220px] border-b border-r border-border-default/60">Research Gap</th>
-              <th className="p-3 min-w-[180px] border-b border-r border-border-default/60">Used Dataset</th>
-              <th className="p-3 min-w-[120px] border-b border-r border-border-default/60">Summary Repo</th>
-              <th className="p-3 min-w-[180px] border-b border-r border-border-default/60">Remarks / Comments</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q1. Problem &amp; Importance</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q2. Data Used</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q3. Features / Inputs</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q4. Methods &amp; Pipeline</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q5. Baselines</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q6. Performance Evaluation</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q7. Key Results</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q8. Limitations &amp; Biases</th>
-              <th className="p-3 min-w-[240px] border-b border-r border-border-default/60">Q9. Code &amp; Artifacts</th>
-              <th className="p-3 min-w-[220px] border-b border-border-default/60">OutCome</th>
+              <th className="p-3 min-w-[110px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Paper Link</th>
+              <th className="p-3 min-w-[130px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">PDF Accessibility</th>
+              <th className="p-3 min-w-[220px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Research Gap</th>
+              <th className="p-3 min-w-[180px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Used Dataset</th>
+              <th className="p-3 min-w-[120px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Summary Repo</th>
+              <th className="p-3 min-w-[180px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Remarks / Comments</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q1. Problem &amp; Importance</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q2. Data Used</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q3. Features / Inputs</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q4. Methods &amp; Pipeline</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q5. Baselines</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q6. Performance Evaluation</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q7. Key Results</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q8. Limitations &amp; Biases</th>
+              <th className="p-3 min-w-[240px] sticky top-0 z-30 bg-bg-tertiary border-b border-r border-border-default/60">Q9. Code &amp; Artifacts</th>
+              <th className="p-3 min-w-[220px] sticky top-0 z-30 bg-bg-tertiary border-b border-border-default/60">OutCome</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-default/60 text-text-primary">
