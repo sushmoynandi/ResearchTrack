@@ -86,15 +86,8 @@ export function PushNotificationPrompt() {
           console.warn('Service worker registration notice:', err)
         })
 
-      // If permission is default and user hasn't dismissed recently, show prompt
-      const dismissedAt = localStorage.getItem('push_prompt_dismissed_at')
-      const isDismissedRecently =
-        dismissedAt && Date.now() - Number(dismissedAt) < 7 * 24 * 60 * 60 * 1000
-
-      if (currentPerm === 'default' && !isDismissedRecently) {
-        const timer = setTimeout(() => setShowPrompt(true), 2500)
-        return () => clearTimeout(timer)
-      }
+      // Only sync if permission is already granted. Do NOT show unsolicited popup on page load.
+      setShowPrompt(false)
     }
   }, [user?.id])
 

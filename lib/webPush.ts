@@ -10,7 +10,7 @@ export const VAPID_PRIVATE_KEY =
   ''
 
 export const VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || 'mailto:support@researchtrack.io'
+  process.env.VAPID_SUBJECT || 'mailto:sushmoynandiml@gmail.com'
 
 // Configure web-push details if keys are provided in environment
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
