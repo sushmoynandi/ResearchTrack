@@ -30,6 +30,8 @@ export async function sendPushNotification(
       message: payload.message,
       link: payload.link || '/',
       type: payload.type || 'SYSTEM',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       timestamp: Date.now(),
     })
 
