@@ -180,6 +180,38 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    // Notify the other participant about reschedule or status change
+    const isRescheduled = scheduledAt !== undefined
+    const isStatusChanged = status !== undefined
+    if (isRescheduled || isStatusChanged) {
+      const notifyTarget = user.id === existing.studentId ? existing.supervisorId : existing.studentId
+
+      if (isRescheduled) {
+        const newTimeStr = new Date(scheduledAt).toLocaleDateString([], {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+        await createNotification({
+          userId: notifyTarget,
+          title: `Meeting Rescheduled 🔄`,
+          message: `${user.name} rescheduled "${updated.title}" to ${newTimeStr}.`,
+          type: 'SYSTEM',
+          link: '/meetings',
+        })
+      } else if (isStatusChanged) {
+        await createNotification({
+          userId: notifyTarget,
+          title: `Meeting ${status}: "${updated.title}"`,
+          message: `${user.name} marked your 1-on-1 meeting as ${status}.`,
+          type: 'SYSTEM',
+          link: '/meetings',
+        })
+      }
+    }
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Error updating meeting:', error)

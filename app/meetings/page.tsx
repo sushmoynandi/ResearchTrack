@@ -116,7 +116,7 @@ export default function MeetingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          scheduledAt,
+          scheduledAt: new Date(scheduledAt).toISOString(),
           studentId: isSupervisor ? selectedStudentId : user?.id,
           supervisorId: isSupervisor ? user?.id : user?.supervisorId,
         }),
@@ -249,7 +249,7 @@ export default function MeetingsPage() {
                         {m.status}
                       </Badge>
                       <span className="text-[11px] font-mono text-text-tertiary">
-                        {new Date(m.scheduledAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        {new Date(m.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     </div>
 
@@ -282,11 +282,13 @@ export default function MeetingsPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-accent/15 text-accent">
-                      {new Date(activeMeeting.scheduledAt).toLocaleDateString([], {
+                      {new Date(activeMeeting.scheduledAt).toLocaleString(undefined, {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </span>
                     <Badge variant={activeMeeting.status === 'COMPLETED' ? 'success' : 'default'} size="sm">

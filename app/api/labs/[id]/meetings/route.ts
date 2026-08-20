@@ -286,8 +286,56 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       include: {
         host: { select: { id: true, name: true, email: true } },
         group: { select: { id: true, name: true, color: true } },
+        lab: { select: { id: true, name: true, slug: true, members: { select: { userId: true } } } },
       },
     })
+
+    // Notify members about reschedule or status change
+    const isRescheduled = startTime !== undefined
+    const isStatusChanged = status !== undefined
+    if (isRescheduled || isStatusChanged) {
+      // Determine who to notify
+      let targetUserIds: string[] = []
+      if (updated.groupId) {
+        const groupMembers = await prisma.groupMember.findMany({
+          where: { groupId: updated.groupId },
+          select: { userId: true },
+        })
+        targetUserIds = groupMembers.map((m) => m.userId)
+      } else {
+        targetUserIds = updated.lab.members.map((m) => m.userId)
+      }
+
+      const newTimeStr = isRescheduled
+        ? new Date(startTime).toLocaleDateString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : ''
+
+      const notifTitle = isRescheduled
+        ? `Meeting Rescheduled: "${updated.title}" 🔄`
+        : `Meeting ${status}: "${updated.title}"`
+
+      const notifMessage = isRescheduled
+        ? `${user.name} rescheduled "${updated.title}" to ${newTimeStr}.`
+        : `${user.name} marked "${updated.title}" as ${status}.`
+
+      for (const memberId of targetUserIds) {
+        if (memberId !== user.id) {
+          await createNotification({
+            userId: memberId,
+            title: notifTitle,
+            message: notifMessage,
+            type: 'SYSTEM',
+            link: `/labs/${updated.lab.slug}`,
+          })
+        }
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (error: any) {

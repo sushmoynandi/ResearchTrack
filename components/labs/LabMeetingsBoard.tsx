@@ -135,8 +135,8 @@ export function LabMeetingsBoard({
     }
 
     return {
-      formattedDate: date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }),
-      formattedTime: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      formattedDate: date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+      formattedTime: date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
       relativePill: badgeText,
     }
   }
@@ -282,7 +282,7 @@ export function LabMeetingsBoard({
                     {m.meetingUrl && !isCompleted && !isCancelled && (
                       <a href={m.meetingUrl} target="_blank" rel="noopener noreferrer">
                         <Button size="xs" variant="primary" icon={<Video size={13} />}>
-                          Join Video Call
+                          Join Meeting
                         </Button>
                       </a>
                     )}
