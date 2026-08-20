@@ -7,6 +7,7 @@ import { StarButton } from './StarButton'
 import { Badge } from '@/components/ui/Badge'
 import { MessageSquare, Cpu, Trophy, UserCheck } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
+import { useAuth } from '@/components/auth/AuthProvider'
 import type { Paper } from '@/lib/types'
 import { REPLICATION_LABELS, REPLICATION_COLORS } from '@/lib/types'
 
@@ -16,6 +17,11 @@ interface PaperRowProps {
 }
 
 export function PaperRow({ paper, onUpdate }: PaperRowProps) {
+  const { user } = useAuth()
+  const firstAssignment = paper.assignments?.[0]
+  const isAssignedToCurrentUser = user?.id === firstAssignment?.studentId
+  const isStudentView = user?.systemRole === 'STUDENT' && isAssignedToCurrentUser
+
   return (
     <Link
       href={`/papers/${paper.id}`}
@@ -52,20 +58,31 @@ export function PaperRow({ paper, onUpdate }: PaperRowProps) {
       </div>
 
       {/* Assigned Person badge */}
-      {paper.assignments && paper.assignments.length > 0 && (
+      {firstAssignment && (
         <div className="hidden sm:flex items-center gap-1 shrink-0">
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"
-            title={`Assigned by ${paper.assignments[0].assignedBy?.name || 'Supervisor'} to ${paper.assignments[0].student?.name || 'Student'}`}
+            title={`Assigned by ${firstAssignment.assignedBy?.name || 'Supervisor'} to ${firstAssignment.student?.name || 'Student'}`}
           >
             <UserCheck size={11} />
             <span>
-              {paper.assignments[0].assignedBy?.name
-                ? `By ${paper.assignments[0].assignedBy.name}`
-                : paper.assignments[0].student?.name
-                ? `To ${paper.assignments[0].student.name}`
-                : 'Assigned'}
+              {isStudentView
+                ? `By ${firstAssignment.assignedBy?.name || 'Supervisor'}`
+                : `To ${firstAssignment.student?.name || 'Student'}`}
             </span>
+            {firstAssignment.status && (
+              <span
+                className={`ml-0.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold ${
+                  firstAssignment.status === 'COMPLETED'
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : firstAssignment.status === 'IN_PROGRESS'
+                    ? 'bg-blue-500/20 text-blue-300'
+                    : 'bg-amber-500/20 text-amber-300'
+                }`}
+              >
+                {firstAssignment.status}
+              </span>
+            )}
           </span>
         </div>
       )}

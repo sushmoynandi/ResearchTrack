@@ -17,6 +17,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
+import { useAuth } from '@/components/auth/AuthProvider'
 import type { Paper, BenchmarkScore } from '@/lib/types'
 import { REPLICATION_LABELS, REPLICATION_COLORS } from '@/lib/types'
 
@@ -26,6 +27,8 @@ interface PaperCardProps {
 }
 
 export function PaperCard({ paper, onUpdate }: PaperCardProps) {
+  const { user } = useAuth()
+
   // Parse benchmarks if present
   let benchmarks: BenchmarkScore[] = []
   if (paper.benchmarks) {
@@ -64,18 +67,37 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
           {/* Assigned Person / Supervisor Badge */}
           {paper.assignments && paper.assignments.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-              {paper.assignments.map((a) => (
-                <span
-                  key={a.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"
-                  title={`Assigned by ${a.assignedBy?.name || 'Supervisor'} to ${a.student?.name || 'Student'}`}
-                >
-                  <UserCheck size={11} />
-                  <span>
-                    {a.assignedBy?.name ? `Assigned by ${a.assignedBy.name}` : a.student?.name ? `Assigned to ${a.student.name}` : 'Assigned Paper'}
+              {paper.assignments.map((a) => {
+                const isAssignedToCurrentUser = user?.id === a.studentId
+                const isStudentView = user?.systemRole === 'STUDENT' && isAssignedToCurrentUser
+                const label = isStudentView
+                  ? `Assigned by ${a.assignedBy?.name || 'Supervisor'}`
+                  : `Assigned to ${a.student?.name || 'Student'}`
+
+                return (
+                  <span
+                    key={a.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                    title={`Assigned by ${a.assignedBy?.name || 'Supervisor'} to ${a.student?.name || 'Student'}`}
+                  >
+                    <UserCheck size={11} />
+                    <span>{label}</span>
+                    {a.status && (
+                      <span
+                        className={`ml-0.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold ${
+                          a.status === 'COMPLETED'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : a.status === 'IN_PROGRESS'
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        {a.status}
+                      </span>
+                    )}
                   </span>
-                </span>
-              ))}
+                )
+              })}
             </div>
           )}
 

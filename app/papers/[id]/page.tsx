@@ -178,6 +178,25 @@ export default function PaperDetailPage() {
     fetchPaper()
   }, [fetchPaper])
 
+  const handleUpdateAssignmentStatus = async (assignmentId: string, newStatus: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED') => {
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: assignmentId, status: newStatus }),
+      })
+      if (res.ok) {
+        addToast('success', `Assignment status updated to ${newStatus}`)
+        fetchPaper()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update assignment status')
+      }
+    } catch {
+      addToast('error', 'Network error updating assignment status')
+    }
+  }
+
   const handleDelete = async () => {
     setDeleting(true)
     try {
@@ -251,7 +270,10 @@ export default function PaperDetailPage() {
 
   const visibleAssignment = isStudent
     ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
+    : selectedReviewerId !== 'SUPERVISOR'
+    ? paper.assignments?.find((assignment) => assignment.studentId === selectedReviewerId)
     : paper.assignments?.[0]
+
   const canManagePaper = paper.userId === user?.id || isSupervisor || isAdmin
 
   // Find active student assignment based on role & selected reviewer tab
@@ -415,7 +437,7 @@ export default function PaperDetailPage() {
       </div>
 
       {/* Assigned Person / Supervisor Details Banner */}
-      {visibleAssignment && (
+      {isStudent && visibleAssignment && (
         <div className="glass-card p-4 md:p-5 border-purple-500/30 bg-purple-500/5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -427,31 +449,44 @@ export default function PaperDetailPage() {
                   Supervisory Reading Assignment
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  Assigned by <strong className="text-purple-400 font-semibold">{visibleAssignment.assignedBy?.name || 'Supervisor'}</strong> to{' '}
-                  <strong className="text-cyan-400 font-semibold">{visibleAssignment.student?.name || 'Student Researcher'}</strong>
+                  Assigned by <strong className="text-purple-400 font-semibold">{visibleAssignment.assignedBy?.name || 'Faculty Advisor'}</strong> to{' '}
+                  <strong className="text-cyan-400 font-semibold">You ({user?.name})</strong>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
               {visibleAssignment.dueDate && (
                 <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
                   <Calendar size={13} className="text-accent" />
                   Due: {new Date(visibleAssignment.dueDate).toLocaleDateString()}
                 </span>
               )}
-              <Badge
-                variant={
-                  visibleAssignment.status === 'COMPLETED'
-                    ? 'success'
-                    : visibleAssignment.status === 'IN_PROGRESS'
-                    ? 'warning'
-                    : 'info'
-                }
-                size="md"
-              >
-                {visibleAssignment.status}
-              </Badge>
+
+              {/* Student 1-Click Status Switcher */}
+              <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-xl border border-border-default">
+                {(['PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).map((st) => {
+                  const isActive = visibleAssignment.status === st
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => handleUpdateAssignmentStatus(visibleAssignment.id, st)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                        isActive
+                          ? st === 'COMPLETED'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : st === 'IN_PROGRESS'
+                            ? 'bg-blue-500 text-white shadow-xs'
+                            : 'bg-amber-500 text-white shadow-xs'
+                          : 'text-text-tertiary hover:text-text-primary hover:bg-bg-elevated'
+                      }`}
+                    >
+                      {st === 'IN_PROGRESS' ? 'Reading' : st === 'COMPLETED' ? 'Completed' : 'To Read'}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
 
@@ -463,10 +498,134 @@ export default function PaperDetailPage() {
         </div>
       )}
 
+      {/* Supervisor / Admin View: Multi-Student or Specific Student Assignment Banner */}
+      {!isStudent && paper.assignments && paper.assignments.length > 0 && (
+        <div className="glass-card p-4 md:p-5 border-purple-500/30 bg-purple-500/5 space-y-3">
+          {selectedReviewerId !== 'SUPERVISOR' && visibleAssignment ? (
+            /* Specific Student Selected */
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                    <UserCheck size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5">
+                      Student Assignment: {visibleAssignment.student?.name || 'Researcher'}
+                    </p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      Assigned by <strong className="text-purple-400 font-semibold">{visibleAssignment.assignedBy?.name || 'Supervisor'}</strong> to{' '}
+                      <strong className="text-cyan-400 font-semibold">{visibleAssignment.student?.name || 'Student Researcher'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  {visibleAssignment.dueDate && (
+                    <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
+                      <Calendar size={13} className="text-accent" />
+                      Due: {new Date(visibleAssignment.dueDate).toLocaleDateString()}
+                    </span>
+                  )}
+                  <Badge
+                    variant={
+                      visibleAssignment.status === 'COMPLETED'
+                        ? 'success'
+                        : visibleAssignment.status === 'IN_PROGRESS'
+                        ? 'warning'
+                        : 'info'
+                    }
+                    size="md"
+                  >
+                    {visibleAssignment.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {visibleAssignment.note && (
+                <p className="text-xs text-text-secondary bg-bg-tertiary/70 p-3 rounded-xl italic border border-border-default/50">
+                  &ldquo;{visibleAssignment.note}&rdquo;
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Overview of All Assigned Students */
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                      Assigned Researchers ({paper.assignments.length})
+                    </h4>
+                    <p className="text-[11px] text-text-tertiary">
+                      Click any student to view their individual Q1–Q9 synthesis notes and answers.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {paper.assignments.map((a) => {
+                  const isSelected = selectedReviewerId === a.studentId
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setSelectedReviewerId(a.studentId)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500 shadow-xs'
+                          : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                      }`}
+                    >
+                      <GraduationCap size={13} className="text-purple-400" />
+                      <span>{a.student?.name || 'Student'}</span>
+                      <span className="text-[10px] text-text-tertiary font-normal">
+                        (by {a.assignedBy?.name || 'Supervisor'})
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
+                          a.status === 'COMPLETED'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : a.status === 'IN_PROGRESS'
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        {a.status}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main Title & Authors Card */}
       <div className="glass-card p-6 md:p-8 space-y-4 relative overflow-hidden">
         <div className="flex flex-wrap items-center gap-2.5">
-          <StatusBadge status={paper.status} />
+          <StatusBadge
+            status={
+              isStudent && visibleAssignment
+                ? visibleAssignment.status === 'COMPLETED'
+                  ? 'COMPLETED'
+                  : visibleAssignment.status === 'IN_PROGRESS'
+                  ? 'READING'
+                  : 'TO_READ'
+                : selectedReviewerId !== 'SUPERVISOR' && visibleAssignment
+                ? visibleAssignment.status === 'COMPLETED'
+                  ? 'COMPLETED'
+                  : visibleAssignment.status === 'IN_PROGRESS'
+                  ? 'READING'
+                  : 'TO_READ'
+                : paper.status
+            }
+          />
           <PriorityIndicator priority={paper.priority} />
 
           {paper.arxivId && (
