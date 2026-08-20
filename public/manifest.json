@@ -1,10 +1,10 @@
 {
-  "name": "ResearchTrack Academic Lab Platform",
+  "name": "ResearchTrack — AI & Machine Learning Lab Platform",
   "short_name": "ResearchTrack",
-  "description": "Production-ready research paper tracker, literature review matrix, and academic lab management workspace.",
+  "description": "Collaborative research tracking, literature reviews, 1-on-1 advisor check-ins, and thesis milestones.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090d16",
+  "background_color": "#0d1117",
   "theme_color": "#06b6d4",
   "orientation": "portrait-primary",
   "icons": [

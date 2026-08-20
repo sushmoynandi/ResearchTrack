@@ -1,66 +1,73 @@
-const CACHE_NAME = 'researchtrack-cache-v1'
-const PRECACHE_URLS = [
-  '/',
-  '/papers',
-  '/collections',
-  '/tracks',
-  '/manifest.json',
-  '/favicon.ico',
-]
+// Service Worker for ResearchTrack Background Push Notifications
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_URLS).catch((err) => {
-        console.warn('Pre-cache error:', err)
-      })
-    })
-  )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
-    })
-  )
-  self.clients.claim()
+  event.waitUntil(self.clients.claim())
 })
 
-self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
-  if (event.request.method !== 'GET') return
+// Listen for incoming background push notifications
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    if (event.data) {
+      data = event.data.json()
+    }
+  } catch (err) {
+    data = {
+      title: 'ResearchTrack Notification',
+      message: event.data ? event.data.text() : 'You have a new research update.',
+      link: '/',
+    }
+  }
 
-  // Skip API routes with mutations or auth
-  const url = new URL(event.request.url)
-  if (url.pathname.startsWith('/api/auth')) return
+  const title = data.title || 'ResearchTrack'
+  const options = {
+    body: data.message || data.body || 'You have a new update from your research advisor or lab.',
+    icon: data.icon || '/favicon.ico',
+    badge: '/favicon.ico',
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.link || data.url || '/',
+      timestamp: Date.now(),
+    },
+    actions: [
+      { action: 'open', title: 'Open in App' },
+      { action: 'dismiss', title: 'Dismiss' },
+    ],
+    tag: data.tag || 'researchtrack-' + Date.now(),
+    renotify: true,
+    requireInteraction: true,
+  }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Cache valid responses
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone).catch(() => {})
-          })
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Handle tapping / clicking the system push notification banner
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  if (event.action === 'dismiss') {
+    return
+  }
+
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window is already open, focus it and navigate
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(targetUrl)
+          return client.focus()
         }
-        return response
-      })
-      .catch(() => {
-        // Fallback to cache if network is unavailable
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse
-          }
-          if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/papers')
-          }
-          return new Response('Offline mode: content not cached', { status: 503 })
-        })
-      })
+      }
+      // Otherwise open a new browser window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl)
+      }
+    })
   )
 })

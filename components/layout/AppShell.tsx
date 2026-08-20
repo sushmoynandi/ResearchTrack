@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider'
+import { PushNotificationPrompt } from '@/components/notifications/PushNotificationPrompt'
 import { Atom } from 'lucide-react'
 
 function MainContent({ children }: { children: React.ReactNode }) {
@@ -69,6 +70,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar />
       <MainContent>{children}</MainContent>
+      <PushNotificationPrompt />
     </SidebarProvider>
   )
 }

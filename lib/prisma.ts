@@ -19,7 +19,8 @@ function isClientUpToDate(client: any): boolean {
       'starterPackItem' in client &&
       'journalClubSession' in client &&
       'labMeeting' in client &&
-      'assignment' in client
+      'assignment' in client &&
+      'pushSubscription' in client
   )
 }
 
