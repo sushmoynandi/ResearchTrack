@@ -37,7 +37,7 @@ export function PushNotificationPrompt() {
       setPermission(currentPerm)
 
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('/sw.js?v=2.1.0')
         .then(async (reg) => {
           try {
             const sub = await reg.pushManager.getSubscription()
@@ -86,8 +86,15 @@ export function PushNotificationPrompt() {
           console.warn('Service worker registration notice:', err)
         })
 
-      // Only sync if permission is already granted. Do NOT show unsolicited popup on page load.
-      setShowPrompt(false)
+      // If permission is default and user hasn't dismissed recently, show post-login prompt
+      const dismissedAt = localStorage.getItem('push_prompt_dismissed_at')
+      const isDismissedRecently =
+        dismissedAt && Date.now() - Number(dismissedAt) < 24 * 60 * 60 * 1000
+
+      if (currentPerm === 'default' && !isDismissedRecently) {
+        const timer = setTimeout(() => setShowPrompt(true), 1200)
+        return () => clearTimeout(timer)
+      }
     }
   }, [user?.id])
 
