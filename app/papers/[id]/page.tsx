@@ -47,6 +47,10 @@ import {
   MessageSquare,
   UserCheck,
   ClipboardList,
+  Users,
+  GraduationCap,
+  CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -172,10 +176,11 @@ export default function PaperDetailPage() {
         addToast('success', 'Paper deleted from library')
         router.push('/papers')
       } else {
-        addToast('error', 'Failed to delete paper')
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err.error || 'Failed to delete paper')
       }
     } catch {
-      addToast('error', 'Failed to delete paper')
+      addToast('error', 'Network error deleting paper')
     } finally {
       setDeleting(false)
     }
@@ -234,10 +239,21 @@ export default function PaperDetailPage() {
 
   if (!paper) return null
 
+  // Multi-student reviewer selection state (Supervisor view)
+  const [selectedReviewerId, setSelectedReviewerId] = useState<string>('SUPERVISOR')
+
   const visibleAssignment = isStudent
     ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
     : paper.assignments?.[0]
   const canManagePaper = paper.userId === user?.id || isSupervisor || isAdmin
+
+  // Find active student assignment based on role & selected reviewer tab
+  const activeStudentAssignment =
+    selectedReviewerId !== 'SUPERVISOR'
+      ? paper.assignments?.find((a) => a.studentId === selectedReviewerId)
+      : isStudent
+      ? visibleAssignment
+      : null
 
   // Parse benchmarks
   const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
@@ -252,13 +268,20 @@ export default function PaperDetailPage() {
       })()
     : []
 
-  // Parse literature review data
-  const rawLitReview: LiteratureReviewData = paper.literatureReview
+  // Parse literature review data (Supervisor Master vs Student-Specific Review)
+  const activeLitReviewRawString =
+    selectedReviewerId !== 'SUPERVISOR' && activeStudentAssignment
+      ? activeStudentAssignment.literatureReview || ''
+      : isStudent && visibleAssignment?.literatureReview
+      ? visibleAssignment.literatureReview
+      : paper.literatureReview || ''
+
+  const rawLitReview: LiteratureReviewData = activeLitReviewRawString
     ? (() => {
         try {
-          return typeof paper.literatureReview === 'string'
-            ? JSON.parse(paper.literatureReview)
-            : paper.literatureReview
+          return typeof activeLitReviewRawString === 'string'
+            ? JSON.parse(activeLitReviewRawString)
+            : activeLitReviewRawString
         } catch {
           return {}
         }
@@ -267,9 +290,9 @@ export default function PaperDetailPage() {
 
   const parsedLiteratureReview: LiteratureReviewData = {
     sl: rawLitReview.sl || '1',
-    assignedPerson: rawLitReview.assignedPerson || '',
-    reviewDueDate: rawLitReview.reviewDueDate || '',
-    reviewWorkflowStatus: rawLitReview.reviewWorkflowStatus || 'PENDING_REVIEW',
+    assignedPerson: rawLitReview.assignedPerson || (activeStudentAssignment?.student?.name ? activeStudentAssignment.student.name : ''),
+    reviewDueDate: rawLitReview.reviewDueDate || (activeStudentAssignment?.dueDate ? activeStudentAssignment.dueDate.slice(0, 10) : ''),
+    reviewWorkflowStatus: rawLitReview.reviewWorkflowStatus || (activeStudentAssignment?.status === 'COMPLETED' ? 'COMPLETED' : activeStudentAssignment?.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING_REVIEW'),
     selectedPaperTitle: rawLitReview.selectedPaperTitle || paper.title,
     paperTitle: rawLitReview.paperTitle || paper.title,
     paperLink: rawLitReview.paperLink || paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : ''),
@@ -692,25 +715,103 @@ export default function PaperDetailPage() {
       )}
 
       {/* Structured Literature Review & 20-Column Survey Questionnaire */}
-      <div className="glass-card p-6 md:p-8 space-y-4">
-        <div className="flex items-center justify-between border-b border-border-default pb-3">
+      <div className="glass-card p-6 md:p-8 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-default pb-3">
           <div className="flex items-center gap-2">
             <FileCheck size={20} className="text-accent" />
             <h3 className="text-base font-semibold text-text-primary font-display">
               Structured Literature Review &amp; Paper Survey (Q1–Q9 Framework)
             </h3>
           </div>
-          {canManagePaper && (
+          {canManagePaper && selectedReviewerId === 'SUPERVISOR' && (
             <Button
               size="sm"
               variant="secondary"
               onClick={() => router.push(`/papers/${paper.id}/edit`)}
               icon={<Edit size={13} />}
             >
-              Edit Review
+              Edit Master Review
             </Button>
           )}
         </div>
+
+        {/* Multi-Student Synthesis Comparison Switcher (for Supervisor / Paper Lead) */}
+        {paper.assignments && paper.assignments.length > 0 && (isSupervisor || isAdmin || paper.userId === user?.id) && (
+          <div className="p-3.5 rounded-2xl bg-bg-secondary border border-border-default space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 font-display text-[11px]">
+                <Users size={14} className="text-purple-400" /> Assigned Student Syntheses ({paper.assignments.length})
+              </span>
+              <span className="text-[11px] text-text-tertiary">
+                Click a student to view their isolated Q1–Q9 answers without affecting your master library.
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Supervisor's Master Review Tab */}
+              <button
+                type="button"
+                onClick={() => setSelectedReviewerId('SUPERVISOR')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedReviewerId === 'SUPERVISOR'
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500 shadow-xs'
+                    : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                }`}
+              >
+                <ShieldCheck size={13} />
+                <span>My Master Review (Supervisor)</span>
+              </button>
+
+              {/* Student Review Tabs */}
+              {paper.assignments.map((assignment) => {
+                const isSelected = selectedReviewerId === assignment.studentId
+                const stStatus = assignment.status
+                return (
+                  <button
+                    key={assignment.id}
+                    type="button"
+                    onClick={() => setSelectedReviewerId(assignment.studentId)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500 shadow-xs'
+                        : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                    }`}
+                  >
+                    <GraduationCap size={13} className={isSelected ? 'text-blue-400' : 'text-text-tertiary'} />
+                    <span>{assignment.student?.name || 'Student'}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
+                        stStatus === 'COMPLETED'
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : stStatus === 'IN_PROGRESS'
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'bg-amber-500/20 text-amber-300'
+                      }`}
+                    >
+                      {stStatus}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Active Student Review Banner */}
+        {activeStudentAssignment && selectedReviewerId !== 'SUPERVISOR' && (
+          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-300">
+            <span className="flex items-center gap-2 font-medium">
+              <GraduationCap size={15} className="text-blue-400 shrink-0" />
+              Viewing Student Synthesis by <strong>{activeStudentAssignment.student?.name || 'Student'}</strong> (
+              <span className="font-mono">{activeStudentAssignment.status}</span>)
+            </span>
+            {activeStudentAssignment.dueDate && (
+              <span className="text-[11px] text-text-tertiary font-mono">
+                Due: {new Date(activeStudentAssignment.dueDate).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        )}
 
         <LiteratureReviewView
           data={parsedLiteratureReview}

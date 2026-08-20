@@ -97,6 +97,7 @@ export interface Assignment {
   dueDate?: string | null
   status: AssignmentStatus
   note?: string | null
+  literatureReview?: string | null
   createdAt: string
   updatedAt: string
 }

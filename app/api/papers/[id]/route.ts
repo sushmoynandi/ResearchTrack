@@ -32,9 +32,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         },
         assignments: {
           include: {
-            assignedBy: { select: { id: true, name: true } },
-            student: { select: { id: true, name: true } },
+            assignedBy: { select: { id: true, name: true, email: true } },
+            student: { select: { id: true, name: true, email: true, department: true } },
           },
+          orderBy: { createdAt: 'desc' },
         },
         feedback: {
           include: {
@@ -59,6 +60,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // For assigned student researchers, default literatureReview payload to their personal assignment synthesis
+    if (user.systemRole === 'STUDENT') {
+      const studentAssignment = paper.assignments.find((a) => a.studentId === user.id)
+      if (studentAssignment?.literatureReview) {
+        paper.literatureReview = studentAssignment.literatureReview
+      }
     }
 
     return NextResponse.json(paper)
@@ -95,7 +104,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
       (existing.userId === user.id || existing.user.supervisorId === user.id)
-    const isAssigned = existing.assignments?.some((a) => a.studentId === user.id)
+    const activeAssignment = existing.assignments?.find((a) => a.studentId === user.id)
+    const isAssigned = Boolean(activeAssignment)
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -133,6 +143,78 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       collections,
     } = body
 
+    // ─── 1. If user is an Assigned Student, ISOLATE literature review & status to Assignment ───
+    if (user.systemRole === 'STUDENT' && activeAssignment) {
+      const assignmentUpdateData: Record<string, unknown> = {}
+
+      if (literatureReview !== undefined) {
+        assignmentUpdateData.literatureReview = literatureReview
+          ? typeof literatureReview === 'string'
+            ? literatureReview
+            : JSON.stringify(literatureReview)
+          : null
+      }
+
+      if (status !== undefined) {
+        assignmentUpdateData.status =
+          status === 'COMPLETED'
+            ? 'COMPLETED'
+            : status === 'READING'
+            ? 'IN_PROGRESS'
+            : 'PENDING'
+      }
+
+      if (Object.keys(assignmentUpdateData).length > 0) {
+        await prisma.assignment.update({
+          where: { id: activeAssignment.id },
+          data: assignmentUpdateData,
+        })
+      }
+
+      // If student completed paper, send real-time notification to supervisor
+      if (status === 'COMPLETED' && activeAssignment.assignedById) {
+        try {
+          await createNotification({
+            userId: activeAssignment.assignedById,
+            title: 'Reading Assignment Completed',
+            message: `${user.name} finished reading and synthesizing assigned paper: "${existing.title}"`,
+            type: 'STATUS_UPDATE',
+            link: `/papers/${id}`,
+          })
+        } catch {
+          // Notification is non-blocking
+        }
+      }
+
+      // Return existing paper without mutating the supervisor's master library
+      const freshPaper = await prisma.paper.findUnique({
+        where: { id },
+        include: {
+          tags: true,
+          collections: { select: { id: true, name: true, color: true } },
+          assignments: {
+            include: {
+              assignedBy: { select: { id: true, name: true } },
+              student: { select: { id: true, name: true } },
+            },
+          },
+          _count: { select: { notes: true } },
+        },
+      })
+
+      if (freshPaper) {
+        // Return student's own literature review in the response
+        if (literatureReview !== undefined) {
+          freshPaper.literatureReview = typeof literatureReview === 'string' ? literatureReview : JSON.stringify(literatureReview)
+        } else if (activeAssignment.literatureReview) {
+          freshPaper.literatureReview = activeAssignment.literatureReview
+        }
+      }
+
+      return NextResponse.json(freshPaper || existing)
+    }
+
+    // ─── 2. If user is Paper Owner / Supervisor / Admin, update Master Paper ───
     const updateData: Record<string, unknown> = {}
 
     if (title !== undefined) updateData.title = title.trim()
@@ -185,8 +267,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
       })
 
-      // A paper can carry each collaborator's private tag taxonomy. Replace only
-      // the current editor's tags and retain every tag created by other users.
       const collaboratorTags = existing.tags
         .filter((tag) => tag.userId !== user.id)
         .map((tag) => ({ id: tag.id }))
@@ -210,6 +290,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       include: {
         tags: true,
         collections: { select: { id: true, name: true, color: true } },
+        assignments: {
+          include: {
+            assignedBy: { select: { id: true, name: true } },
+            student: { select: { id: true, name: true } },
+          },
+        },
         _count: { select: { notes: true } },
       },
     })
@@ -267,6 +353,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     const existing = await prisma.paper.findUnique({
       where: { id },
+      include: {
+        user: { select: { id: true, supervisorId: true } },
+      },
     })
 
     if (!existing) {
@@ -275,19 +364,29 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const isOwner = existing.userId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (existing.userId === user.id || existing.user.supervisorId === user.id)
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isAdmin && !isSupervisor) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.paper.delete({
-      where: { id },
-    })
+    // Safely remove related dependent records in a transaction
+    await prisma.$transaction([
+      prisma.note.deleteMany({ where: { paperId: id } }),
+      prisma.assignment.deleteMany({ where: { paperId: id } }),
+      prisma.feedback.deleteMany({ where: { paperId: id } }),
+      prisma.reviewRubric.deleteMany({ where: { paperId: id } }),
+      prisma.starterPackItem.deleteMany({ where: { paperId: id } }),
+      prisma.journalClubSession.deleteMany({ where: { paperId: id } }),
+      prisma.paper.delete({ where: { id } }),
+    ])
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting paper:', error)
-    return NextResponse.json({ error: 'Failed to delete paper' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Failed to delete paper' }, { status: 500 })
   }
 }
 

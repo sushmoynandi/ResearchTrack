@@ -152,11 +152,12 @@ model Assignment {
   student      User             @relation("AssignedTo", fields: [studentId], references: [id])
   assignedById String
   assignedBy   User             @relation("AssignedBy", fields: [assignedById], references: [id])
-  dueDate      DateTime?
-  status       AssignmentStatus @default(PENDING)
-  note         String?          @db.Text
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  dueDate          DateTime?
+  status           AssignmentStatus @default(PENDING)
+  note             String?          @db.Text
+  literatureReview String?          @db.Text
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@unique([paperId, studentId])
 }
