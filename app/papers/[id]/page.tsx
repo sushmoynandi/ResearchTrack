@@ -60,6 +60,7 @@ import type {
   BenchmarkScore,
   ReplicationStatus,
   LiteratureReviewData,
+  QuestionAnswer,
 } from '@/lib/types'
 import { REPLICATION_LABELS } from '@/lib/types'
 
@@ -373,6 +374,62 @@ export default function PaperDetailPage() {
 
   const handleUpdateLitReview = (updated: LiteratureReviewData) => {
     setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(updated) } : prev))
+  }
+
+  const handleSaveQuestionComment = async (questionKey: string, comment: string) => {
+    const currentReview = { ...parsedLiteratureReview }
+    if (questionKey.startsWith('custom_')) {
+      const customId = questionKey.replace('custom_', '')
+      currentReview.customQuestions = (currentReview.customQuestions || []).map((cq) =>
+        cq.id === customId ? { ...cq, comment } : cq
+      )
+    } else {
+      const existingQ = (currentReview[questionKey as keyof LiteratureReviewData] as QuestionAnswer) || {}
+      ;(currentReview as Record<string, unknown>)[questionKey] = {
+        ...existingQ,
+        comment,
+      }
+    }
+
+    if (selectedReviewerId !== 'SUPERVISOR' && activeStudentAssignment) {
+      const res = await fetch('/api/assignments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeStudentAssignment.id,
+          literatureReview: JSON.stringify(currentReview),
+        }),
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setPaper((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            assignments: (prev.assignments || []).map((a) =>
+              a.id === activeStudentAssignment.id ? { ...a, literatureReview: updated.literatureReview } : a
+            ),
+          }
+        })
+      } else {
+        throw new Error('Failed to save comment')
+      }
+    } else {
+      const res = await fetch(`/api/papers/${paper.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          literatureReview: JSON.stringify(currentReview),
+        }),
+      })
+
+      if (res.ok) {
+        setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(currentReview) } : prev))
+      } else {
+        throw new Error('Failed to save comment')
+      }
+    }
   }
 
   return (
@@ -1010,6 +1067,7 @@ export default function PaperDetailPage() {
           paperTitle={paper.title}
           paperUrl={paper.url || undefined}
           doi={paper.doi || undefined}
+          onSaveQuestionComment={handleSaveQuestionComment}
         />
       </div>
 

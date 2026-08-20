@@ -22,6 +22,7 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -708,6 +709,7 @@ interface LiteratureReviewViewProps {
   paperTitle?: string
   paperUrl?: string
   doi?: string
+  onSaveQuestionComment?: (questionKey: string, comment: string) => Promise<void>
 }
 
 export function LiteratureReviewView({
@@ -715,9 +717,13 @@ export function LiteratureReviewView({
   paperTitle,
   paperUrl,
   doi,
+  onSaveQuestionComment,
 }: LiteratureReviewViewProps) {
   const { addToast } = useToast()
   const [openAll, setOpenAll] = useState(true)
+  const [editingCommentKey, setEditingCommentKey] = useState<string | null>(null)
+  const [tempCommentText, setTempCommentText] = useState('')
+  const [savingComment, setSavingComment] = useState(false)
 
   const copyAsMarkdown = () => {
     const customQuestions = data.customQuestions || []
@@ -749,6 +755,26 @@ export function LiteratureReviewView({
 
     navigator.clipboard.writeText(lines.join('\n'))
     addToast('success', 'Full Literature Review with comments copied to clipboard (Markdown)')
+  }
+
+  const handleStartEditComment = (key: string, currentComment: string) => {
+    setEditingCommentKey(key)
+    setTempCommentText(currentComment || '')
+  }
+
+  const handleSaveComment = async (key: string) => {
+    if (!onSaveQuestionComment) return
+    setSavingComment(true)
+    try {
+      await onSaveQuestionComment(key, tempCommentText.trim())
+      setEditingCommentKey(null)
+      setTempCommentText('')
+      addToast('success', 'Reviewer comment & discussion note saved!')
+    } catch {
+      addToast('error', 'Failed to save comment')
+    } finally {
+      setSavingComment(false)
+    }
   }
 
   const effectiveLink = data.paperLink || paperUrl || (doi ? `https://doi.org/${doi}` : '')
@@ -875,21 +901,35 @@ export function LiteratureReviewView({
               shortSummary: '',
               comment: '',
             }
+            const isEditingThisComment = editingCommentKey === q.key
 
             return (
               <div
                 key={q.key}
                 className="p-4 rounded-xl bg-bg-tertiary border border-border-default space-y-2.5"
               >
-                <div className="flex items-start gap-2.5">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold font-mono bg-bg-primary ${q.color} border border-border-default shrink-0`}>
-                    {q.num}
-                  </span>
-                  <div>
-                    <h5 className="text-xs font-semibold text-text-primary">
-                      {q.title}
-                    </h5>
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold font-mono bg-bg-primary ${q.color} border border-border-default shrink-0`}>
+                      {q.num}
+                    </span>
+                    <div>
+                      <h5 className="text-xs font-semibold text-text-primary">
+                        {q.title}
+                      </h5>
+                    </div>
                   </div>
+
+                  {onSaveQuestionComment && !isEditingThisComment && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditComment(q.key, val.comment || '')}
+                      className="text-[11px] font-medium text-accent hover:text-accent/80 hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <MessageSquare size={12} />
+                      {val.comment ? 'Edit Note' : 'Add Note'}
+                    </button>
+                  )}
                 </div>
 
                 {val.detailedAnswer ? (
@@ -911,19 +951,69 @@ export function LiteratureReviewView({
                   </div>
                 )}
 
-                {/* Question Comment Callout */}
-                {val.comment && (
-                  <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start gap-2 text-xs text-text-secondary">
-                    <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
-                    <div className="space-y-0.5 min-w-0">
-                      <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
-                        Reviewer Comment:
+                {/* Inline Comment Editor */}
+                {isEditingThisComment ? (
+                  <div className="ml-8 p-3 rounded-xl bg-bg-secondary border border-accent/40 space-y-2.5 animate-slide-up">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-accent flex items-center gap-1">
+                        <MessageSquare size={12} /> Reviewer Comment / Discussion Note for {q.num}:
                       </span>
-                      <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
-                        {val.comment}
-                      </p>
+                    </div>
+                    <Textarea
+                      value={tempCommentText}
+                      onChange={(e) => setTempCommentText(e.target.value)}
+                      placeholder={`Add faculty feedback, critique, guidance, or discussion point for ${q.num}...`}
+                      rows={2}
+                      className="text-xs"
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingCommentKey(null)
+                          setTempCommentText('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveComment(q.key)}
+                        loading={savingComment}
+                      >
+                        Save Discussion Note
+                      </Button>
                     </div>
                   </div>
+                ) : (
+                  /* Question Comment Callout */
+                  val.comment && (
+                    <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start justify-between gap-2 text-xs text-text-secondary">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block font-mono">
+                            Reviewer Comment / Discussion Note:
+                          </span>
+                          <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
+                            {val.comment}
+                          </p>
+                        </div>
+                      </div>
+                      {onSaveQuestionComment && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditComment(q.key, val.comment || '')}
+                          className="text-text-tertiary hover:text-accent p-1 cursor-pointer shrink-0"
+                          title="Edit Comment"
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             )
@@ -932,21 +1022,36 @@ export function LiteratureReviewView({
           {/* Custom Questions */}
           {customQuestions.map((cq, idx) => {
             const labelNum = cq.num || `Q${idx + 10}`
+            const customKey = `custom_${cq.id}`
+            const isEditingThisComment = editingCommentKey === customKey
 
             return (
               <div
                 key={cq.id}
                 className="p-4 rounded-xl bg-bg-tertiary border border-accent/30 space-y-2.5"
               >
-                <div className="flex items-start gap-2.5">
-                  <span className="px-2 py-0.5 rounded text-xs font-bold font-mono bg-bg-primary text-accent border border-accent/40 shrink-0">
-                    {labelNum}
-                  </span>
-                  <div>
-                    <h5 className="text-xs font-semibold text-text-primary">
-                      {cq.title || 'Custom Evaluation Question'}
-                    </h5>
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold font-mono bg-bg-primary text-accent border border-accent/40 shrink-0">
+                      {labelNum}
+                    </span>
+                    <div>
+                      <h5 className="text-xs font-semibold text-text-primary">
+                        {cq.title || 'Custom Evaluation Question'}
+                      </h5>
+                    </div>
                   </div>
+
+                  {onSaveQuestionComment && !isEditingThisComment && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditComment(customKey, cq.comment || '')}
+                      className="text-[11px] font-medium text-accent hover:text-accent/80 hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <MessageSquare size={12} />
+                      {cq.comment ? 'Edit Note' : 'Add Note'}
+                    </button>
+                  )}
                 </div>
 
                 {cq.detailedAnswer ? (
@@ -968,18 +1073,68 @@ export function LiteratureReviewView({
                   </div>
                 )}
 
-                {cq.comment && (
-                  <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start gap-2 text-xs text-text-secondary">
-                    <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
-                    <div className="space-y-0.5 min-w-0">
-                      <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
-                        Reviewer Comment:
+                {/* Inline Comment Editor */}
+                {isEditingThisComment ? (
+                  <div className="ml-8 p-3 rounded-xl bg-bg-secondary border border-accent/40 space-y-2.5 animate-slide-up">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-accent flex items-center gap-1">
+                        <MessageSquare size={12} /> Reviewer Comment for {labelNum}:
                       </span>
-                      <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
-                        {cq.comment}
-                      </p>
+                    </div>
+                    <Textarea
+                      value={tempCommentText}
+                      onChange={(e) => setTempCommentText(e.target.value)}
+                      placeholder={`Add discussion note for ${labelNum}...`}
+                      rows={2}
+                      className="text-xs"
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingCommentKey(null)
+                          setTempCommentText('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveComment(customKey)}
+                        loading={savingComment}
+                      >
+                        Save Discussion Note
+                      </Button>
                     </div>
                   </div>
+                ) : (
+                  cq.comment && (
+                    <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start justify-between gap-2 text-xs text-text-secondary">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block font-mono">
+                            Reviewer Comment / Discussion Note:
+                          </span>
+                          <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
+                            {cq.comment}
+                          </p>
+                        </div>
+                      </div>
+                      {onSaveQuestionComment && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditComment(customKey, cq.comment || '')}
+                          className="text-text-tertiary hover:text-accent p-1 cursor-pointer shrink-0"
+                          title="Edit Comment"
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             )

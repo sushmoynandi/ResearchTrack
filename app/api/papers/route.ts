@@ -37,11 +37,12 @@ export async function GET(request: NextRequest) {
         OR: [
           { supervisorId: user.id },
           { labMemberships: { some: { lab: { leadId: user.id } } } },
-          { labMemberships: { some: { lab: { members: { some: { userId: user.id, role: { in: ['LEAD', 'SUPERVISOR', 'ADMIN'] } } } } } } },
+          { labMemberships: { some: { lab: { members: { some: { userId: user.id, role: { in: ['LEAD', 'CO_LEAD'] } } } } } } },
           { assignedPapers: { some: { assignedById: user.id } } },
           { assignedLabTasks: { some: { createdById: user.id } } },
           { milestonesAsStudent: { some: { supervisorId: user.id } } },
           { meetingsAsStudent: { some: { supervisorId: user.id } } },
+          { systemRole: 'STUDENT' as const },
         ],
       }
 

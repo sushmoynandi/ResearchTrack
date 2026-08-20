@@ -9,15 +9,28 @@ import { ExportMatrixModal } from '@/components/papers/ExportMatrixModal'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { LayoutGrid, List, FileText, Table2, Download } from 'lucide-react'
+import { useAuth } from '@/components/auth/AuthProvider'
+import {
+  LayoutGrid,
+  List,
+  FileText,
+  Table2,
+  Download,
+  BookOpen,
+  User,
+  GraduationCap,
+} from 'lucide-react'
 import type { Paper } from '@/lib/types'
 
 type ViewMode = 'grid' | 'list' | 'matrix'
+type ScopeMode = 'all' | 'own' | 'students'
 
 export default function PapersPage() {
+  const { user } = useAuth()
   const [papers, setPapers] = useState<(Paper & { _count?: { notes: number } })[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [scope, setScope] = useState<ScopeMode>('all')
 
   // Filter state
   const [search, setSearch] = useState('')
@@ -28,7 +41,8 @@ export default function PapersPage() {
   const [sort, setSort] = useState('createdAt')
   const [isExportOpen, setIsExportOpen] = useState(false)
 
-  const hasActiveFilters = !!(search || status || priority || tag || favoritesOnly)
+  const isSupervisorOrAdmin = user?.systemRole === 'SUPERVISOR' || user?.systemRole === 'ADMIN'
+  const hasActiveFilters = !!(search || status || priority || tag || favoritesOnly || (isSupervisorOrAdmin && scope !== 'all'))
 
   const fetchPapers = useCallback(async () => {
     setLoading(true)
@@ -40,6 +54,7 @@ export default function PapersPage() {
       if (tag) params.set('tag', tag)
       if (favoritesOnly) params.set('favorite', 'true')
       if (sort) params.set('sort', sort)
+      if (scope !== 'all') params.set('scope', scope)
       params.set('order', 'desc')
       params.set('_t', Date.now().toString())
 
@@ -49,14 +64,14 @@ export default function PapersPage() {
       })
       if (res.ok) {
         const data = await res.json()
-        setPapers(data)
+        setPapers(Array.isArray(data) ? data : [])
       }
     } catch (error) {
       console.error('Failed to fetch papers:', error)
     } finally {
       setLoading(false)
     }
-  }, [search, status, priority, tag, favoritesOnly, sort])
+  }, [search, status, priority, tag, favoritesOnly, sort, scope])
 
   useEffect(() => {
     const debounce = setTimeout(fetchPapers, 300)
@@ -70,15 +85,20 @@ export default function PapersPage() {
     setTag('')
     setFavoritesOnly(false)
     setSort('createdAt')
+    setScope('all')
   }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-text-secondary text-sm">
-            {papers.length} paper{papers.length !== 1 ? 's' : ''} in your research library
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold text-text-primary font-display flex items-center gap-2">
+            <BookOpen size={20} className="text-accent" />
+            Research Paper Library
+          </h1>
+          <p className="text-text-secondary text-xs">
+            {papers.length} paper{papers.length !== 1 ? 's' : ''} {isSupervisorOrAdmin ? 'across your research sphere' : 'in your personal library'}
           </p>
         </div>
 
@@ -137,6 +157,48 @@ export default function PapersPage() {
           </div>
         </div>
       </div>
+
+      {/* Supervisor Scope Tabs */}
+      {isSupervisorOrAdmin && (
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-secondary border border-border-default w-fit text-xs">
+          <button
+            type="button"
+            onClick={() => setScope('all')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              scope === 'all'
+                ? 'bg-accent text-bg-primary font-bold shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+          >
+            <BookOpen size={13} />
+            All Library Papers
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope('own')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              scope === 'own'
+                ? 'bg-accent text-bg-primary font-bold shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+          >
+            <User size={13} />
+            My Papers
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope('students')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              scope === 'students'
+                ? 'bg-accent text-bg-primary font-bold shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+          >
+            <GraduationCap size={13} />
+            Student-Added Papers
+          </button>
+        </div>
+      )}
 
       {/* Filters (only show in grid/list mode or when not in matrix) */}
       {viewMode !== 'matrix' && (

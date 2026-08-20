@@ -224,6 +224,7 @@ model Note {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   content   String   @db.Text
+  isPrivate Boolean  @default(false)
   paperId   String
   paper     Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

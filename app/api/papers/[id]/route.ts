@@ -86,7 +86,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           (lm) =>
             lm.lab.leadId === user.id ||
             lm.lab.members.some(
-              (m) => m.userId === user.id && ['LEAD', 'SUPERVISOR', 'ADMIN'].includes(m.role)
+              (m) => m.userId === user.id && ['LEAD', 'CO_LEAD'].includes(m.role)
             )
         ) ||
         paper.user?.systemRole === 'STUDENT')
@@ -163,7 +163,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           (lm) =>
             lm.lab.leadId === user.id ||
             lm.lab.members.some(
-              (m) => m.userId === user.id && ['LEAD', 'SUPERVISOR', 'ADMIN'].includes(m.role)
+              (m) => m.userId === user.id && ['LEAD', 'CO_LEAD'].includes(m.role)
             )
         ) ||
         existing.user?.systemRole === 'STUDENT')

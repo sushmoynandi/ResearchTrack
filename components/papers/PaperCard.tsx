@@ -64,10 +64,20 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
             />
           </div>
 
-          {/* Assigned Person / Supervisor Badge */}
-          {paper.assignments && paper.assignments.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-              {paper.assignments.map((a) => {
+          {/* Assigned Person / Supervisor / Student Owner Badge */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
+            {paper.user && paper.userId !== user?.id && paper.user.systemRole === 'STUDENT' && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                title={`Added by Student: ${paper.user.name}`}
+              >
+                <UserCheck size={11} />
+                <span>Student: {paper.user.name}</span>
+              </span>
+            )}
+            {paper.assignments &&
+              paper.assignments.length > 0 &&
+              paper.assignments.map((a) => {
                 const isAssignedToCurrentUser = user?.id === a.studentId
                 const isStudentView = user?.systemRole === 'STUDENT' && isAssignedToCurrentUser
                 const label = isStudentView
@@ -98,8 +108,7 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
                   </span>
                 )
               })}
-            </div>
-          )}
+          </div>
 
           {/* Title */}
           <h3 className="text-base font-semibold text-text-primary mb-1.5 line-clamp-2 group-hover:text-accent transition-colors duration-200">

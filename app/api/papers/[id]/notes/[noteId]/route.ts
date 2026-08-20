@@ -16,7 +16,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { noteId } = await params
     const body = await request.json()
-    const { content } = body
+    const { content, isPrivate } = body
 
     if (!content || !content.trim()) {
       return NextResponse.json(
@@ -33,9 +33,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
+    const updateData: Record<string, unknown> = { content: content.trim() }
+    if (isPrivate !== undefined) {
+      updateData.isPrivate = Boolean(isPrivate)
+    }
+
     const note = await prisma.note.update({
       where: { id: noteId },
-      data: { content: content.trim() },
+      data: updateData,
     })
 
     return NextResponse.json(note)

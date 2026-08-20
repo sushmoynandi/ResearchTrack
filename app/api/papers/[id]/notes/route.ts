@@ -42,7 +42,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const notes = await prisma.note.findMany({
-      where: { paperId: id },
+      where: {
+        paperId: id,
+        OR: [
+          { userId: user.id }, // Author sees their own private and public notes
+          { isPrivate: false }, // Others (supervisors / peers) only see public notes
+        ],
+      },
       include: {
         user: { select: { id: true, name: true, systemRole: true } },
       },
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params
     const body = await request.json()
-    const { content } = body
+    const { content, isPrivate } = body
 
     if (!content || !content.trim()) {
       return NextResponse.json(
@@ -105,6 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         userId: user.id,
         content: content.trim(),
+        isPrivate: Boolean(isPrivate),
         paperId: id,
       },
       include: {

@@ -138,6 +138,7 @@ export interface Note {
   userId?: string
   user?: { id: string; name: string; systemRole: SystemRole }
   content: string
+  isPrivate?: boolean
   paperId: string
   createdAt: string
   updatedAt: string
