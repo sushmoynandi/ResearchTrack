@@ -21,8 +21,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const paper = await prisma.paper.findUnique({
       where: { id },
       include: {
-        user: { select: { supervisorId: true } },
-        assignments: { select: { studentId: true } },
+        user: { select: { id: true, systemRole: true, supervisorId: true } },
+        assignments: { select: { studentId: true, assignedById: true } },
       },
     })
 
@@ -34,7 +34,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (paper.userId === user.id || paper.user.supervisorId === user.id)
+      (isOwner ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments?.some((a) => a.assignedById === user.id) ||
+        paper.user?.systemRole === 'STUDENT')
     const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {

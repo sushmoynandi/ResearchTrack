@@ -23,7 +23,28 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       include: {
         tags: true,
         collections: { select: { id: true, name: true, color: true } },
-        user: { select: { id: true, name: true, email: true, systemRole: true, institution: true, supervisorId: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            systemRole: true,
+            institution: true,
+            supervisorId: true,
+            labMemberships: {
+              select: {
+                labId: true,
+                lab: {
+                  select: {
+                    id: true,
+                    leadId: true,
+                    members: { select: { userId: true, role: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
         notes: {
           include: {
             user: { select: { id: true, name: true, systemRole: true } },
@@ -53,10 +74,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // Access check: Owner, Admin, Supervisor, or Assigned Student
     const isOwner = paper.userId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
+    const isAssigned = paper.assignments?.some((a) => a.studentId === user.id)
+
+    // Supervisor access: Owner, assigned by supervisor, student in supervisor's lab/sphere, or student paper
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (paper.userId === user.id || paper.user.supervisorId === user.id)
-    const isAssigned = paper.assignments?.some((a) => a.studentId === user.id)
+      (isOwner ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments?.some((a) => a.assignedById === user.id) ||
+        paper.user?.labMemberships?.some(
+          (lm) =>
+            lm.lab.leadId === user.id ||
+            lm.lab.members.some(
+              (m) => m.userId === user.id && ['LEAD', 'SUPERVISOR', 'ADMIN'].includes(m.role)
+            )
+        ) ||
+        paper.user?.systemRole === 'STUDENT')
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -91,7 +124,25 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const existing = await prisma.paper.findUnique({
       where: { id },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            systemRole: true,
+            supervisorId: true,
+            labMemberships: {
+              select: {
+                labId: true,
+                lab: {
+                  select: {
+                    id: true,
+                    leadId: true,
+                    members: { select: { userId: true, role: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
         assignments: true,
         tags: true,
       },
@@ -105,7 +156,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (existing.userId === user.id || existing.user.supervisorId === user.id)
+      (isOwner ||
+        existing.user?.supervisorId === user.id ||
+        existing.assignments?.some((a) => a.assignedById === user.id) ||
+        existing.user?.labMemberships?.some(
+          (lm) =>
+            lm.lab.leadId === user.id ||
+            lm.lab.members.some(
+              (m) => m.userId === user.id && ['LEAD', 'SUPERVISOR', 'ADMIN'].includes(m.role)
+            )
+        ) ||
+        existing.user?.systemRole === 'STUDENT')
     const activeAssignment = existing.assignments?.find((a) => a.studentId === user.id)
     const isAssigned = Boolean(activeAssignment)
 
