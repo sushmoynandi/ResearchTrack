@@ -28,41 +28,75 @@ export function PushNotificationPrompt() {
   const [isSubscribed, setIsSubscribed] = useState(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || !user?.id) return
 
     // Register service worker if supported
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
+    if ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window) {
       setSupported(true)
+      const currentPerm = Notification.permission
+      setPermission(currentPerm)
+
       navigator.serviceWorker
         .register('/sw.js')
-        .then((reg) => {
-          // Check if already subscribed
-          reg.pushManager.getSubscription().then((sub) => {
+        .then(async (reg) => {
+          try {
+            const sub = await reg.pushManager.getSubscription()
             if (sub) {
               setIsSubscribed(true)
+              // Ensure backend database always has this device registered
+              const subJson = sub.toJSON()
+              if (subJson.endpoint && subJson.keys) {
+                fetch('/api/notifications/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    endpoint: subJson.endpoint,
+                    keys: subJson.keys,
+                    userAgent: navigator.userAgent,
+                  }),
+                }).catch(() => {})
+              }
+            } else if (currentPerm === 'granted') {
+              // Permission was already granted in browser, auto-create subscription
+              const keyRes = await fetch('/api/notifications/subscribe')
+              if (keyRes.ok) {
+                const { publicKey } = await keyRes.json()
+                const newSub = await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(publicKey),
+                })
+                const subJson = newSub.toJSON()
+                await fetch('/api/notifications/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    endpoint: subJson.endpoint,
+                    keys: subJson.keys,
+                    userAgent: navigator.userAgent,
+                  }),
+                })
+                setIsSubscribed(true)
+              }
             }
-          })
+          } catch (e) {
+            console.warn('Auto-sync push notice:', e)
+          }
         })
         .catch((err) => {
           console.warn('Service worker registration notice:', err)
         })
 
-      if ('Notification' in window) {
-        setPermission(Notification.permission)
+      // If permission is default and user hasn't dismissed recently, show prompt
+      const dismissedAt = localStorage.getItem('push_prompt_dismissed_at')
+      const isDismissedRecently =
+        dismissedAt && Date.now() - Number(dismissedAt) < 7 * 24 * 60 * 60 * 1000
 
-        // If permission is default and user hasn't dismissed recently, show prompt
-        const dismissedAt = localStorage.getItem('push_prompt_dismissed_at')
-        const isDismissedRecently =
-          dismissedAt && Date.now() - Number(dismissedAt) < 7 * 24 * 60 * 60 * 1000
-
-        if (Notification.permission === 'default' && !isDismissedRecently) {
-          // Delay showing prompt slightly after page loads for smooth UX
-          const timer = setTimeout(() => setShowPrompt(true), 2500)
-          return () => clearTimeout(timer)
-        }
+      if (currentPerm === 'default' && !isDismissedRecently) {
+        const timer = setTimeout(() => setShowPrompt(true), 2500)
+        return () => clearTimeout(timer)
       }
     }
-  }, [user])
+  }, [user?.id])
 
   const handleDismiss = () => {
     setShowPrompt(false)

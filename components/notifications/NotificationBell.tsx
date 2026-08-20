@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Clock,
   Trash2,
+  Smartphone,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
@@ -254,6 +255,19 @@ export function NotificationBell() {
                 <p>No notifications in this view.</p>
               </div>
             )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-2.5 border-t border-border-default bg-bg-tertiary/50 flex items-center justify-between text-[11px]">
+            <Link
+              href="/profile"
+              onClick={() => setIsOpen(false)}
+              className="text-text-secondary hover:text-accent flex items-center gap-1.5 font-medium transition-colors"
+            >
+              <Smartphone size={13} className="text-accent" />
+              <span>Device &amp; Phone Alerts</span>
+            </Link>
+            <span className="text-[10px] text-text-tertiary">Real-time Web Push</span>
           </div>
         </div>
       )}

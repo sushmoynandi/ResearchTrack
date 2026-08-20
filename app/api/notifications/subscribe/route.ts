@@ -3,10 +3,19 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { VAPID_PUBLIC_KEY } from '@/lib/webPush'
 
-// GET /api/notifications/subscribe — Fetch the public VAPID key
-export async function GET() {
+// GET /api/notifications/subscribe — Fetch public VAPID key & user device status
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser(request)
+  let deviceCount = 0
+  if (user) {
+    deviceCount = await prisma.pushSubscription.count({
+      where: { userId: user.id },
+    })
+  }
   return NextResponse.json({
     publicKey: VAPID_PUBLIC_KEY,
+    deviceCount,
+    hasSubscription: deviceCount > 0,
   })
 }
 

@@ -20,7 +20,24 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowLeft,
+  Bell,
+  Smartphone,
+  CheckCircle2,
+  AlertTriangle,
+  Send,
+  RefreshCw,
 } from 'lucide-react'
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
 
 export default function ProfilePage() {
   const { user, refreshUser, loading } = useAuth()
@@ -37,13 +54,160 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
 
+  // Web Push Notification State
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default')
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false)
+  const [registeredDevicesCount, setRegisteredDevicesCount] = useState(0)
+  const [subscribingPush, setSubscribingPush] = useState(false)
+  const [testingPush, setTestingPush] = useState(false)
+
+  const checkPushStatus = async () => {
+    if (typeof window === 'undefined') return
+    if ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window) {
+      setPushSupported(true)
+      setPushPermission(Notification.permission)
+
+      try {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        if (sub) {
+          setIsPushSubscribed(true)
+          // Auto-sync existing device subscription to backend
+          const subJson = sub.toJSON()
+          if (subJson.endpoint && subJson.keys) {
+            await fetch('/api/notifications/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint: subJson.endpoint,
+                keys: subJson.keys,
+                userAgent: navigator.userAgent,
+              }),
+            })
+          }
+        } else {
+          setIsPushSubscribed(false)
+        }
+
+        // Fetch registered device count from backend
+        const res = await fetch('/api/notifications/subscribe')
+        if (res.ok) {
+          const data = await res.json()
+          setRegisteredDevicesCount(data.deviceCount || 0)
+        }
+      } catch (e) {
+        console.warn('Error checking push status:', e)
+      }
+    }
+  }
+
   useEffect(() => {
     if (user) {
       setName(user.name || '')
       setInstitution(user.institution || '')
       setDepartment(user.department || '')
+      checkPushStatus()
     }
   }, [user])
+
+  const handleEnablePush = async () => {
+    if (!pushSupported) {
+      addToast('error', 'Push notifications are not supported in this browser.')
+      return
+    }
+
+    setSubscribingPush(true)
+    try {
+      const perm = await Notification.requestPermission()
+      setPushPermission(perm)
+
+      if (perm !== 'granted') {
+        addToast('error', 'Notification permission was denied in browser settings.')
+        return
+      }
+
+      const keyRes = await fetch('/api/notifications/subscribe')
+      if (!keyRes.ok) throw new Error('Could not fetch push service configuration')
+      const { publicKey } = await keyRes.json()
+
+      const reg = await navigator.serviceWorker.ready
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        })
+      }
+
+      const subJson = sub.toJSON()
+      const res = await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: subJson.endpoint,
+          keys: subJson.keys,
+          userAgent: navigator.userAgent,
+        }),
+      })
+
+      if (res.ok) {
+        setIsPushSubscribed(true)
+        addToast('success', '🔔 Background push alerts activated for this device!')
+        await checkPushStatus()
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to register push device')
+      }
+    } catch (err: any) {
+      addToast('error', err.message || 'Failed to enable push notifications')
+    } finally {
+      setSubscribingPush(false)
+    }
+  }
+
+  const handleDisablePush = async () => {
+    setSubscribingPush(true)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await fetch('/api/notifications/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        })
+        await sub.unsubscribe()
+      }
+      setIsPushSubscribed(false)
+      addToast('info', 'Push notifications disabled for this device.')
+      await checkPushStatus()
+    } catch (err: any) {
+      addToast('error', err.message || 'Failed to disable push notifications')
+    } finally {
+      setSubscribingPush(false)
+    }
+  }
+
+  const handleSendTestPush = async () => {
+    setTestingPush(true)
+    try {
+      const res = await fetch('/api/notifications/test-push', {
+        method: 'POST',
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        addToast('success', `🎉 ${data.message}`)
+      } else {
+        addToast('error', data.error || 'Failed to send test push alert')
+      }
+    } catch {
+      addToast('error', 'Network error sending test push')
+    } finally {
+      setTestingPush(false)
+    }
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -248,6 +412,100 @@ export default function ProfilePage() {
             </Button>
           </div>
         </form>
+      </div>
+
+      {/* Web Push & Mobile Notifications Management */}
+      <div className="glass-card p-6 space-y-6">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
+          <div className="flex items-center gap-2">
+            <Smartphone size={18} className="text-accent" />
+            <div>
+              <h3 className="text-base font-semibold text-text-primary font-display">
+                Web Push &amp; Device Notifications
+              </h3>
+              <p className="text-xs text-text-secondary">
+                Receive background mobile &amp; desktop alerts for paper assignments, feedback, and lab broadcasts even when the browser is closed.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={checkPushStatus}
+            icon={<RefreshCw size={13} />}
+            title="Refresh status"
+          >
+            Refresh
+          </Button>
+        </div>
+
+        <div className="p-4 rounded-xl bg-bg-secondary/60 border border-border-default space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-text-primary">Device Status:</span>
+                {isPushSubscribed ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 size={12} /> Active on this Device
+                  </span>
+                ) : pushPermission === 'denied' ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-danger bg-danger/10 border border-danger/20 px-2.5 py-0.5 rounded-full">
+                    <AlertTriangle size={12} /> Blocked in Browser Settings
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2.5 py-0.5 rounded-full">
+                    <Bell size={12} /> Not Enabled on this Device
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-text-secondary">
+                {isPushSubscribed
+                  ? `Your device is registered to receive background push notifications (${registeredDevicesCount} active device${registeredDevicesCount === 1 ? '' : 's'} on your account).`
+                  : pushPermission === 'denied'
+                  ? 'Notifications are blocked by your browser. Please click the tune/lock icon in your browser URL bar and allow notifications.'
+                  : 'Click below to allow browser notifications and link this device to your research queue.'}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {!isPushSubscribed ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleEnablePush}
+                  loading={subscribingPush}
+                  disabled={pushPermission === 'denied'}
+                  icon={<Bell size={14} />}
+                >
+                  Enable Push Alerts
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleSendTestPush}
+                    loading={testingPush}
+                    icon={<Send size={14} />}
+                  >
+                    Send Test Push Alert
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDisablePush}
+                    loading={subscribingPush}
+                  >
+                    Disable
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Password Change (for Credentials users) */}

@@ -44,13 +44,18 @@ export async function sendPushNotification(
           },
         }
 
-        await webpush.sendNotification(pushSubscription, stringifiedPayload)
+        await webpush.sendNotification(pushSubscription, stringifiedPayload, {
+          TTL: 86400,
+          urgency: 'high',
+        })
       } catch (err: any) {
         // If subscription is expired or unregistered (HTTP 404 or 410 Gone), automatically clean it up
         if (err.statusCode === 404 || err.statusCode === 410) {
-          await prisma.pushSubscription.delete({
-            where: { id: sub.id },
-          }).catch(() => {})
+          await prisma.pushSubscription
+            .delete({
+              where: { id: sub.id },
+            })
+            .catch(() => {})
         } else {
           console.warn('Push notification delivery notice for device:', err.message || err)
         }
