@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, scheduledAt, studentId, supervisorId, studentNotes, supervisorNotes, actionItems } = body
+    const { title, scheduledAt, studentId, supervisorId, studentNotes, supervisorNotes, topic, discussionTopic, actionItems } = body
 
     if (!title || !scheduledAt) {
       return NextResponse.json({ error: 'Title and scheduled time are required' }, { status: 400 })
@@ -79,13 +79,17 @@ export async function POST(request: NextRequest) {
       targetSupervisorId = user.id
       const studentRecord = await prisma.user.findUnique({
         where: { id: targetStudentId },
-        select: { supervisorId: true },
+        select: { supervisorId: true, systemRole: true },
       })
-      if (studentRecord?.supervisorId !== user.id) {
-        return NextResponse.json(
-          { error: 'You can only schedule 1-on-1 meetings with students assigned to you by an administrator' },
-          { status: 403 }
-        )
+      if (!studentRecord || studentRecord.systemRole !== 'STUDENT') {
+        return NextResponse.json({ error: 'Valid student recipient required' }, { status: 400 })
+      }
+      // If student does not have a supervisor assigned yet, automatically link to this supervisor
+      if (!studentRecord.supervisorId) {
+        await prisma.user.update({
+          where: { id: targetStudentId },
+          data: { supervisorId: user.id },
+        })
       }
     }
 
@@ -96,6 +100,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const effectiveSupervisorNotes = supervisorNotes?.trim() || topic?.trim() || discussionTopic?.trim() || null
+
     const meeting = await prisma.meeting.create({
       data: {
         title: title.trim(),
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest) {
         studentId: targetStudentId,
         supervisorId: targetSupervisorId,
         studentNotes: studentNotes?.trim() || null,
-        supervisorNotes: supervisorNotes?.trim() || null,
+        supervisorNotes: effectiveSupervisorNotes,
         actionItems: actionItems ? (typeof actionItems === 'string' ? actionItems : JSON.stringify(actionItems)) : null,
         status: 'SCHEDULED',
       },
@@ -116,10 +122,11 @@ export async function POST(request: NextRequest) {
     // Notify other participant
     const notifyTarget = user.id === targetStudentId ? targetSupervisorId : targetStudentId
     const displayTime = body.formattedTime || new Date(scheduledAt).toLocaleDateString()
+    const topicSnippet = effectiveSupervisorNotes ? ` (Topic: ${effectiveSupervisorNotes.slice(0, 50)}${effectiveSupervisorNotes.length > 50 ? '...' : ''})` : ''
     await createNotification({
       userId: notifyTarget,
-      title: 'New 1-on-1 Meeting Scheduled',
-      message: `${user.name} scheduled a 1-on-1: "${meeting.title}" for ${displayTime}`,
+      title: 'New 1-on-1 Meeting Scheduled 📅',
+      message: `${user.name} scheduled a 1-on-1: "${meeting.title}" for ${displayTime}${topicSnippet}`,
       type: 'SYSTEM',
       link: '/meetings',
     })

@@ -25,17 +25,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    const nudgeText = message?.trim() || `Your advisor ${user.name} sent you an encouragement nudge. Check your reading queue and milestones!`
+    const adviceText = message?.trim() || `Your advisor ${user.name} sent you research advice. Check your paper reading queue and lab tasks!`
 
     await createNotification({
       userId: studentId,
-      title: 'Advisor Research Nudge ⚡',
-      message: nudgeText,
+      title: 'Advisor Research Advice 💡',
+      message: adviceText,
       type: 'FEEDBACK',
       link: '/assignments',
     })
 
-    return NextResponse.json({ success: true, message: 'Nudge sent successfully' })
+    return NextResponse.json({ success: true, message: 'Advice sent successfully' })
   } catch (error) {
     console.error('Error sending research nudge:', error)
     return NextResponse.json({ error: 'Failed to send research nudge' }, { status: 500 })
