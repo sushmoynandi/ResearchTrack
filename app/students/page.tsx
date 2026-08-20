@@ -784,7 +784,7 @@ export default function StudentsPage() {
                               className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
                             >
                               <Link
-                                href={`/papers/${a.paper.id}`}
+                                href={`/papers/${a.paper.id}?studentId=${student.id}`}
                                 className="text-text-primary hover:text-purple-400 truncate font-medium flex-1 flex items-center gap-1"
                               >
                                 <span className="truncate">{a.paper.title}</span>
@@ -829,7 +829,7 @@ export default function StudentsPage() {
                           >
                             <div className="flex items-center justify-between gap-1">
                               <Link
-                                href={`/papers/${fb.paper.id}`}
+                                href={`/papers/${fb.paper.id}?studentId=${student.id}`}
                                 className="text-text-primary font-semibold hover:text-blue-400 truncate flex-1 flex items-center gap-1 text-[11px]"
                               >
                                 <span className="truncate">📄 {fb.paper.title}</span>

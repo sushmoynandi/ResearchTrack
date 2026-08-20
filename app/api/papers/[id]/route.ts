@@ -67,6 +67,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       const studentAssignment = paper.assignments.find((a) => a.studentId === user.id)
       if (studentAssignment?.literatureReview) {
         paper.literatureReview = studentAssignment.literatureReview
+      } else {
+        paper.literatureReview = null
       }
     }
 

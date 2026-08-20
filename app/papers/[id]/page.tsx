@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/papers/StatusBadge'
 import { PriorityIndicator } from '@/components/papers/PriorityIndicator'
@@ -64,6 +64,7 @@ import { REPLICATION_LABELS } from '@/lib/types'
 export default function PaperDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isStudent, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
   const [paper, setPaper] = useState<Paper | null>(null)
@@ -76,6 +77,14 @@ export default function PaperDetailPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>('SUPERVISOR')
+
+  // Auto-select reviewer tab if studentId or reviewerId param is present
+  useEffect(() => {
+    const studentIdParam = searchParams?.get('studentId') || searchParams?.get('reviewerId')
+    if (studentIdParam) {
+      setSelectedReviewerId(studentIdParam)
+    }
+  }, [searchParams])
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -267,11 +276,16 @@ export default function PaperDetailPage() {
     : []
 
   // Parse literature review data (Supervisor Master vs Student-Specific Review)
+  const isViewingStudent = selectedReviewerId !== 'SUPERVISOR' || isStudent
+  const isSupervisorMaster = selectedReviewerId === 'SUPERVISOR' && !isStudent
+
   const activeLitReviewRawString =
     selectedReviewerId !== 'SUPERVISOR' && activeStudentAssignment
       ? activeStudentAssignment.literatureReview || ''
       : isStudent && visibleAssignment?.literatureReview
       ? visibleAssignment.literatureReview
+      : isStudent
+      ? ''
       : paper.literatureReview || ''
 
   const rawLitReview: LiteratureReviewData = activeLitReviewRawString
@@ -288,28 +302,28 @@ export default function PaperDetailPage() {
 
   const parsedLiteratureReview: LiteratureReviewData = {
     sl: rawLitReview.sl || '1',
-    assignedPerson: rawLitReview.assignedPerson || (activeStudentAssignment?.student?.name ? activeStudentAssignment.student.name : ''),
+    assignedPerson: rawLitReview.assignedPerson || (activeStudentAssignment?.student?.name ? activeStudentAssignment.student.name : (user?.name || '')),
     reviewDueDate: rawLitReview.reviewDueDate || (activeStudentAssignment?.dueDate ? activeStudentAssignment.dueDate.slice(0, 10) : ''),
     reviewWorkflowStatus: rawLitReview.reviewWorkflowStatus || (activeStudentAssignment?.status === 'COMPLETED' ? 'COMPLETED' : activeStudentAssignment?.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING_REVIEW'),
     selectedPaperTitle: rawLitReview.selectedPaperTitle || paper.title,
     paperTitle: rawLitReview.paperTitle || paper.title,
     paperLink: rawLitReview.paperLink || paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : ''),
     pdfAccessibility: rawLitReview.pdfAccessibility || (paper.pdfPath ? 'Open Access' : 'Pre-print Available'),
-    researchGap: rawLitReview.researchGap || paper.problemSolved || '',
-    usedDataset: rawLitReview.usedDataset || paper.datasetUrl || '',
-    summaryRepository: rawLitReview.summaryRepository || paper.codeUrl || '',
+    researchGap: rawLitReview.researchGap || (isSupervisorMaster ? paper.problemSolved || '' : ''),
+    usedDataset: rawLitReview.usedDataset || (isSupervisorMaster ? paper.datasetUrl || '' : ''),
+    summaryRepository: rawLitReview.summaryRepository || (isSupervisorMaster ? paper.codeUrl || '' : ''),
     remarks: rawLitReview.remarks || '',
-    q1ProblemImportance: rawLitReview.q1ProblemImportance || (paper.problemSolved ? { detailedAnswer: paper.problemSolved, shortSummary: paper.problemSolved } : undefined),
+    q1ProblemImportance: rawLitReview.q1ProblemImportance || (isSupervisorMaster && paper.problemSolved ? { detailedAnswer: paper.problemSolved, shortSummary: paper.problemSolved } : undefined),
     q2DataDetails: rawLitReview.q2DataDetails,
-    q3FeaturesInputs: rawLitReview.q3FeaturesInputs || (paper.contextWindow ? { detailedAnswer: `Context length: ${paper.contextWindow}`, shortSummary: paper.contextWindow } : undefined),
-    q4MethodsPipeline: rawLitReview.q4MethodsPipeline || (paper.architecture ? { detailedAnswer: `Architecture: ${paper.architecture}`, shortSummary: paper.architecture } : undefined),
+    q3FeaturesInputs: rawLitReview.q3FeaturesInputs || (isSupervisorMaster && paper.contextWindow ? { detailedAnswer: `Context length: ${paper.contextWindow}`, shortSummary: paper.contextWindow } : undefined),
+    q4MethodsPipeline: rawLitReview.q4MethodsPipeline || (isSupervisorMaster && paper.architecture ? { detailedAnswer: `Architecture: ${paper.architecture}`, shortSummary: paper.architecture } : undefined),
     q5Baselines: rawLitReview.q5Baselines,
     q6Evaluation: rawLitReview.q6Evaluation,
     q7KeyResults: rawLitReview.q7KeyResults,
-    q8LimitationsBiases: rawLitReview.q8LimitationsBiases || (paper.limitations ? { detailedAnswer: paper.limitations, shortSummary: paper.limitations } : undefined),
-    q9ArtifactsReplication: rawLitReview.q9ArtifactsReplication || (paper.codeUrl ? { detailedAnswer: `Code: ${paper.codeUrl}`, shortSummary: 'Code available' } : undefined),
+    q8LimitationsBiases: rawLitReview.q8LimitationsBiases || (isSupervisorMaster && paper.limitations ? { detailedAnswer: paper.limitations, shortSummary: paper.limitations } : undefined),
+    q9ArtifactsReplication: rawLitReview.q9ArtifactsReplication || (isSupervisorMaster && paper.codeUrl ? { detailedAnswer: `Code: ${paper.codeUrl}`, shortSummary: 'Code available' } : undefined),
     customQuestions: rawLitReview.customQuestions || [],
-    outcome: rawLitReview.outcome || paper.keyContribution || '',
+    outcome: rawLitReview.outcome || (isSupervisorMaster ? paper.keyContribution || '' : ''),
     rubricReviews: rawLitReview.rubricReviews || [],
     collaborationComments: rawLitReview.collaborationComments || [],
   }

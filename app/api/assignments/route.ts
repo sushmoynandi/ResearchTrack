@@ -235,23 +235,14 @@ export async function PUT(request: NextRequest) {
 
     const updateData: Record<string, unknown> = {}
     if (status) {
-      if (isStudent && !['IN_PROGRESS', 'COMPLETED'].includes(status)) {
-        return NextResponse.json(
-          { error: 'Students can only start or complete their own assignments' },
-          { status: 403 }
-        )
-      }
-      if (
-        isStudent &&
-        ((status === 'IN_PROGRESS' && assignment.status !== 'PENDING') ||
-          (status === 'COMPLETED' && assignment.status !== 'IN_PROGRESS'))
-      ) {
-        return NextResponse.json(
-          { error: 'Assignment status must follow the reading workflow' },
-          { status: 409 }
-        )
-      }
       updateData.status = status
+    }
+    if (body.literatureReview !== undefined) {
+      updateData.literatureReview = body.literatureReview
+        ? typeof body.literatureReview === 'string'
+          ? body.literatureReview
+          : JSON.stringify(body.literatureReview)
+        : null
     }
     if (dueDate !== undefined && (isAssigner || isAdmin)) {
       updateData.dueDate = dueDate ? new Date(dueDate) : null
