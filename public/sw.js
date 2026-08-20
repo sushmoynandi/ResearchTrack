@@ -1,4 +1,4 @@
-// Service Worker for ResearchTrack Background Push Notifications
+// Service Worker for ResearchTrack Background Push Notifications (v2.1.0)
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -26,18 +26,14 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'ResearchTrack'
   const options = {
     body: data.message || data.body || 'You have a new update from your research advisor or lab.',
-    icon: data.icon || '/icon-192.png',
+    icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [100, 50, 100],
     data: {
       url: data.link || data.url || '/',
       timestamp: Date.now(),
     },
-    actions: [
-      { action: 'open', title: 'Open in App' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-    tag: data.tag || 'researchtrack-notifications',
+    tag: 'researchtrack-notifications',
     renotify: false,
     requireInteraction: false,
     silent: false,
