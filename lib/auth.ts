@@ -58,3 +58,28 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
     return null
   }
 }
+
+export async function create2FAToken(payload: { userId: string; email: string }): Promise<string> {
+  return new SignJWT({ ...payload, purpose: 'admin_2fa' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(key)
+}
+
+export async function verify2FAToken(token: string): Promise<{ userId: string; email: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ['HS256'],
+      clockTolerance: 15,
+    })
+    if (payload.purpose !== 'admin_2fa' || !payload.userId || !payload.email) return null
+    return {
+      userId: payload.userId as string,
+      email: payload.email as string,
+    }
+  } catch {
+    return null
+  }
+}
+

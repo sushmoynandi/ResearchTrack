@@ -43,6 +43,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ─── ADMIN 2-STEP VERIFICATION ──────────────────────────
+    if (user.systemRole === 'ADMIN') {
+      const { generate6DigitCode, sendAdmin2FACode } = await import('@/lib/appscript2fa')
+      const { create2FAToken, hashPassword } = await import('@/lib/auth')
+
+      // Clear any pending verification codes for this admin
+      await prisma.twoFactorOtp.deleteMany({
+        where: { userId: user.id },
+      }).catch(() => {})
+
+      // Generate fresh 6-digit OTP
+      const code = generate6DigitCode()
+      const codeHash = await hashPassword(code)
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+      // Store in database
+      await prisma.twoFactorOtp.create({
+        data: {
+          userId: user.id,
+          email: user.email,
+          codeHash,
+          expiresAt,
+        },
+      })
+
+      // Generate signed temporary 2FA token
+      const tempToken = await create2FAToken({
+        userId: user.id,
+        email: user.email,
+      })
+
+      // Send OTP via Google Apps Script (or development logger)
+      const clientIp =
+        request.headers.get('x-forwarded-for') ||
+        request.headers.get('x-real-ip') ||
+        '127.0.0.1'
+
+      await sendAdmin2FACode({
+        email: user.email,
+        name: user.name,
+        code,
+        ip: clientIp,
+      })
+
+      return NextResponse.json({
+        requires2FA: true,
+        tempToken,
+        email: user.email,
+        message: 'A 6-digit verification code has been dispatched to your administrator email.',
+      })
+    }
+
     const sessionToken = await createSessionToken({
       id: user.id,
       email: user.email,
