@@ -267,7 +267,7 @@ export function ScheduleMeetingModal({
 
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1 flex items-center gap-1">
-              <Video size={12} className="text-info" /> Video Call Link (Zoom / Meet)
+              <Video size={12} className="text-info" /> Meeting Link (Zoom / Google Meet)
             </label>
             <input
               type="url"

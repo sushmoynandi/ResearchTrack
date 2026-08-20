@@ -213,8 +213,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? `Sub-Group Meeting Scheduled: ${targetGroupName} 📅`
       : `Lab-Wide Meeting Scheduled: ${lab.name} 🏛️`
 
-    const notifMessage = `${user.name} scheduled "${meeting.title}" on ${meetingDateStr}${
-      meeting.location ? ` at ${meeting.location}` : meeting.meetingUrl ? ' (Video Call)' : ''
+    const notifMessage = `${user.name} scheduled meeting "${meeting.title}" on ${meetingDateStr}${
+      meeting.location ? ` at ${meeting.location}` : ''
     }.`
 
     for (const memberId of targetUserIds) {

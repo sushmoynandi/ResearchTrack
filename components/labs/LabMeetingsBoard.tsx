@@ -497,7 +497,7 @@ export function LabMeetingsBoard({
 
                 <div>
                   <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Meeting URL / Call Link
+                    Meeting Link (Zoom / Google Meet)
                   </label>
                   <input
                     type="url"
