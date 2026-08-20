@@ -1,5 +1,7 @@
 # Ship Studio Project
 
+> **🚨 MANDATORY RULE**: ALWAYS take the USER'S EXPLICIT PERMISSION before performing any `git commit` or `git push`. Never commit or push without asking first.
+
 This is a Next.js 14+ project with Tailwind CSS. You're helping a **non-developer** build a website. Keep explanations simple and jargon-free.
 
 ---

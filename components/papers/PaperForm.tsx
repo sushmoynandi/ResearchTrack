@@ -600,7 +600,7 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
       const endpoint = mode === 'create' ? '/api/papers' : `/api/papers/${paper?.id}`
       const method = mode === 'create' ? 'POST' : 'PUT'
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('papertrack_token') : null
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('researchtrack_token') || localStorage.getItem('papertrack_token')) : null
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) {
         headers['Authorization'] = `Bearer ${token}`

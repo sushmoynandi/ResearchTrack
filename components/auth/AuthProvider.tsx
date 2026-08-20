@@ -139,6 +139,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser()
   }, [refreshUser])
 
+  // Universal client-side fetch interceptor: automatically attaches Bearer token to all /api/ requests
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const originalFetch = window.fetch
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      let urlStr = ''
+      if (typeof input === 'string') {
+        urlStr = input
+      } else if (input instanceof URL) {
+        urlStr = input.toString()
+      } else if (input && typeof input === 'object' && 'url' in input) {
+        urlStr = (input as Request).url
+      }
+
+      const isInternalApi =
+        urlStr.startsWith('/api/') ||
+        urlStr.includes('/api/')
+
+      if (isInternalApi) {
+        const storedToken =
+          tokenRef.current ||
+          localStorage.getItem('researchtrack_token') ||
+          localStorage.getItem('papertrack_token')
+
+        if (storedToken) {
+          init = init || {}
+          const headers = new Headers(init.headers || {})
+          if (!headers.has('Authorization') && !headers.has('authorization')) {
+            headers.set('Authorization', `Bearer ${storedToken}`)
+          }
+          init.headers = headers
+          if (!init.credentials) {
+            init.credentials = 'same-origin'
+          }
+        }
+      }
+
+      return originalFetch(input, init)
+    }
+
+    return () => {
+      window.fetch = originalFetch
+    }
+  }, [])
+
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
