@@ -7,41 +7,52 @@
 [![Prisma](https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
 
-**ResearchTrack** is an enterprise-grade academic research management platform designed for university labs, faculty advisors, and student researchers. It centralizes literature reviews, paper annotations, sub-group isolation, starter packs, journal clubs, supervisory assignments, and sync meetings into a unified, privacy-aware workspace.
+**ResearchTrack** is an academic research laboratory and literature management platform designed for university labs, faculty advisors, and student researchers. It centralizes literature reviews, isolated student paper syntheses, multi-scope paper assignments (individual, lab-wide, and sub-group-wise), onboarding starter packs, journal clubs, and sync meetings into a unified, privacy-aware workspace.
 
 ---
 
 ## 🌟 Key Features
 
-### 🏢 1. Academic Research Labs & Sub-Group Isolation
-* **Lab Workspaces**: Create or join research laboratories with secure join codes.
-* **Sub-Group Privacy**: Students only see activity, meetings, journal clubs, and starter packs for their assigned project clusters.
-* **Lab Noticeboards & Broadcasts**: Pinned deadlines and lab-wide priority announcements.
-* **Starter Packs**: Curated essential reading lists for onboarding new lab members with enrollment tracking.
-* **Journal Club Seminars**: Schedule and present paper seminars with slides, designated presenters, and agenda notes.
-* **Lab-Wide & Sub-Group Sync Meetings**: Schedule video syncs with countdown badges and Google Meet / Zoom links.
+### 🏢 1. Academic Research Labs & Sub-Group Management
+* **Lab Workspaces**: Create or join research laboratories with secure join codes and member approval workflows.
+* **Sub-Group Clusters**: Organize lab members into specialized project teams (e.g. *Foundations*, *Mechanistic Interpretability*, *Agentic Systems*).
+* **Lab Broadcasts & Noticeboard**: Pinned deadlines, priority announcements, and lab-wide updates.
+* **Starter Packs**: Curated foundational reading lists for onboarding new lab members with automated progress tracking.
+* **Journal Club Seminars**: Schedule paper presentations with slide decks, designated discussants, and structured agendas.
+* **Lab Meetings & Syncs**: Schedule video meetings with countdown badges and Google Meet / Zoom links.
 
-### 📚 2. Paper Library, Matrix & In-App Reader
-* **Interactive Literature Review Matrix**: Compare methodology, datasets, benchmarks, limitations, and key findings side-by-side.
+### 📋 2. Multi-Scope Paper Assignments & Mentorship
+* **Multi-Target Assignment Engine**:
+  * 🎓 **Individual Student**: Assign targeted papers to specific advisees.
+  * 🏛️ **Whole Research Lab**: Bulk-assign landmark papers to all student researchers in a laboratory in 1 click.
+  * 👥 **Sub-Group Cluster**: Bulk-assign domain-specific papers to specialized project teams in 1 click.
+* **Real-Time Student Notifications**: Automatically notifies assigned researchers with direct links to their reading queue.
+* **Context-Aware Attribution Badges**:
+  * **Supervisors** see: `"Assigned to [Student Name]"` with individual status badges (`COMPLETED`, `IN_PROGRESS`, `PENDING`).
+  * **Students** see: `"Assigned by [Faculty Advisor Name]"` with 1-click status changers (`[To Read]`, `[Reading]`, `[Completed]`).
+
+### ✍️ 3. Isolated Multi-Student Synthesis & Comparative Review
+* **Strict Student Workspace Isolation**: When multiple students are assigned the same paper, each student writes and submits their own independent Q1–Q9 literature review questionnaire without data leakage or master paper overwrites.
+* **Supervisor Comparative Tabs**: Supervisors can toggle between student tabs with 1 click to review and compare individual student notes, insights, and answers side-by-side.
+* **Deep-Link Navigation**: Clicking any student's assigned paper from the **My Students** hub (`/students`) automatically deep-links directly into that student's review tab (`/papers/[id]?studentId=<id>`).
+
+### 📚 4. Paper Library, Survey Matrix & In-App Reader
+* **Interactive Literature Review Matrix**: Compare problem formulation, methodology, datasets, benchmarks, and limitations side-by-side.
 * **In-App PDF Reader**: Read papers directly inside the browser with distraction-free layout.
-* **Citation Graph & Connected Literature**: Visual citation network mapping foundation papers, derivative works, and related lineage.
+* **Citation Graph & Connected Literature**: Visual citation network mapping foundational works, derivative papers, and research lineage.
 * **AI Research Assistant**: Context-aware paper chat answering queries based on title, abstract, and annotations.
 * **Faculty Evaluation Rubric**: Standardized multi-criteria evaluation scorecards (Novelty, Rigor, Reproducibility, Significance).
 * **Export Center**: 1-click LaTeX Survey Matrix tables, BibTeX citation records, and CSV exports.
 
-### 🧭 3. Reading Tracks & Lineage
-* **Structured Curriculums**: Multi-week reading pathways (e.g. *Foundations of LLMs*, *State Space Models & Mamba*, *Diffusion Models*).
-* **Linear Paper Progression**: Track status across foundational, intermediate, and advanced literature.
+### 👥 5. My Students Hub (Faculty Supervision)
+* **Student Activity Stream**: Live feed showing recent student paper reviews (`Q1–Q9 ✓`), questions, feedback, and deliverables.
+* **Reading Progress & Completion Rates**: Visual progress indicators tracking total assigned papers vs. completed reading reviews.
+* **1-on-1 Mentorship Scheduler**: Schedule advisory sessions with shared collaborative agendas and action items.
 
-### 📋 4. Supervisory Mentorship & Assignments
-* **Direct Paper Assignments**: Supervisors can assign specific papers to individual students or entire sub-groups with deadlines.
-* **Reading Velocity Monitoring**: Real-time progress metrics tracking reading pace, notes volume, and completion rates.
-* **1-on-1 Meetings Scheduler**: Schedule advisory sessions with shared collaborative agendas and action items.
-
-### 🛡️ 5. Role-Based Access Control (RBAC) & Governance
+### 🛡️ 6. Role-Based Access Control (RBAC) & Governance
 * **3 Native System Roles**: `STUDENT`, `SUPERVISOR`, and `ADMIN`.
 * **Administrative Console**: Manage user roles, affiliations, account status, and inspect immutable audit logs.
-* **Admin-Specific Clean Navigation**: Admins see dedicated governance tools without researcher library clutter.
+* **Clean Navigation**: Each role receives a tailored sidebar without extraneous or restricted tools.
 
 ---
 
