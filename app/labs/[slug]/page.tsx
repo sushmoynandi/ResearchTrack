@@ -26,10 +26,12 @@ import {
   Calendar,
   Video,
   CheckSquare,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Modal } from '@/components/ui/Modal'
 import { CreateGroupModal } from '@/components/labs/CreateGroupModal'
 import { ManageGroupMembersModal } from '@/components/labs/ManageGroupMembersModal'
 import { LabBroadcastsBoard } from '@/components/labs/LabBroadcastsBoard'
@@ -37,7 +39,6 @@ import { StarterPackSection } from '@/components/labs/StarterPackSection'
 import { JournalClubSection } from '@/components/labs/JournalClubSection'
 import { LabMeetingsBoard } from '@/components/labs/LabMeetingsBoard'
 import { LabTasksBoard } from '@/components/labs/LabTasksBoard'
-import { LabPaperLibrary } from '@/components/labs/LabPaperLibrary'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 import type { Paper } from '@/lib/types'
@@ -78,7 +79,7 @@ interface LabDetail {
   }[]
 }
 
-type TabType = 'groups' | 'papers' | 'tasks' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
+type TabType = 'groups' | 'tasks' | 'noticeboard' | 'meetings' | 'starter-packs' | 'journal-club' | 'members' | 'requests'
 
 export default function LabDetailPage() {
   const params = useParams()
@@ -98,9 +99,18 @@ export default function LabDetailPage() {
   const [managingGroup, setManagingGroup] = useState<{ id: string; name: string; memberUserIds: string[] } | null>(null)
   const [copiedCode, setCopiedCode] = useState(false)
 
+  // Assign Paper Modal State
+  const [isAssignPaperOpen, setIsAssignPaperOpen] = useState(false)
+  const [assignPaperId, setAssignPaperId] = useState('')
+  const [assignTargetType, setAssignTargetType] = useState<'LAB' | 'GROUP'>('LAB')
+  const [assignGroupId, setAssignGroupId] = useState('')
+  const [assignDueDate, setAssignDueDate] = useState('')
+  const [assignNote, setAssignNote] = useState('')
+  const [assigningPaper, setAssigningPaper] = useState(false)
+
   useEffect(() => {
     const tabParam = searchParams?.get('tab') as TabType
-    if (tabParam && ['groups', 'papers', 'tasks', 'noticeboard', 'meetings', 'starter-packs', 'journal-club', 'members', 'requests'].includes(tabParam)) {
+    if (tabParam && ['groups', 'tasks', 'noticeboard', 'meetings', 'starter-packs', 'journal-club', 'members', 'requests'].includes(tabParam)) {
       setActiveTab(tabParam)
     }
   }, [searchParams])
@@ -113,6 +123,7 @@ export default function LabDetailPage() {
         setLab(data)
         if (data.groups && data.groups.length > 0 && !selectedGroupId) {
           setSelectedGroupId(data.groups[0].id)
+          setAssignGroupId(data.groups[0].id)
         }
       } else {
         addToast('error', 'Lab not found')
@@ -130,6 +141,9 @@ export default function LabDetailPage() {
       if (res.ok) {
         const data = await res.json()
         setLabPapers(data)
+        if (data.length > 0 && !assignPaperId) {
+          setAssignPaperId(data[0].id)
+        }
       }
     } catch {
       // silent
@@ -139,6 +153,46 @@ export default function LabDetailPage() {
   useEffect(() => {
     fetchLabPapers()
   }, [])
+
+  const handleAssignPaperToLabOrGroup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignPaperId) {
+      addToast('error', 'Please select a paper from your library')
+      return
+    }
+    if (!lab) return
+
+    setAssigningPaper(true)
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paperId: assignPaperId,
+          targetType: assignTargetType,
+          labId: lab.id,
+          groupId: assignTargetType === 'GROUP' ? assignGroupId : undefined,
+          dueDate: assignDueDate || undefined,
+          note: assignNote || undefined,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        addToast('success', data.message || 'Paper assigned successfully!')
+        setIsAssignPaperOpen(false)
+        setAssignNote('')
+        setAssignDueDate('')
+        fetchLabDetails()
+      } else {
+        addToast('error', data.error || 'Failed to assign paper')
+      }
+    } catch {
+      addToast('error', 'Network error assigning paper')
+    } finally {
+      setAssigningPaper(false)
+    }
+  }
 
   const handleDissolveGroup = async (groupId: string, groupName: string) => {
     if (!lab) return
@@ -264,8 +318,22 @@ export default function LabDetailPage() {
             </div>
           </div>
 
-          {/* Join Code Pill */}
-          <div className="flex items-center gap-2">
+          {/* Join Code Pill & Supervisor Assign Action */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(isLabLead || isSupervisor || isAdmin) && (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  setAssignTargetType('LAB')
+                  setIsAssignPaperOpen(true)
+                }}
+                icon={<ClipboardList size={14} />}
+              >
+                Assign Paper to Lab / Cluster
+              </Button>
+            )}
+
             <button
               onClick={copyJoinCode}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated border border-border-default transition-all text-xs font-mono cursor-pointer"
@@ -292,11 +360,6 @@ export default function LabDetailPage() {
               id: 'groups',
               label: isStudent ? `My Sub-Groups (${visibleGroups.length})` : `Sub-Groups (${lab.groups.length})`,
               icon: Layers,
-            },
-            {
-              id: 'papers',
-              label: labPapers.length > 0 ? `Paper Library (${labPapers.length})` : 'Paper Library',
-              icon: BookOpen,
             },
             { id: 'tasks', label: 'Tasks & Deliverables', icon: CheckSquare },
             { id: 'noticeboard', label: 'Noticeboard & Deadlines', icon: Megaphone },
@@ -404,7 +467,21 @@ export default function LabDetailPage() {
                         }
                         icon={<UserPlus size={12} />}
                       >
-                        Assign Students
+                        Members
+                      </Button>
+
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="text-[11px] text-blue-400 hover:text-blue-300"
+                        onClick={() => {
+                          setAssignTargetType('GROUP')
+                          setAssignGroupId(g.id)
+                          setIsAssignPaperOpen(true)
+                        }}
+                        icon={<ClipboardList size={12} />}
+                      >
+                        Assign Paper
                       </Button>
 
                       <button
@@ -443,17 +520,6 @@ export default function LabDetailPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* Tab: Research Lab Paper Library */}
-      {activeTab === 'papers' && (
-        <LabPaperLibrary
-          labId={lab.id}
-          labSlug={lab.slug}
-          labName={lab.name}
-          papers={labPapers}
-          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
-        />
       )}
 
       {/* Tab: Lab Tasks & Deliverables */}
@@ -681,6 +747,154 @@ export default function LabDetailPage() {
           onUpdated={() => fetchLabDetails()}
         />
       )}
+
+      {/* Assign Paper to Lab / Sub-Group Modal */}
+      <Modal
+        isOpen={isAssignPaperOpen}
+        onClose={() => setIsAssignPaperOpen(false)}
+        title="Assign Paper to Lab or Sub-Group"
+        description={`Assign a research paper in bulk to all student researchers in "${lab.name}" or a specific project cluster.`}
+        size="md"
+      >
+        <form onSubmit={handleAssignPaperToLabOrGroup} className="space-y-4 pt-2">
+          {/* Select Paper */}
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Select Research Paper <span className="text-danger">*</span>
+            </label>
+            {labPapers.length === 0 ? (
+              <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                No papers found in your library. Add papers to your Paper Library first.
+              </div>
+            ) : (
+              <select
+                value={assignPaperId}
+                onChange={(e) => setAssignPaperId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                required
+              >
+                {labPapers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} {p.authors ? `— ${p.authors}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Target: Entire Lab vs Sub-Group */}
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Assignment Target Scope <span className="text-danger">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAssignTargetType('LAB')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  assignTargetType === 'LAB'
+                    ? 'bg-accent/15 border-accent text-accent'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span className="block text-xs font-bold flex items-center gap-1.5">
+                  <Building size={13} /> Whole Lab
+                </span>
+                <span className="block text-[10px] text-text-tertiary mt-0.5">
+                  All {lab.members.filter((m) => m.user.systemRole === 'STUDENT').length} student researchers
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssignTargetType('GROUP')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  assignTargetType === 'GROUP'
+                    ? 'bg-accent/15 border-accent text-accent'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span className="block text-xs font-bold flex items-center gap-1.5">
+                  <Layers size={13} /> Sub-Group Cluster
+                </span>
+                <span className="block text-[10px] text-text-tertiary mt-0.5">
+                  Specific project cluster
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-Group Dropdown if Group Target */}
+          {assignTargetType === 'GROUP' && (
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Select Sub-Group <span className="text-danger">*</span>
+              </label>
+              {lab.groups.length === 0 ? (
+                <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                  No sub-groups created yet in this lab. Create a sub-group first.
+                </div>
+              ) : (
+                <select
+                  value={assignGroupId}
+                  onChange={(e) => setAssignGroupId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                  required
+                >
+                  {lab.groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.members.length} members)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {/* Target Due Date */}
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Target Reading Deadline (Optional)
+            </label>
+            <input
+              type="date"
+              value={assignDueDate}
+              onChange={(e) => setAssignDueDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+            />
+          </div>
+
+          {/* Supervisory Note */}
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Supervisory Guidance / Research Focus (Optional)
+            </label>
+            <textarea
+              value={assignNote}
+              onChange={(e) => setAssignNote(e.target.value)}
+              placeholder="e.g. Please synthesize Section 3 methodology and fill out the Q1–Q9 review questionnaire before our next sync..."
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-default">
+            <Button variant="ghost" size="sm" type="button" onClick={() => setIsAssignPaperOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              loading={assigningPaper}
+              disabled={labPapers.length === 0}
+              icon={<ClipboardList size={14} />}
+            >
+              Assign Paper
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

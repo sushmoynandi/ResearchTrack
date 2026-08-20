@@ -51,6 +51,8 @@ import {
   GraduationCap,
   CheckCircle2,
   ShieldCheck,
+  Building,
+  Layers,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -88,9 +90,13 @@ export default function PaperDetailPage() {
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [assignScope, setAssignScope] = useState<'STUDENT' | 'LAB' | 'GROUP'>('STUDENT')
   const [studentList, setStudentList] = useState<{ id: string; name: string; email: string; department?: string }[]>([])
+  const [labList, setLabList] = useState<{ id: string; name: string; members: any[]; groups: { id: string; name: string }[] }[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [selectedLabId, setSelectedLabId] = useState('')
+  const [selectedGroupId, setSelectedGroupId] = useState('')
   const [assignDueDate, setAssignDueDate] = useState('')
   const [assignNote, setAssignNote] = useState('')
   const [assigning, setAssigning] = useState(false)
@@ -101,29 +107,42 @@ export default function PaperDetailPage() {
 
   const paperId = params.id as string
 
-  // Fetch students for supervisor assignment modal
+  // Fetch students and labs for supervisor assignment modal
   useEffect(() => {
-    if (isAssignModalOpen && (isSupervisor || isAdmin) && studentList.length === 0) {
-      setLoadingStudents(true)
-      fetch('/api/students')
-        .then((res) => (res.ok ? res.json() : []))
-        .then((data) => {
-          setStudentList(data)
-          if (data.length > 0) {
-            setSelectedStudentId(data[0].id)
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoadingStudents(false))
+    if (isAssignModalOpen && (isSupervisor || isAdmin)) {
+      if (studentList.length === 0) {
+        setLoadingStudents(true)
+        fetch('/api/students')
+          .then((res) => (res.ok ? res.json() : []))
+          .then((data) => {
+            setStudentList(data)
+            if (data.length > 0) {
+              setSelectedStudentId(data[0].id)
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoadingStudents(false))
+      }
+
+      if (labList.length === 0) {
+        fetch('/api/labs')
+          .then((res) => (res.ok ? res.json() : []))
+          .then((data) => {
+            setLabList(data)
+            if (data.length > 0) {
+              setSelectedLabId(data[0].id)
+              if (data[0].groups?.length > 0) {
+                setSelectedGroupId(data[0].groups[0].id)
+              }
+            }
+          })
+          .catch(() => {})
+      }
     }
-  }, [isAssignModalOpen, isSupervisor, isAdmin, studentList.length])
+  }, [isAssignModalOpen, isSupervisor, isAdmin, studentList.length, labList.length])
 
   const handleAssignPaper = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedStudentId) {
-      addToast('error', 'Please select a student researcher')
-      return
-    }
     setAssigning(true)
     try {
       const res = await fetch('/api/assignments', {
@@ -131,20 +150,22 @@ export default function PaperDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paperId,
-          studentId: selectedStudentId,
+          targetType: assignScope,
+          studentId: assignScope === 'STUDENT' ? selectedStudentId : undefined,
+          labId: assignScope === 'LAB' ? selectedLabId : undefined,
+          groupId: assignScope === 'GROUP' ? selectedGroupId : undefined,
           dueDate: assignDueDate || undefined,
           note: assignNote || undefined,
         }),
       })
+      const data = await res.json()
       if (res.ok) {
-        const studentObj = studentList.find((s) => s.id === selectedStudentId)
-        addToast('success', `Assigned paper to ${studentObj?.name || 'student'} successfully!`)
+        addToast('success', data.message || 'Assigned paper successfully!')
         setIsAssignModalOpen(false)
         setAssignNote('')
         setAssignDueDate('')
         fetchPaper()
       } else {
-        const data = await res.json()
         addToast('error', data.error || 'Failed to assign paper')
       }
     } catch {
@@ -1181,36 +1202,140 @@ export default function PaperDetailPage() {
       <Modal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
-        title="Assign Paper to Student Researcher"
-        description="Assign this landmark paper to a student's reading queue with research guidance and deadlines."
+        title="Assign Paper to Researchers"
+        description="Assign this paper to an individual student, an entire research lab, or a specific sub-group cluster."
         size="md"
       >
         <form onSubmit={handleAssignPaper} className="space-y-4 pt-2">
+          {/* Target Scope Selection */}
           <div>
             <label className="block text-xs font-semibold text-text-primary mb-1.5">
-              Select Student Researcher <span className="text-danger">*</span>
+              Assignment Scope <span className="text-danger">*</span>
             </label>
-            {loadingStudents ? (
-              <div className="text-xs text-text-tertiary">Loading supervised students...</div>
-            ) : studentList.length === 0 ? (
-              <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
-                No active students found in your roster. Add students in User Management or My Students first.
-              </div>
-            ) : (
-              <select
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
-                required
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setAssignScope('STUDENT')}
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                  assignScope === 'STUDENT'
+                    ? 'bg-accent/15 border-accent text-accent'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                }`}
               >
-                {studentList.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.email}) {st.department ? `· ${st.department}` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
+                <GraduationCap size={14} className="mx-auto mb-1" />
+                <span className="block text-xs font-bold">Student</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssignScope('LAB')}
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                  assignScope === 'LAB'
+                    ? 'bg-accent/15 border-accent text-accent'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Building size={14} className="mx-auto mb-1" />
+                <span className="block text-xs font-bold">Whole Lab</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssignScope('GROUP')}
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                  assignScope === 'GROUP'
+                    ? 'bg-accent/15 border-accent text-accent'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Layers size={14} className="mx-auto mb-1" />
+                <span className="block text-xs font-bold">Sub-Group</span>
+              </button>
+            </div>
           </div>
+
+          {/* Conditional Target Dropdown */}
+          {assignScope === 'STUDENT' && (
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Select Student Researcher <span className="text-danger">*</span>
+              </label>
+              {loadingStudents ? (
+                <div className="text-xs text-text-tertiary">Loading supervised students...</div>
+              ) : studentList.length === 0 ? (
+                <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                  No active students found in your roster.
+                </div>
+              ) : (
+                <select
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                  required
+                >
+                  {studentList.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.name} ({st.email}) {st.department ? `· ${st.department}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {assignScope === 'LAB' && (
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Select Research Laboratory <span className="text-danger">*</span>
+              </label>
+              {labList.length === 0 ? (
+                <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                  No research labs found. Create or join a research lab first.
+                </div>
+              ) : (
+                <select
+                  value={selectedLabId}
+                  onChange={(e) => setSelectedLabId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                  required
+                >
+                  {labList.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({l.members?.filter((m: any) => m.user?.systemRole === 'STUDENT').length || 0} students)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {assignScope === 'GROUP' && (
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                Select Sub-Group / Cluster <span className="text-danger">*</span>
+              </label>
+              {labList.flatMap((l) => l.groups || []).length === 0 ? (
+                <div className="p-3 rounded-lg bg-bg-tertiary text-xs text-text-secondary">
+                  No sub-groups found in your research labs.
+                </div>
+              ) : (
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                  required
+                >
+                  {labList.map((l) =>
+                    l.groups?.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {l.name} ➔ {g.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-text-primary mb-1.5">
@@ -1246,7 +1371,6 @@ export default function PaperDetailPage() {
               size="sm"
               type="submit"
               loading={assigning}
-              disabled={studentList.length === 0}
               icon={<ClipboardList size={14} />}
             >
               Confirm Assignment

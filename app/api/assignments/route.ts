@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/assignments — Assign a paper to a student (Supervisor / Admin)
+// POST /api/assignments — Create assignment for a student, a whole research lab, or a sub-group
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -117,29 +117,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { paperId, studentId, dueDate, note } = body
+    const { paperId, studentId, labId, groupId, targetType = 'STUDENT', dueDate, note } = body
 
-    if (!paperId || !studentId) {
-      return NextResponse.json(
-        { error: 'Paper ID and Student ID are required' },
-        { status: 400 }
-      )
-    }
-
-    // Verify student exists and is a student
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
-    })
-
-    if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
-    }
-
-    if (user.systemRole === 'SUPERVISOR' && student.supervisorId !== user.id) {
-      return NextResponse.json(
-        { error: 'You can only assign papers to students assigned to you by the administrator' },
-        { status: 403 }
-      )
+    if (!paperId) {
+      return NextResponse.json({ error: 'Paper ID is required' }, { status: 400 })
     }
 
     // Verify paper exists
@@ -149,6 +130,172 @@ export async function POST(request: NextRequest) {
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    // ─── Case 1: Assign to Whole Research Lab ───
+    if (targetType === 'LAB' || (labId && !studentId && !groupId)) {
+      const lab = await prisma.lab.findUnique({
+        where: { id: labId },
+        include: {
+          members: {
+            include: { user: true },
+          },
+        },
+      })
+
+      if (!lab) {
+        return NextResponse.json({ error: 'Research lab not found' }, { status: 404 })
+      }
+
+      // Find all student members in this lab
+      const studentMembers = lab.members.filter((m) => m.user.systemRole === 'STUDENT')
+
+      if (studentMembers.length === 0) {
+        return NextResponse.json(
+          { error: 'No student researchers found in this laboratory to assign' },
+          { status: 400 }
+        )
+      }
+
+      let assignedCount = 0
+      for (const m of studentMembers) {
+        const existing = await prisma.assignment.findUnique({
+          where: {
+            paperId_studentId: {
+              paperId,
+              studentId: m.userId,
+            },
+          },
+        })
+
+        if (!existing) {
+          await prisma.assignment.create({
+            data: {
+              paperId,
+              studentId: m.userId,
+              assignedById: user.id,
+              dueDate: dueDate ? new Date(dueDate) : null,
+              note: note?.trim() || null,
+              status: 'PENDING',
+            },
+          })
+          assignedCount++
+
+          // Send real-time notification
+          await createNotification({
+            userId: m.userId,
+            title: `New Lab Paper Assigned (${lab.name})`,
+            message: `${user.name} assigned "${paper.title}" to ${lab.name}.`,
+            type: 'ASSIGNMENT',
+            link: `/papers/${paperId}`,
+          }).catch(() => {})
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          count: assignedCount,
+          totalStudents: studentMembers.length,
+          message: `Successfully assigned paper to ${assignedCount} students in "${lab.name}" (${studentMembers.length - assignedCount} already had it).`,
+        },
+        { status: 201 }
+      )
+    }
+
+    // ─── Case 2: Assign to Sub-Group / Cluster ───
+    if (targetType === 'GROUP' || (groupId && !studentId)) {
+      const group = await prisma.researchGroup.findUnique({
+        where: { id: groupId },
+        include: {
+          lab: true,
+          members: {
+            include: { user: true },
+          },
+        },
+      })
+
+      if (!group) {
+        return NextResponse.json({ error: 'Sub-group not found' }, { status: 404 })
+      }
+
+      const studentMembers = group.members.filter((m) => m.user.systemRole === 'STUDENT')
+
+      if (studentMembers.length === 0) {
+        return NextResponse.json(
+          { error: 'No student researchers found in this sub-group to assign' },
+          { status: 400 }
+        )
+      }
+
+      let assignedCount = 0
+      for (const m of studentMembers) {
+        const existing = await prisma.assignment.findUnique({
+          where: {
+            paperId_studentId: {
+              paperId,
+              studentId: m.userId,
+            },
+          },
+        })
+
+        if (!existing) {
+          await prisma.assignment.create({
+            data: {
+              paperId,
+              studentId: m.userId,
+              assignedById: user.id,
+              dueDate: dueDate ? new Date(dueDate) : null,
+              note: note?.trim() || null,
+              status: 'PENDING',
+            },
+          })
+          assignedCount++
+
+          // Send notification
+          await createNotification({
+            userId: m.userId,
+            title: `New Sub-Group Paper Assigned (${group.name})`,
+            message: `${user.name} assigned "${paper.title}" to sub-group ${group.name}.`,
+            type: 'ASSIGNMENT',
+            link: `/papers/${paperId}`,
+          }).catch(() => {})
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          count: assignedCount,
+          totalStudents: studentMembers.length,
+          message: `Successfully assigned paper to ${assignedCount} students in sub-group "${group.name}".`,
+        },
+        { status: 201 }
+      )
+    }
+
+    // ─── Case 3: Assign to Individual Student ───
+    if (!studentId) {
+      return NextResponse.json(
+        { error: 'Student ID, Lab ID, or Group ID is required' },
+        { status: 400 }
+      )
+    }
+
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+    })
+
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    }
+
+    // Verify ownership check for supervisors
+    if (user.systemRole === 'SUPERVISOR' && student.supervisorId !== user.id) {
+      return NextResponse.json(
+        { error: 'You can only assign papers to students assigned to you by the administrator' },
+        { status: 403 }
+      )
     }
 
     // Check if assignment already exists
@@ -191,12 +338,12 @@ export async function POST(request: NextRequest) {
       message: `${user.name} assigned you: "${paper.title}"`,
       type: 'ASSIGNMENT',
       link: `/papers/${paperId}`,
-    })
+    }).catch(() => {})
 
     return NextResponse.json(assignment, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating assignment:', error)
-    return NextResponse.json({ error: 'Failed to create assignment' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Failed to create assignment' }, { status: 500 })
   }
 }
 
