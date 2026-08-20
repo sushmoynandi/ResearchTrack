@@ -16,7 +16,7 @@
 ### 🏢 1. Academic Research Labs & Sub-Group Management
 * **Lab Workspaces**: Create or join research laboratories with secure join codes and member approval workflows.
 * **Sub-Group Clusters**: Organize lab members into specialized project teams (e.g. *Foundations*, *Mechanistic Interpretability*, *Agentic Systems*).
-* **Lab Broadcasts & Noticeboard**: Pinned deadlines, priority announcements, and lab-wide updates.
+* **Lab Notices & Noticeboard**: Pinned deadlines, priority announcements, and lab-wide updates.
 * **Starter Packs**: Curated foundational reading lists for onboarding new lab members with automated progress tracking.
 * **Journal Club Seminars**: Schedule paper presentations with slide decks, designated discussants, and structured agendas.
 * **Lab Meetings & Syncs**: Schedule video meetings with countdown badges and Google Meet / Zoom links.

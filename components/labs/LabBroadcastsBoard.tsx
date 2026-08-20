@@ -103,7 +103,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
       })
 
       if (res.ok) {
-        addToast('success', 'Broadcast published to lab!')
+        addToast('success', 'Notice published to lab!')
         setIsModalOpen(false)
         setTitle('')
         setContent('')
@@ -111,7 +111,7 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
         fetchBroadcasts()
       } else {
         const err = await res.json()
-        addToast('error', err.error || 'Failed to publish broadcast')
+        addToast('error', err.error || 'Failed to publish notice')
       }
     } catch {
       addToast('error', 'Network error')
@@ -285,8 +285,8 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title="Post Lab Announcement or Deadline"
-          description="Broadcast notices, paper acceptances, or upcoming conference submission deadlines to all lab members."
+          title="Post Lab Notice or Deadline"
+          description="Post lab notices, paper acceptances, or upcoming conference submission deadlines to all lab members."
           size="md"
         >
           <form onSubmit={handleCreate} className="space-y-4 pt-2">
@@ -371,12 +371,12 @@ export function LabBroadcastsBoard({ labId, isLeadOrSupervisor }: LabBroadcastsB
         </Modal>
       )}
 
-      {/* Edit Broadcast / Notice Modal */}
+      {/* Edit Notice Modal */}
       {editingBroadcast && (
         <Modal
           isOpen={Boolean(editingBroadcast)}
           onClose={() => setEditingBroadcast(null)}
-          title="Edit Lab Notice / Broadcast"
+          title="Edit Lab Notice"
           description="Update notice content, conference deadlines, or pin status for the research lab."
           size="md"
         >

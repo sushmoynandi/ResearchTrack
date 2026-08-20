@@ -424,7 +424,7 @@ export default function ProfilePage() {
                 Web Push &amp; Device Notifications
               </h3>
               <p className="text-xs text-text-secondary">
-                Receive background mobile &amp; desktop alerts for paper assignments, feedback, and lab broadcasts even when the browser is closed.
+                Receive background mobile &amp; desktop alerts for paper assignments, feedback, and lab notices even when the browser is closed.
               </p>
             </div>
           </div>

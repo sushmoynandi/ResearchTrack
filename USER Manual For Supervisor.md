@@ -13,7 +13,7 @@
 5. [Faculty Review Rubrics & Grading Submissions](#5-faculty-review-rubrics--grading-submissions)
 6. [Thesis Milestones & Deliverable Approvals](#6-thesis-milestones--deliverable-approvals)
 7. [Scheduling & Managing 1-on-1 Meetings](#7-scheduling--managing-1-on-1-meetings)
-8. [Lab Broadcasts, Conference Countdowns & Tasks](#8-lab-broadcasts-conference-countdowns--tasks)
+8. [Lab Notices, Conference Countdowns & Tasks](#8-lab-notices-conference-countdowns--tasks)
 9. [Exporting Matrices & LaTeX Survey Tables](#9-exporting-matrices--latex-survey-tables)
 10. [Supervisor Best Practices](#10-supervisor-best-practices)
 
@@ -136,12 +136,12 @@ Maintain continuous mentorship records:
 
 ---
 
-## 8. Lab Broadcasts, Conference Countdowns & Tasks
+## 8. Lab Notices, Conference Countdowns & Tasks
 
-### Pinning Lab Broadcasts & Deadlines
-1. Inside your Lab page, click **"+ Post Broadcast"**.
+### Pinning Lab Notices & Deadlines
+1. Inside your Lab page, click **"+ Post Notice"**.
 2. Select category:
-   - 📢 **General Announcement**
+   - 📢 **General Notice / Announcement**
    - ⏰ **Conference Submission Deadline** (with live countdown clock)
    - 💻 **Compute & GPU Cluster Notice**
    - 🏆 **Paper Acceptance / Achievement**

@@ -362,7 +362,7 @@ export default function LabDetailPage() {
               icon: Layers,
             },
             { id: 'tasks', label: 'Tasks & Deliverables', icon: CheckSquare },
-            { id: 'noticeboard', label: 'Noticeboard & Deadlines', icon: Megaphone },
+            { id: 'noticeboard', label: 'Lab Notices & Deadlines', icon: Megaphone },
             { id: 'meetings', label: 'Meetings & Syncs', icon: Video },
             { id: 'starter-packs', label: 'Starter Packs', icon: BookOpen },
             { id: 'journal-club', label: 'Journal Club', icon: Calendar },

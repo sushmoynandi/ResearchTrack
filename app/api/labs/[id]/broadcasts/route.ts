@@ -97,7 +97,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (member.userId !== user.id) {
         await createNotification({
           userId: member.userId,
-          title: `Lab Broadcast: ${lab.name} 📢`,
+          title: `Lab Notice: ${lab.name} 📢`,
           message: `${user.name} posted: "${broadcast.title}"`,
           type: 'SYSTEM',
           link: `/labs/${lab.slug}`,

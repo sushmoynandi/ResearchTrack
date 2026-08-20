@@ -48,7 +48,7 @@ To collaborate with **Basar Sir** and fellow lab members:
 2. Click **"Join Lab"** button.
 3. Enter the unique **Lab Join Code** provided by Basar Sir / Lab Lead.
 4. (Optional) Enter a brief message stating your research topic or student ID.
-5. Click **"Submit Request"**. Once approved by your supervisor, you will have access to all lab broadcasts, sub-groups, and shared syllabi.
+5. Click **"Submit Request"**. Once approved by your supervisor, you will have access to all lab notices, sub-groups, and shared syllabi.
 
 ---
 
@@ -58,7 +58,7 @@ Your **Dashboard** (`/`) is your daily command center:
 - **Reading Pipeline Counters**: Displays how many papers are *To Read*, *Reading*, and *Completed*.
 - **Pending Assignments**: Highlights papers assigned by your supervisor with upcoming deadlines.
 - **Active Milestones**: Shows your thesis progress bar and upcoming deliverable dates.
-- **Lab Announcements**: Pins urgent conference deadlines and lab broadcasts.
+- **Lab Announcements**: Pins urgent conference deadlines and lab notices.
 - **Quick Actions (⌘K / Ctrl+K)**: Press `Ctrl + K` anywhere to open Spotlight Search to instantly find any paper, author, or track.
 
 ---
