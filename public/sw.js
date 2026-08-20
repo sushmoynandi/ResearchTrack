@@ -26,8 +26,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'ResearchTrack'
   const options = {
     body: data.message || data.body || 'You have a new update from your research advisor or lab.',
-    icon: data.icon || '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: data.icon || '/icon-192.png',
+    badge: '/icon-192.png',
     vibrate: [100, 50, 100],
     data: {
       url: data.link || data.url || '/',
@@ -37,9 +37,10 @@ self.addEventListener('push', (event) => {
       { action: 'open', title: 'Open in App' },
       { action: 'dismiss', title: 'Dismiss' },
     ],
-    tag: data.tag || 'researchtrack-' + Date.now(),
-    renotify: true,
-    requireInteraction: true,
+    tag: data.tag || 'researchtrack-notifications',
+    renotify: false,
+    requireInteraction: false,
+    silent: false,
   }
 
   event.waitUntil(self.registration.showNotification(title, options))
