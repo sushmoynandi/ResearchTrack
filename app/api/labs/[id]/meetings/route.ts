@@ -199,13 +199,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     // Dispatch notifications to all invited members
-    const meetingDateStr = parsedStartTime.toLocaleDateString([], {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const meetingDateStr =
+      body.formattedTime ||
+      parsedStartTime.toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
 
     const notifTitle = groupId
       ? `Sub-Group Meeting Scheduled: ${targetGroupName} 📅`
@@ -307,11 +309,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
 
       const newTimeStr = isRescheduled
-        ? new Date(startTime).toLocaleDateString([], {
+        ? body.formattedTime ||
+          new Date(startTime).toLocaleString(undefined, {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
-            hour: '2-digit',
+            hour: 'numeric',
             minute: '2-digit',
           })
         : ''

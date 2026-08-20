@@ -67,6 +67,7 @@ interface DashboardData {
     title: string
     message: string
     type: string
+    link?: string | null
     createdAt: string
   }[]
 }
@@ -310,18 +311,55 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {stats.recentNotifications && stats.recentNotifications.length > 0 && (
-            <div className="glass-card p-4 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-text-secondary">Recent Supervisor Feedback &amp; Updates</p>
-              {stats.recentNotifications.map((notification) => (
-                <div key={notification.id} className="flex items-start justify-between gap-3 text-xs border-t border-border-default pt-2 first:border-0 first:pt-0">
-                  <div>
-                    <p className="font-medium text-text-primary">{notification.title}</p>
-                    <p className="text-text-secondary">{notification.message}</p>
-                  </div>
-                  <span className="shrink-0 text-[10px] text-text-tertiary">{new Date(notification.createdAt).toLocaleDateString()}</span>
-                </div>
-              ))}
+          {stats.recentNotifications && stats.recentNotifications.length > 0 ? (
+            <div className="glass-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-text-secondary flex items-center gap-1.5">
+                  <MessageSquare size={13} className="text-accent" /> Recent Supervisor Feedback &amp; Updates
+                </p>
+                <span className="text-[10px] text-text-tertiary">
+                  {stats.recentNotifications.length} updates
+                </span>
+              </div>
+
+              <div className="space-y-2 divide-y divide-border-default/60">
+                {stats.recentNotifications.map((notification) => {
+                  const Content = (
+                    <div
+                      key={notification.id}
+                      className="flex items-start justify-between gap-3 text-xs pt-2.5 first:pt-0 hover:bg-bg-tertiary/40 -mx-2 px-2 py-1.5 rounded-lg transition-colors"
+                    >
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-text-primary truncate">{notification.title}</p>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-accent/10 text-accent font-mono shrink-0">
+                            {notification.type || 'UPDATE'}
+                          </span>
+                        </div>
+                        <p className="text-text-secondary text-[11px] line-clamp-2 leading-relaxed">
+                          {notification.message}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-mono text-text-tertiary whitespace-nowrap">
+                        {new Date(notification.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )
+
+                  return notification.link ? (
+                    <Link key={notification.id} href={notification.link} className="block">
+                      {Content}
+                    </Link>
+                  ) : (
+                    <div key={notification.id}>{Content}</div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="glass-card p-4 text-xs text-text-tertiary flex items-center gap-2">
+              <MessageSquare size={14} className="text-text-tertiary" />
+              <span>No recent supervisor feedback or updates yet.</span>
             </div>
           )}
         </div>

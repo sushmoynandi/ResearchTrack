@@ -142,6 +142,15 @@ export function LabMeetingsBoard({
     if (!editingMeeting) return
     setSavingEdit(true)
     try {
+      const localFormattedTime = new Date(editStartTime).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
       const res = await fetch(`/api/labs/${labId}/meetings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -149,6 +158,7 @@ export function LabMeetingsBoard({
           meetingId: editingMeeting.id,
           title: editTitle.trim(),
           startTime: new Date(editStartTime).toISOString(),
+          formattedTime: localFormattedTime,
           location: editLocation.trim() || undefined,
           meetingUrl: editMeetingUrl.trim() || undefined,
           agenda: editAgenda.trim() || undefined,

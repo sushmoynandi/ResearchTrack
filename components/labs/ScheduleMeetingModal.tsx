@@ -67,6 +67,15 @@ export function ScheduleMeetingModal({
     setSubmitting(true)
 
     try {
+      const localFormattedTime = new Date(startTime).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
       const res = await fetch(`/api/labs/${labId}/meetings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,6 +85,7 @@ export function ScheduleMeetingModal({
           groupId: scope === 'group' ? selectedGroupId : null,
           meetingType: scope === 'group' ? 'SUB_GROUP' : meetingType,
           startTime: new Date(startTime).toISOString(),
+          formattedTime: localFormattedTime,
           endTime: endTime ? new Date(endTime).toISOString() : undefined,
           location: location.trim() || undefined,
           meetingUrl: meetingUrl.trim() || undefined,

@@ -119,12 +119,22 @@ export default function MeetingsPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
+      const localFormattedTime = new Date(scheduledAt).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
       const res = await fetch('/api/meetings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
           scheduledAt: new Date(scheduledAt).toISOString(),
+          formattedTime: localFormattedTime,
           studentId: isSupervisor ? selectedStudentId : user?.id,
           supervisorId: isSupervisor ? user?.id : user?.supervisorId,
         }),
@@ -223,6 +233,15 @@ export default function MeetingsPage() {
     if (!activeMeetingId) return
     setSavingEdit(true)
     try {
+      const localFormattedTime = new Date(editScheduledAt).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
       const res = await fetch('/api/meetings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -230,6 +249,7 @@ export default function MeetingsPage() {
           id: activeMeetingId,
           title: editTitle.trim(),
           scheduledAt: new Date(editScheduledAt).toISOString(),
+          formattedTime: localFormattedTime,
           status: editStatus,
         }),
       })

@@ -48,6 +48,7 @@ export async function GET() {
       tagsWithCount,
       collectionsWithCount,
       myAssignments,
+      recentNotifications,
       supervisedStudents,
       issuedAssignments,
       supervisorRecord,
@@ -99,6 +100,12 @@ export async function GET() {
         },
         orderBy: { createdAt: 'desc' },
         take: 5,
+      }),
+      // Recent notifications for the student / user
+      prisma.notification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
       }),
       // Supervised students (for Supervisor / Admin)
       user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN'
@@ -177,6 +184,8 @@ export async function GET() {
       })),
       completionRate: totalPapers > 0 ? Math.round((completed / totalPapers) * 100) : 0,
       myAssignments,
+      pendingAssignments: myAssignments.filter((a) => a.paper.status !== 'COMPLETED'),
+      recentNotifications,
       supervisedStudents,
       issuedAssignments,
       supervisor: supervisorRecord?.supervisor || null,

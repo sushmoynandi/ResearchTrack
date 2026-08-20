@@ -115,10 +115,11 @@ export async function POST(request: NextRequest) {
 
     // Notify other participant
     const notifyTarget = user.id === targetStudentId ? targetSupervisorId : targetStudentId
+    const displayTime = body.formattedTime || new Date(scheduledAt).toLocaleDateString()
     await createNotification({
       userId: notifyTarget,
       title: 'New 1-on-1 Meeting Scheduled',
-      message: `${user.name} scheduled a 1-on-1: "${meeting.title}" for ${new Date(scheduledAt).toLocaleDateString()}`,
+      message: `${user.name} scheduled a 1-on-1: "${meeting.title}" for ${displayTime}`,
       type: 'SYSTEM',
       link: '/meetings',
     })
@@ -189,13 +190,15 @@ export async function PUT(request: NextRequest) {
     const notifyTarget = user.id === existing.studentId ? existing.supervisorId : existing.studentId
 
     if (isRescheduled) {
-      const newTimeStr = new Date(scheduledAt).toLocaleString(undefined, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      const newTimeStr =
+        body.formattedTime ||
+        new Date(scheduledAt).toLocaleString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
       await createNotification({
         userId: notifyTarget,
         title: `Meeting Rescheduled 🔄`,
