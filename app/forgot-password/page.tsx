@@ -10,7 +10,17 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
-import { Mail, Lock, ArrowRight, ArrowLeft, KeyRound, Atom, MailCheck } from 'lucide-react'
+import { GoogleButton } from '@/components/auth/GoogleButton'
+import {
+  Mail,
+  Lock,
+  ArrowRight,
+  ArrowLeft,
+  KeyRound,
+  Atom,
+  MailCheck,
+  TriangleAlert,
+} from 'lucide-react'
 
 function ForgotPasswordForm() {
   const router = useRouter()
@@ -28,6 +38,8 @@ function ForgotPasswordForm() {
   const [sending, setSending] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [resendIn, setResendIn] = useState(0)
+  /** True when the server can't send email at all — Google sign-in is the way in. */
+  const [emailUnavailable, setEmailUnavailable] = useState(false)
 
   // Carry over whatever they'd already typed on the sign-in form
   useEffect(() => {
@@ -53,6 +65,11 @@ function ForgotPasswordForm() {
         body: JSON.stringify({ email }),
       })
       const data = await res.json()
+
+      if (data.emailUnavailable) {
+        setEmailUnavailable(true)
+        return
+      }
 
       if (res.ok) {
         setStep('reset')
@@ -109,14 +126,56 @@ function ForgotPasswordForm() {
     <AuthSplitLayout
       headline="Locked out? Let's fix that."
       subheadline="We'll email you a short code, you pick a new password, and you're straight back to your library."
-      title={step === 'email' ? 'Forgot your password?' : 'Set a new password'}
+      title={
+        emailUnavailable
+          ? 'Sign in with Google instead'
+          : step === 'email'
+            ? 'Forgot your password?'
+            : 'Set a new password'
+      }
       subtitle={
-        step === 'email'
-          ? 'Tell us your email address and we’ll send you a reset code.'
-          : `Enter the 6-digit code we sent to ${email}.`
+        emailUnavailable
+          ? 'We can’t email you a reset code at the moment.'
+          : step === 'email'
+            ? 'Tell us your email address and we’ll send you a reset code.'
+            : `Enter the 6-digit code we sent to ${email}.`
       }
     >
-      {step === 'email' ? (
+      {emailUnavailable ? (
+        /* ─── No mail can go out, so don't invent a way around it ─── */
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-warning-subtle border border-warning/30">
+            <TriangleAlert size={15} className="text-warning shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-warning">
+                Reset codes aren&apos;t being sent right now
+              </p>
+              <p className="text-[11px] text-text-secondary leading-relaxed">
+                A reset code only counts for something if it reaches your inbox and
+                nobody else&apos;s, so we won&apos;t show one here. Use Google to sign
+                in instead — it proves the same thing, more strongly.
+              </p>
+            </div>
+          </div>
+
+          <GoogleButton mode="login" label="Continue with Google" />
+
+          <p className="text-[11px] text-text-tertiary leading-relaxed">
+            Once you&apos;re in, open{' '}
+            <span className="text-text-secondary font-medium">Profile → Add Password</span>{' '}
+            to set a password you&apos;ll remember. After that either way of signing in
+            will work.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setEmailUnavailable(false)}
+            className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors cursor-pointer"
+          >
+            Try a different email
+          </button>
+        </div>
+      ) : step === 'email' ? (
         <form onSubmit={requestCode} className="space-y-3.5">
           <Input
             label="Email Address"

@@ -56,6 +56,31 @@
 - **Note**: `.env` is read once when the dev server starts. If you change `DATABASE_URL`, stop and restart the dev server, otherwise the site keeps using the old one.
 - **Going live later**: for a deployed site you'll swap `DATABASE_URL` for a hosted PostgreSQL (e.g. Neon) and run `npx prisma db push` once against it.
 
+## How to Send Real Emails (reset codes & admin 2-step codes)
+
+Right now no email is actually sent, so the Forgot Password page **doesn't hand out
+a code**. It says so plainly and offers **Continue with Google** instead — a reset
+code is only worth anything if it lands in the account holder's inbox and nowhere
+else, so it is never shown on screen or written to a log.
+
+To send real emails, both the password reset code and the admin 2-step code go
+through one Google Apps Script:
+
+1. Go to https://script.google.com and start a **New project**.
+2. Paste in a script that reads `e.postData.contents` (JSON with `email`, `name`,
+   `code`, `subject`, `purpose`) and calls `MailApp.sendEmail(...)`.
+3. **Deploy → New deployment → Web app**, set *Execute as* **Me** and
+   *Who has access* **Anyone**, then copy the web app URL.
+4. Put it in `.env`:
+   ```
+   APPSCRIPT_2FA_URL="https://script.google.com/macros/s/..../exec"
+   ```
+5. Restart the app. The "sign in with Google instead" message disappears on its
+   own and codes start going to the inbox.
+
+The `purpose` field is `"PASSWORD_RESET"` for reset codes and absent for 2-step
+codes, so one script can style both differently.
+
 ## How to Enable Google Sign-In
 1. Go to https://console.cloud.google.com and create (or pick) a project.
 2. Open **APIs & Services → OAuth consent screen**, set it up as **External**, and add your email as a test user.
@@ -69,6 +94,7 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Forgot Password never shows a reset code on screen, and never writes one to a log. When email can't be sent, no code is created at all — the page explains why and offers **Continue with Google**, then points you to Profile → Add Password so you can set one you'll remember. Showing the code would have handed a password reset to whoever was looking at the screen, which is exactly what the code exists to prevent.
 - 2026-08-21: Added **Forgot password**. There's a "Forgot password?" link next to the password box on the Login page; it asks for your email, sends a 6-digit code, and lets you set a new password — then signs you straight in. The code lasts 15 minutes, dies after 5 wrong guesses, and only one can be sent per minute per address. The page never says whether an email has an account, so it can't be used to find out who's registered. It works for Google accounts too: it simply gives you a password you didn't have, so afterwards either way of signing in works.
 - 2026-08-21: Reset codes go out through the same Google Apps Script mailer the admin 2-step codes use (`APPSCRIPT_2FA_URL` in `.env`). While that isn't set, the code is printed in the dev-server terminal instead, so the whole flow still works locally.
 - 2026-08-21: The profile picture in the top bar now glows in your role's colour — **blue** for a Student Researcher, **green** for a Supervisor, **amber** for an Administrator — so you can tell at a glance who you're signed in as. Hovering brightens it, and the same coloured ring is used on the avatars in the admin Role Requests queue.

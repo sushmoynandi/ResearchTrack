@@ -85,17 +85,27 @@ export async function sendAdmin2FACode(params: {
   }
 }
 
+/** Whether outgoing email is actually wired up. */
+export function isMailerConfigured(): boolean {
+  const url = process.env.APPSCRIPT_2FA_URL
+  return Boolean(url && url.startsWith('http'))
+}
+
 /**
  * Sends a password reset code through the same Google Apps Script mailer the
- * admin 2FA codes use. With APPSCRIPT_2FA_URL unset (local development) the
- * code is printed to the terminal instead, so the flow still works end to end.
+ * admin 2FA codes use.
+ *
+ * Returns `delivered: false` when it could not be sent. The code is never
+ * printed or returned anywhere in that case — a reset code that reaches
+ * someone other than the account holder is the whole risk this flow exists to
+ * avoid. Callers should offer Google sign-in instead.
  */
 export async function sendPasswordResetCode(params: {
   email: string
   name: string
   code: string
   ip?: string
-}): Promise<{ success: boolean; deliveredVia: 'APPSCRIPT' | 'DEV_FALLBACK' }> {
+}): Promise<{ delivered: boolean }> {
   const appscriptUrl = process.env.APPSCRIPT_2FA_URL
 
   if (appscriptUrl && appscriptUrl.startsWith('http')) {
@@ -116,20 +126,16 @@ export async function sendPasswordResetCode(params: {
         signal: AbortSignal.timeout(10000),
       })
 
-      if (res.ok) return { success: true, deliveredVia: 'APPSCRIPT' }
-      console.warn(`[Password reset mail] HTTP ${res.status}`)
+      if (res.ok) return { delivered: true }
+      console.warn(`[Password reset mail] HTTP ${res.status} — code not sent`)
     } catch (err) {
-      console.error('[Password reset mail] dispatch failed:', err)
+      console.error('[Password reset mail] dispatch failed — code not sent:', err)
     }
+  } else {
+    console.warn(
+      '[Password reset] APPSCRIPT_2FA_URL is not set, so no reset email can be sent.'
+    )
   }
 
-  console.log('──────────────────────────────────────────────────')
-  console.log('🔑 [PASSWORD RESET CODE]')
-  console.log(`👤 Account     : ${params.name} (${params.email})`)
-  console.log(`🔢 6-Digit Code: ${params.code}`)
-  console.log('⏱️ Expiration  : 15 minutes')
-  console.log('💡 Set APPSCRIPT_2FA_URL in .env to email this instead.')
-  console.log('──────────────────────────────────────────────────')
-
-  return { success: true, deliveredVia: 'DEV_FALLBACK' }
+  return { delivered: false }
 }
