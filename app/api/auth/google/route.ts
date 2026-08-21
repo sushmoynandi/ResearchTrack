@@ -2,13 +2,43 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 
+/** Is this a localhost / loopback address? */
+function isLoopback(url: string) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(url)
+}
+
+/** The address the visitor is actually on, as their browser sees it. */
+function publicOrigin(request: NextRequest) {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  if (!host) return request.nextUrl.origin.replace(/\/$/, '')
+  const proto =
+    request.headers.get('x-forwarded-proto') ||
+    (host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
 /**
  * Resolve the exact redirect URI Google will call back.
  * Must match one of the "Authorized redirect URIs" in the Google Cloud console.
+ *
+ * The address the visitor is actually on wins, because that is the string
+ * Google compares. A configured value is honoured on top of it, except when it
+ * points at localhost while the visitor is not — a development value left
+ * behind in a deployed environment would otherwise send people on the live site
+ * back to their own machine.
  */
 function getRedirectUri(request: NextRequest) {
-  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI
-  const origin = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, '')
+  const origin = publicOrigin(request)
+
+  const configuredBase = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
+  const configured =
+    process.env.GOOGLE_REDIRECT_URI?.trim() ||
+    (configuredBase ? `${configuredBase}/api/auth/google/callback` : '')
+
+  if (configured && (!isLoopback(configured) || isLoopback(origin))) {
+    return configured
+  }
+
   return `${origin}/api/auth/google/callback`
 }
 

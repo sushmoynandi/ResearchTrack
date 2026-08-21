@@ -88,12 +88,17 @@ codes, so one script can style both differently.
    - Application type: **Web application**
    - **Authorized redirect URIs**: add `http://localhost:3000/api/auth/google/callback`
      (and later your live URL, e.g. `https://yoursite.com/api/auth/google/callback`)
-4. Copy the **Client ID** and **Client secret** into `.env`:
+4. Add your live site's addresses too, once you have one — both with and without `www`:
+   `https://yourdomain.com/api/auth/google/callback` and
+   `https://www.yourdomain.com/api/auth/google/callback`. Google compares this
+   text exactly, so every one you actually use has to be listed.
+5. Copy the **Client ID** and **Client secret** into `.env`:
    - `GOOGLE_CLIENT_ID="..."`
    - `GOOGLE_CLIENT_SECRET="..."`
-5. Restart the app. The "Continue with Google" button will now work.
+6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Google sign-in now works out the callback address from the site the visitor is actually on, instead of trusting a configured value. A leftover `http://localhost:...` in a deployed environment used to make the live site tell Google to send people back to someone's own machine — which is what the "Error 400: redirect_uri_mismatch" was. A configured value is still honoured, just never a localhost one on a live site.
 - 2026-08-21: Cleared the 8 Tailwind warnings the editor showed on the Login/Register layout. Tailwind v4 renamed `bg-gradient-to-*` to `bg-linear-to-*`, and its spacing scale now covers sizes that used to need hand-written pixel values (`w-[420px]` → `w-105`). Same look, current names — the four other `bg-gradient-to-*` spots elsewhere in the app were renamed too.
 - 2026-08-21: Fixed three style classes that were used all over the site but never actually defined, so they silently did nothing: `shadow-glow` (the glow around the logo and avatars — used in 7 files), `animate-spin-slow` (the slowly turning atom logo — 6 files), and `font-display` (the heading font — 41 files, its variable pointed at itself). The logo now really glows and turns; headings keep the same look they had, but the font can now be swapped for a proper display typeface in one line if you want one.
 - 2026-08-21: Forgot Password never shows a reset code on screen, and never writes one to a log. When email can't be sent, no code is created at all — the page explains why and offers **Continue with Google**, then points you to Profile → Add Password so you can set one you'll remember. Showing the code would have handed a password reset to whoever was looking at the screen, which is exactly what the code exists to prevent.
