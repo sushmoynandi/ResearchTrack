@@ -30,6 +30,7 @@
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
+- **Role Requests** (`/admin/role-requests`) — Admin-only queue for approving or declining role change requests
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, profile photo, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
 - **Add New Paper** (`/papers/new`) — 1-click ArXiv/Semantic Scholar auto-importer, model architecture specs, benchmark matrix builder, and code/weight hub
@@ -43,7 +44,7 @@
 - **Research Radar** (`/radar`) — Real-time discovery feed from ArXiv and Hugging Face Daily Papers
 
 ## Database
-- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, plus lab/collaboration models (27 tables total).
+- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, plus lab/collaboration models (28 tables total).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
 - **Demo accounts** (created by `npm run seed`, password `password123` for all of them):
@@ -67,6 +68,7 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Added **role change requests**. On the Profile page there's now an "Account Role" card where someone can ask to switch between Student Researcher and Supervisor, with an optional reason. Nobody changes their own role — the request goes to a new admin-only page (**Role Requests** in the admin sidebar) where every administrator gets a notification and can approve or decline it with a note. Approving switches the role immediately, tells the person, and records it in the Audit Trail. The change takes effect on their very next page load — no signing out and back in.
 - 2026-08-21: You can now set a profile photo. Hover the picture at the top of the Profile page and click it to pick one; the small × in the corner removes it. The photo is shrunk to a neat 256px square in your browser before it's saved, so even a big phone photo stays small.
 - 2026-08-21: The badge next to your name on the Profile page now says what you are — **Student Researcher**, **Supervisor** or **Administrator** — instead of how you signed up ("CREDENTIALS" / "GOOGLE"), which meant nothing to anyone reading it.
 - 2026-08-21: Gave the password boxes on the Profile page the same treatment as the sign-up form — an eye button inside each box to reveal what you typed, a weak → strong strength bar under the new password, and a live "Passwords don't match" check that keeps the button switched off until they agree. The strength bar is now one shared piece used by both the Profile page and the Register form, so it looks and scores identically in both places.

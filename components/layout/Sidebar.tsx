@@ -15,6 +15,7 @@ import {
   ClipboardList,
   ShieldCheck,
   ShieldAlert,
+  UserCog,
   Milestone,
   Calendar,
   Building,
@@ -44,6 +45,7 @@ export function Sidebar() {
   const navItems = isAdmin
     ? [
         { href: '/admin/users', label: 'User Management', icon: ShieldCheck },
+        { href: '/admin/role-requests', label: 'Role Requests', icon: UserCog },
         { href: '/admin/audit', label: 'Audit Trail', icon: ShieldAlert },
       ]
     : [

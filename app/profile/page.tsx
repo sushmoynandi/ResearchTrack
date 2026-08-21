@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
 import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
 import { useToast } from '@/components/ui/Toast'
@@ -32,6 +34,9 @@ import {
   Trash2,
   Camera,
   X,
+  UserCog,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -45,6 +50,16 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray
 }
 
+const roleLabel = (role: string) =>
+  role === 'SUPERVISOR' ? 'Supervisor' : role === 'ADMIN' ? 'Administrator' : 'Student Researcher'
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+
 const roleBadges: Record<
   string,
   { label: string; variant: 'info' | 'success' | 'danger' }
@@ -52,6 +67,17 @@ const roleBadges: Record<
   STUDENT: { label: 'Student Researcher', variant: 'info' },
   SUPERVISOR: { label: 'Supervisor', variant: 'success' },
   ADMIN: { label: 'Administrator', variant: 'danger' },
+}
+
+interface RoleRequest {
+  id: string
+  currentRole: string
+  requestedRole: string
+  reason: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewNote: string | null
+  reviewedAt: string | null
+  createdAt: string
 }
 
 export default function ProfilePage() {
@@ -66,6 +92,12 @@ export default function ProfilePage() {
   // Profile photo
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
+
+  // Role change request
+  const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
+  const [requestedRole, setRequestedRole] = useState('SUPERVISOR')
+  const [roleReason, setRoleReason] = useState('')
+  const [sendingRoleRequest, setSendingRoleRequest] = useState(false)
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -129,14 +161,70 @@ export default function ProfilePage() {
     }
   }
 
+  const loadRoleRequests = async () => {
+    try {
+      const res = await fetch('/api/user/role-request')
+      if (res.ok) setRoleRequests(await res.json())
+    } catch {
+      // A missing history just means the card shows the plain request form
+    }
+  }
+
   useEffect(() => {
     if (user) {
       setName(user.name || '')
       setInstitution(user.institution || '')
       setDepartment(user.department || '')
+      // Ask for whichever role they are not
+      setRequestedRole(user.systemRole === 'SUPERVISOR' ? 'STUDENT' : 'SUPERVISOR')
       checkPushStatus()
+      loadRoleRequests()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  const handleRoleRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSendingRoleRequest(true)
+    try {
+      const res = await fetch('/api/user/role-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestedRole, reason: roleReason }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        addToast('success', 'Request sent — an admin will review it')
+        setRoleReason('')
+        await loadRoleRequests()
+      } else {
+        addToast('error', data.error || 'Could not send your request')
+      }
+    } catch {
+      addToast('error', 'Network error sending your request')
+    } finally {
+      setSendingRoleRequest(false)
+    }
+  }
+
+  const handleCancelRoleRequest = async () => {
+    setSendingRoleRequest(true)
+    try {
+      const res = await fetch('/api/user/role-request', { method: 'DELETE' })
+      if (res.ok) {
+        addToast('info', 'Request withdrawn')
+        await loadRoleRequests()
+      } else {
+        const data = await res.json()
+        addToast('error', data.error || 'Could not withdraw your request')
+      }
+    } catch {
+      addToast('error', 'Network error withdrawing your request')
+    } finally {
+      setSendingRoleRequest(false)
+    }
+  }
 
   const handleEnablePush = async () => {
     if (!pushSupported) {
@@ -351,6 +439,9 @@ export default function ProfilePage() {
 
   // Google accounts that never set a password get "Add Password" instead
   const hasPassword = user?.hasPassword !== false
+
+  const pendingRoleRequest = roleRequests.find((r) => r.status === 'PENDING')
+  const decidedRoleRequests = roleRequests.filter((r) => r.status !== 'PENDING').slice(0, 3)
 
   // What this person *is* reads better than how they signed up
   const roleBadge = roleBadges[user?.systemRole ?? ''] ?? {
@@ -711,6 +802,130 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Role change request — decided by an admin, never by the person asking */}
+      {!user.isGuest && user.systemRole !== 'ADMIN' && (
+        <div className="glass-card p-6 space-y-5">
+          <div className="flex items-center gap-2 border-b border-border-default pb-3">
+            <UserCog size={18} className="text-accent" />
+            <h3 className="text-base font-semibold text-text-primary font-display">
+              Account Role
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-text-secondary">You are currently a</span>
+            <Badge variant={roleBadge.variant} size="sm">
+              {roleBadge.label}
+            </Badge>
+          </div>
+
+          {pendingRoleRequest ? (
+            <div className="p-4 rounded-xl bg-warning-subtle border border-warning/30 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Clock size={15} className="text-warning shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-warning">
+                    Waiting for an administrator
+                  </p>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    You asked to become a{' '}
+                    <span className="text-text-primary font-medium">
+                      {roleLabel(pendingRoleRequest.requestedRole)}
+                    </span>{' '}
+                    on {formatDate(pendingRoleRequest.createdAt)}. You&apos;ll get a
+                    notification as soon as it&apos;s decided.
+                  </p>
+                  {pendingRoleRequest.reason && (
+                    <p className="text-xs text-text-tertiary italic">
+                      &ldquo;{pendingRoleRequest.reason}&rdquo;
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancelRoleRequest}
+                loading={sendingRoleRequest}
+                icon={<XCircle size={14} />}
+              >
+                Withdraw request
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleRoleRequest} className="space-y-4 max-w-2xl">
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Need a different role? Send a request and an administrator will review
+                it — roles can&apos;t be changed by the person asking.
+              </p>
+
+              <Select
+                label="Request to become"
+                options={[
+                  { value: 'STUDENT', label: 'Student Researcher' },
+                  { value: 'SUPERVISOR', label: 'Supervisor' },
+                ].filter((o) => o.value !== user.systemRole)}
+                value={requestedRole}
+                onChange={(e) => setRequestedRole(e.target.value)}
+              />
+
+              <Textarea
+                label="Why? (optional)"
+                placeholder="e.g. I now supervise three MSc students in the NLP group."
+                rows={3}
+                maxLength={500}
+                showCount
+                value={roleReason}
+                onChange={(e) => setRoleReason(e.target.value)}
+              />
+
+              <Button
+                type="submit"
+                variant="secondary"
+                loading={sendingRoleRequest}
+                icon={<UserCog size={15} />}
+              >
+                Send Request to Admin
+              </Button>
+            </form>
+          )}
+
+          {/* Recently decided requests */}
+          {decidedRoleRequests.length > 0 && (
+            <div className="pt-4 border-t border-border-default space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                Earlier requests
+              </p>
+              {decidedRoleRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex flex-wrap items-center gap-2 text-xs text-text-secondary"
+                >
+                  <Badge
+                    variant={req.status === 'APPROVED' ? 'success' : 'danger'}
+                    size="sm"
+                  >
+                    {req.status === 'APPROVED' ? 'Approved' : 'Declined'}
+                  </Badge>
+                  <span>
+                    {roleLabel(req.currentRole)} → {roleLabel(req.requestedRole)}
+                  </span>
+                  <span className="text-text-tertiary">
+                    · {formatDate(req.reviewedAt || req.createdAt)}
+                  </span>
+                  {req.reviewNote && (
+                    <span className="text-text-tertiary italic">
+                      — {req.reviewNote}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Password — "Change" for password accounts, "Add" for Google-only ones */}
       {!user.isGuest && (
