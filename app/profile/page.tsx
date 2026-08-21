@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
-import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
@@ -95,7 +94,6 @@ export default function ProfilePage() {
 
   // Role change request
   const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
-  const [requestedRole, setRequestedRole] = useState('SUPERVISOR')
   const [roleReason, setRoleReason] = useState('')
   const [sendingRoleRequest, setSendingRoleRequest] = useState(false)
 
@@ -175,8 +173,6 @@ export default function ProfilePage() {
       setName(user.name || '')
       setInstitution(user.institution || '')
       setDepartment(user.department || '')
-      // Ask for whichever role they are not
-      setRequestedRole(user.systemRole === 'SUPERVISOR' ? 'STUDENT' : 'SUPERVISOR')
       checkPushStatus()
       loadRoleRequests()
     }
@@ -185,6 +181,12 @@ export default function ProfilePage() {
 
   const handleRoleRequest = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!roleReason.trim()) {
+      addToast('error', 'Please say why you need this role')
+      return
+    }
+
     setSendingRoleRequest(true)
     try {
       const res = await fetch('/api/user/role-request', {
@@ -440,6 +442,8 @@ export default function ProfilePage() {
   // Google accounts that never set a password get "Add Password" instead
   const hasPassword = user?.hasPassword !== false
 
+  // Only two roles exist, so the request is always for "the other one"
+  const requestedRole = user?.systemRole === 'SUPERVISOR' ? 'STUDENT' : 'SUPERVISOR'
   const pendingRoleRequest = roleRequests.find((r) => r.status === 'PENDING')
   const decidedRoleRequests = roleRequests.filter((r) => r.status !== 'PENDING').slice(0, 3)
 
@@ -805,39 +809,36 @@ export default function ProfilePage() {
 
       {/* Role change request — decided by an admin, never by the person asking */}
       {!user.isGuest && user.systemRole !== 'ADMIN' && (
-        <div className="glass-card p-6 space-y-5">
-          <div className="flex items-center gap-2 border-b border-border-default pb-3">
-            <UserCog size={18} className="text-accent" />
-            <h3 className="text-base font-semibold text-text-primary font-display">
-              Account Role
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-text-secondary">You are currently a</span>
+        <div className="glass-card p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border-default pb-2.5">
+            <div className="flex items-center gap-2">
+              <UserCog size={16} className="text-accent" />
+              <h3 className="text-sm font-semibold text-text-primary font-display">
+                Account Role
+              </h3>
+            </div>
             <Badge variant={roleBadge.variant} size="sm">
               {roleBadge.label}
             </Badge>
           </div>
 
           {pendingRoleRequest ? (
-            <div className="p-4 rounded-xl bg-warning-subtle border border-warning/30 space-y-3">
+            <div className="p-3.5 rounded-xl bg-warning-subtle border border-warning/30 space-y-2.5">
               <div className="flex items-start gap-2.5">
-                <Clock size={15} className="text-warning shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-warning">
+                <Clock size={14} className="text-warning shrink-0 mt-0.5" />
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold text-warning">
                     Waiting for an administrator
                   </p>
-                  <p className="text-xs text-text-secondary leading-relaxed">
+                  <p className="text-[11px] text-text-secondary leading-relaxed">
                     You asked to become a{' '}
-                    <span className="text-text-primary font-medium">
+                    <span className="text-text-primary font-semibold">
                       {roleLabel(pendingRoleRequest.requestedRole)}
                     </span>{' '}
-                    on {formatDate(pendingRoleRequest.createdAt)}. You&apos;ll get a
-                    notification as soon as it&apos;s decided.
+                    on {formatDate(pendingRoleRequest.createdAt)}.
                   </p>
                   {pendingRoleRequest.reason && (
-                    <p className="text-xs text-text-tertiary italic">
+                    <p className="text-[11px] text-text-tertiary italic">
                       &ldquo;{pendingRoleRequest.reason}&rdquo;
                     </p>
                   )}
@@ -846,46 +847,44 @@ export default function ProfilePage() {
 
               <Button
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 onClick={handleCancelRoleRequest}
                 loading={sendingRoleRequest}
-                icon={<XCircle size={14} />}
+                icon={<XCircle size={13} />}
               >
                 Withdraw request
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleRoleRequest} className="space-y-4 max-w-2xl">
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Need a different role? Send a request and an administrator will review
-                it — roles can&apos;t be changed by the person asking.
+            <form onSubmit={handleRoleRequest} className="space-y-3 max-w-2xl">
+              {/* Only two roles exist, so there's nothing to pick — just say
+                  which one this request is for. */}
+              <p className="text-xs text-text-secondary">
+                Request to become{' '}
+                <span className="font-semibold text-accent">
+                  {roleLabel(requestedRole)}
+                </span>{' '}
+                — an administrator reviews it.
               </p>
 
-              <Select
-                label="Request to become"
-                options={[
-                  { value: 'STUDENT', label: 'Student Researcher' },
-                  { value: 'SUPERVISOR', label: 'Supervisor' },
-                ].filter((o) => o.value !== user.systemRole)}
-                value={requestedRole}
-                onChange={(e) => setRequestedRole(e.target.value)}
-              />
-
               <Textarea
-                label="Why? (optional)"
+                label="Why do you need this role? *"
                 placeholder="e.g. I now supervise three MSc students in the NLP group."
-                rows={3}
+                rows={2}
                 maxLength={500}
                 showCount
                 value={roleReason}
                 onChange={(e) => setRoleReason(e.target.value)}
+                required
               />
 
               <Button
                 type="submit"
+                size="sm"
                 variant="secondary"
                 loading={sendingRoleRequest}
-                icon={<UserCog size={15} />}
+                disabled={!roleReason.trim()}
+                icon={<UserCog size={14} />}
               >
                 Send Request to Admin
               </Button>
@@ -894,14 +893,14 @@ export default function ProfilePage() {
 
           {/* Recently decided requests */}
           {decidedRoleRequests.length > 0 && (
-            <div className="pt-4 border-t border-border-default space-y-2">
-              <p className="text-[11px] uppercase tracking-wider text-text-tertiary">
+            <div className="pt-3 border-t border-border-default space-y-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-text-tertiary">
                 Earlier requests
               </p>
               {decidedRoleRequests.map((req) => (
                 <div
                   key={req.id}
-                  className="flex flex-wrap items-center gap-2 text-xs text-text-secondary"
+                  className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary"
                 >
                   <Badge
                     variant={req.status === 'APPROVED' ? 'success' : 'danger'}

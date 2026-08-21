@@ -74,6 +74,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'That is already your role.' }, { status: 400 })
     }
 
+    // An admin needs something to go on before changing someone's role
+    if (!reason) {
+      return NextResponse.json(
+        { error: 'Please say why you need this role.' },
+        { status: 400 }
+      )
+    }
+
     const existing = await prisma.roleChangeRequest.findFirst({
       where: { userId: user.id, status: 'PENDING' },
     })
@@ -89,7 +97,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         currentRole: user.systemRole,
         requestedRole,
-        reason: reason || null,
+        reason,
       },
     })
 
