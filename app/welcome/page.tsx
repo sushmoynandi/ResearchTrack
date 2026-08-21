@@ -83,7 +83,6 @@ function WelcomeForm() {
         // back to idle for a split second read as a glitch. A client-side push
         // also keeps the toast on screen instead of wiping it with a reload.
         router.replace(redirectTarget)
-        router.refresh()
         return
       }
 

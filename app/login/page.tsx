@@ -141,15 +141,18 @@ function LoginForm() {
         }
         const targetRedirect = searchParams.get('redirect') || (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/')
         addToast('success', `Signed in as ${data.user?.name || 'Researcher'}!`)
-        setTimeout(() => {
-          window.location.href = targetRedirect
-        }, 100)
-      } else {
-        addToast('error', data.error || 'Invalid email or password')
+        // Straight there — no timer, no full reload. The session is already in
+        // memory, so the app doesn't have to boot again and work out who you
+        // are. The button stays in its loading state until the next screen
+        // takes over.
+        router.replace(targetRedirect)
+        return
       }
+
+      addToast('error', data.error || 'Invalid email or password')
+      setLoading(false)
     } catch {
       addToast('error', 'Network error signing in. Please check your connection.')
-    } finally {
       setLoading(false)
     }
   }
@@ -220,15 +223,14 @@ function LoginForm() {
         }
         addToast('success', '✅ 2-Step Verification passed! Accessing Admin Console.')
         const targetRedirect = searchParams.get('redirect') || '/admin/users'
-        setTimeout(() => {
-          window.location.href = targetRedirect
-        }, 100)
-      } else {
-        addToast('error', data.error || 'Invalid or expired verification code')
+        router.replace(targetRedirect)
+        return
       }
+
+      addToast('error', data.error || 'Invalid or expired verification code')
+      setVerifying(false)
     } catch {
       addToast('error', 'Network error verifying security code')
-    } finally {
       setVerifying(false)
     }
   }

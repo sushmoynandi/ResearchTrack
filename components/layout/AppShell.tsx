@@ -30,7 +30,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading } = useAuth()
+  const { user, sessionChecked } = useAuth()
   // Pages that render their own full-screen layout — no sidebar, no header.
   // /welcome belongs here too: it's the required profile step, so the rest of
   // the app must not be reachable from it.
@@ -41,17 +41,22 @@ function ShellInner({ children }: { children: React.ReactNode }) {
       pathname?.startsWith('/forgot-password')
   )
 
+  // Wait for the server to say who this is before sending anyone to /login.
+  // `loading` turns false as soon as there's nothing saved in the browser to
+  // restore, which is exactly the state a Google sign-in arrives in — the
+  // session lives in a cookie. Redirecting on that bounced people through the
+  // login page for a second on the way to the page they asked for.
   useEffect(() => {
-    if (!loading && !user && !isAuthPage) {
+    if (sessionChecked && !user && !isAuthPage) {
       router.replace('/login')
     }
-  }, [loading, user, isAuthPage, router])
+  }, [sessionChecked, user, isAuthPage, router])
 
   if (isAuthPage) {
     return <main className="min-h-screen bg-bg-primary">{children}</main>
   }
 
-  if (loading) {
+  if (!sessionChecked && !user) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
         <div className="text-center space-y-3">

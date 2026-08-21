@@ -81,7 +81,6 @@ function RegisterForm() {
         // in its loading state until the next screen takes over; dropping it
         // back to normal for a split second reads as a glitch.
         router.replace("/welcome");
-        router.refresh();
         return;
       }
 
