@@ -520,7 +520,7 @@ function ReadingTrackPaperCard({
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 shrink-0 flex items-center gap-1">
             <GraduationCap size={11} />
             {isSupervisor
-              ? `Student: ${activeAssignment.student?.name || 'Assigned'}`
+              ? `Assigned to: ${activeAssignment.student?.name || 'Student'}`
               : `Assigned by: ${activeAssignment.assignedBy?.name || 'Faculty'}`}
           </span>
         )}

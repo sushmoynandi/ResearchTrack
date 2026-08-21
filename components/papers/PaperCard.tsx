@@ -82,15 +82,6 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
                   </span>
                 </span>
               )}
-            {paper.user && paper.userId !== user?.id && paper.user.systemRole === 'STUDENT' && !paper.shares?.some((s) => s.sharedWithId === user?.id) && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                title={`Added by Student: ${paper.user.name}`}
-              >
-                <UserCheck size={11} />
-                <span>Student: {paper.user.name}</span>
-              </span>
-            )}
             {paper.assignments &&
               paper.assignments.length > 0 &&
               paper.assignments.map((a) => {
