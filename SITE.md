@@ -58,8 +58,11 @@
 
 ## How to Send Real Emails (reset codes & admin 2-step codes)
 
-Right now no email is actually sent, so the Forgot Password page **doesn't hand out
-a code**. It says so plainly and offers **Continue with Google** instead — a reset
+This is switched on — `APPSCRIPT_2FA_URL` is set, so password reset codes and
+admin 2-step codes both go out as real email.
+
+If that setting is ever missing, the Forgot Password page **doesn't hand out a
+code**. It says so plainly and offers **Continue with Google** instead — a reset
 code is only worth anything if it lands in the account holder's inbox and nowhere
 else, so it is never shown on screen or written to a log.
 
@@ -98,6 +101,7 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Moved "Forgot password?" to sit under the password box on the Login page rather than beside its label, which is where people look for it. Password reset email is now live — `APPSCRIPT_2FA_URL` is set, so requesting a reset actually sends the 6-digit code to your inbox instead of showing the "sign in with Google instead" message.
 - 2026-08-21: Cleaned up the profile step (`/welcome`). Institution and Department now sit one above the other instead of squeezed side by side. Three things that made the page feel broken are fixed: the heading used to say "Welcome!" and then jump to "Welcome, Nazmul!" a moment later, a signed-out visitor saw the whole form flash before being bounced to the login page, and after saving, the button flicked back to normal for a split second before the screen changed. The page now waits until it knows who you are, and moves to the dashboard in one smooth step that keeps the "You're all set!" message on screen. The badge, heading and card also ease into place one after another, and another big blurred circle was replaced with a plain gradient.
 - 2026-08-21: Made the Login, Register and Forgot Password pages lighter and smoother. The branded panel used to be four stacked layers, two of them big blurred circles — blur is one of the most expensive things a browser can draw, and it was the reason these pages felt heavy on first paint. The same picture is now drawn as a single background, with no blur at all. On top of that, the logo, headline, feature list and form now rise into place one after another instead of appearing all at once — it uses only opacity and movement, which the graphics card handles, so nothing stutters. Anyone with "reduce motion" turned on just sees the finished page.
 - 2026-08-21: Google sign-in now works out the callback address from the site the visitor is actually on, instead of trusting a configured value. A leftover `http://localhost:...` in a deployed environment used to make the live site tell Google to send people back to someone's own machine — which is what the "Error 400: redirect_uri_mismatch" was. A configured value is still honoured, just never a localhost one on a live site.

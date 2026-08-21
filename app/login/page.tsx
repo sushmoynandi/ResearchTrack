@@ -310,29 +310,30 @@ function LoginForm() {
               />
 
               <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-text-secondary">Password</span>
-                <Link
-                  href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
-                  className="text-[11px] text-accent hover:text-accent-hover font-medium transition-colors"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <Input
-                placeholder="••••••••"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                icon={<Lock size={15} />}
-                trailing={
-                  <PasswordToggle
-                    visible={showPassword}
-                    onToggle={() => setShowPassword((v) => !v)}
-                  />
-                }
-                required
-              />
+                <Input
+                  label="Password"
+                  placeholder="••••••••"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  icon={<Lock size={15} />}
+                  trailing={
+                    <PasswordToggle
+                      visible={showPassword}
+                      onToggle={() => setShowPassword((v) => !v)}
+                    />
+                  }
+                  required
+                />
+
+                <div className="flex justify-end">
+                  <Link
+                    href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                    className="text-[11px] text-text-tertiary hover:text-accent font-medium transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               <Button
