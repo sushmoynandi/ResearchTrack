@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { AuthSplitLayout } from "@/components/auth/AuthSplitLayout";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 import { User as UserIcon, Mail, Lock, ArrowRight, Atom } from "lucide-react";
 
 function RegisterForm() {
@@ -26,17 +27,6 @@ function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Password strength calculation
-  const calculateStrength = (pass: string) => {
-    let score = 0;
-    if (pass.length >= 6) score += 1;
-    if (pass.length >= 10) score += 1;
-    if (/[0-9]/.test(pass)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
-    return score;
-  };
-
-  const passwordScore = calculateStrength(password);
 
   // Surface Google sign-up errors passed back via ?error=
   useEffect(() => {
@@ -163,29 +153,7 @@ function RegisterForm() {
           />
 
           {/* Password strength meter */}
-          {password.length > 0 && (
-            <div className="space-y-1 pt-1">
-              <div className="flex gap-1 h-1.5 w-full bg-bg-tertiary rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    passwordScore >= 1
-                      ? passwordScore <= 2
-                        ? "bg-warning w-1/3"
-                        : passwordScore === 3
-                          ? "bg-info w-2/3"
-                          : "bg-success w-full"
-                      : "bg-danger w-1/4"
-                  }`}
-                />
-              </div>
-              <span className="text-[10px] text-text-tertiary">
-                {passwordScore <= 1 && "Weak password"}
-                {passwordScore === 2 && "Fair password"}
-                {passwordScore === 3 && "Good password"}
-                {passwordScore >= 4 && "Strong password"}
-              </span>
-            </div>
-          )}
+          <PasswordStrengthMeter password={password} />
         </div>
 
         {/* Confirm Password */}

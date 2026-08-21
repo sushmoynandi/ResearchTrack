@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { PasswordToggle } from '@/components/auth/PasswordToggle'
+import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
 import { useToast } from '@/components/ui/Toast'
 import {
   User as UserIcon,
@@ -55,6 +57,9 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // Delete account state
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -577,28 +582,59 @@ export default function ProfilePage() {
               <Input
                 label="Current Password"
                 placeholder="••••••••"
-                type="password"
+                type={showCurrentPassword ? 'text' : 'password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                trailing={
+                  <PasswordToggle
+                    visible={showCurrentPassword}
+                    onToggle={() => setShowCurrentPassword((v) => !v)}
+                    label="current password"
+                  />
+                }
               />
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label={hasPassword ? 'New Password' : 'Password'}
-                placeholder="At least 6 characters"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <Input
+                  label={hasPassword ? 'New Password' : 'Password'}
+                  placeholder="At least 6 characters"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  trailing={
+                    <PasswordToggle
+                      visible={showNewPassword}
+                      onToggle={() => setShowNewPassword((v) => !v)}
+                      label={hasPassword ? 'new password' : 'password'}
+                    />
+                  }
+                />
+                <PasswordStrengthMeter password={newPassword} />
+              </div>
 
-              <Input
-                label={hasPassword ? 'Confirm New Password' : 'Confirm Password'}
-                placeholder="••••••••"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <Input
+                  label={hasPassword ? 'Confirm New Password' : 'Confirm Password'}
+                  placeholder="••••••••"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  trailing={
+                    <PasswordToggle
+                      visible={showConfirmPassword}
+                      onToggle={() => setShowConfirmPassword((v) => !v)}
+                      label="confirm password"
+                    />
+                  }
+                />
+                {confirmPassword.length > 0 && confirmPassword !== newPassword && (
+                  <span className="text-[10px] text-danger">
+                    Passwords don&apos;t match
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="pt-2">
@@ -606,7 +642,9 @@ export default function ProfilePage() {
                 type="submit"
                 variant="secondary"
                 loading={savingPassword}
-                disabled={!newPassword}
+                disabled={
+                  !newPassword || (!!confirmPassword && confirmPassword !== newPassword)
+                }
               >
                 {hasPassword ? 'Update Password' : 'Add Password'}
               </Button>
