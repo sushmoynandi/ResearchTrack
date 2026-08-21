@@ -11,7 +11,7 @@
 - **Login Options** (both available on `/login` and `/register`):
   - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter, admin 2-step verification
   - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up. New Google users get an account created automatically; existing email accounts get Google linked to them so they can use either method.
-  - **Straight to the dashboard after sign-up**: Both sign-up paths behave identically — finish the Register form or tap "Continue with Google" and you land on the main dashboard (`/`) right away. No extra profile step. Everyone starts as a Student Researcher; role, institution, and department are optional and can be filled in any time on the Profile page.
+  - **Required profile step after sign-up** (`/welcome`): Both sign-up paths behave identically — finish the Register form or tap "Continue with Google" and you land on a one-time screen asking three things: *I am a…* (Student or Supervisor), *Institution / University*, and *Department*. All three are required and there is no way to skip. Until they are saved, every other page bounces back to this screen, so nobody can use the app with a half-empty profile. Once saved, the person goes to the page they were originally headed for. Details can be edited later on the Profile page.
 - **How Google Sign-In works** (for the curious):
   - `GET /api/auth/google` sends the user to Google's account chooser (with an anti-CSRF `state`)
   - `GET /api/auth/google/callback` exchanges the code server-side, **verifies Google's ID-token signature** with `jose`, then creates the session
@@ -26,6 +26,7 @@
 - **Dashboard** (`/`) — Reading pipeline overview, live counters, recent papers, and collection shortcuts
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
+- **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, avatar, and password changes
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
 - **Add New Paper** (`/papers/new`) — 1-click ArXiv/Semantic Scholar auto-importer, model architecture specs, benchmark matrix builder, and code/weight hub
@@ -42,6 +43,12 @@
 - Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, plus lab/collaboration models (27 tables total).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
+- **Demo accounts** (created by `npm run seed`, password `password123` for all of them):
+  - `student@researchtrack.edu` — Sophia Chen, a student researcher (starts with one sample paper)
+  - `supervisor@researchtrack.edu` — Dr. Elena Rostova, a supervisor (Sophia's advisor)
+  - `admin@researchtrack.edu` — Dean Administrator, an admin
+  - The same three also exist on `@papertrack.edu` addresses.
+- **Note**: `.env` is read once when the dev server starts. If you change `DATABASE_URL`, stop and restart the dev server, otherwise the site keeps using the old one.
 - **Going live later**: for a deployed site you'll swap `DATABASE_URL` for a hosted PostgreSQL (e.g. Neon) and run `npx prisma db push` once against it.
 
 ## How to Enable Google Sign-In
@@ -57,6 +64,11 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Fixed the profile step showing the app's sidebar and header around it — `/welcome` now renders on its own like the Login and Register pages, so there's nothing to click away to before it's filled in.
+- 2026-08-21: Added `suppressHydrationWarning` to the page `<body>`. Browser extensions (password managers, grammar checkers, dark-mode tools) add their own attributes to the page before it loads, which made the dev server report a false error in `app/layout.tsx`.
+- 2026-08-21: Made the profile step required again. After signing up — with Google or with email/password — everyone now has to pick their role, institution, and department on `/welcome` before they can open any other page; a new `proxy.ts` gate redirects them back there until it's filled in. The Register form itself stays short (name, email, password, confirm password).
+- 2026-08-21: Renamed `middleware.ts` to `proxy.ts` (Next.js 16 renamed this file), which also clears the deprecation warning that showed on every dev-server start.
+- 2026-08-21: Set up the local PostgreSQL database (`researchtrack`) to match the project schema and filled it with the demo student / supervisor / admin accounts plus a sample paper, so sign-in works locally out of the box.
 - 2026-08-21: Rebalanced the Login and Register layout for a cleaner, more professional look — the branding panel is wider (62% / 38% split) with a bigger headline and wider text column, and the form column is narrower and tighter so the two sides sit level with each other and leave about the same margin on both edges of the screen.
 - 2026-08-21: Tightened the left branding panel on Login and Register. The logo, headline and feature list used to be pushed to the very top and bottom of the screen with big empty gaps in between — now they sit together as one vertically centred block, and the text column is wider (it gets wider still on large monitors) so lines don't wrap so early.
 - 2026-08-21: Moved the show/hide password eye **inside** the password box on both Login and Register (it used to be a small "Show" link above the box). On Register the Password and Confirm Password boxes each have their own eye, so you can reveal one without revealing the other.

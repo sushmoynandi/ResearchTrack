@@ -31,8 +31,13 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading } = useAuth()
+  // Pages that render their own full-screen layout — no sidebar, no header.
+  // /welcome belongs here too: it's the required profile step, so the rest of
+  // the app must not be reachable from it.
   const isAuthPage = Boolean(
-    pathname?.startsWith('/login') || pathname?.startsWith('/register')
+    pathname?.startsWith('/login') ||
+      pathname?.startsWith('/register') ||
+      pathname?.startsWith('/welcome')
   )
 
   useEffect(() => {

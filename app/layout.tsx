@@ -42,7 +42,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-[family-name:var(--font-body)] antialiased">
+      {/* suppressHydrationWarning: browser extensions (password managers,
+          grammar checkers, dark-mode tools) add their own attributes to
+          <body> before React hydrates, which otherwise reports as a
+          hydration mismatch here in RootLayout. */}
+      <body
+        className="font-[family-name:var(--font-body)] antialiased"
+        suppressHydrationWarning
+      >
         <AppShell>{children}</AppShell>
         <OfflineBanner />
         <AgentationProvider />

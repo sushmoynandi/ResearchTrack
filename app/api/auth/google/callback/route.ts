@@ -195,9 +195,14 @@ export async function GET(request: NextRequest) {
     maxAge: 30 * 24 * 60 * 60,
   }
 
-  // Everyone lands on the main page (or wherever they were headed) right away —
-  // role / institution / department are optional and editable later in /profile.
-  const destination = user.systemRole === 'ADMIN' ? '/admin/users' : redirectTarget
+  // Anyone who hasn't picked a role / institution / department yet finishes
+  // that first — `proxy.ts` enforces the same rule on every other page.
+  const needsProfile = !user.institution?.trim() || !user.department?.trim()
+  const destination = needsProfile
+    ? `/welcome${redirectTarget !== '/' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`
+    : user.systemRole === 'ADMIN'
+      ? '/admin/users'
+      : redirectTarget
   const response = NextResponse.redirect(new URL(destination, request.url))
 
   response.cookies.set('researchtrack_session', sessionToken, sessionCookie)
