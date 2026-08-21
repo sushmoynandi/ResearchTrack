@@ -19,6 +19,8 @@ export interface User {
   provider: AuthProvider
   isGuest: boolean
   isActive?: boolean
+  /** Whether a password has been set — false for Google accounts that never added one. */
+  hasPassword?: boolean
   supervisorId?: string | null
   createdAt?: string
   updatedAt?: string

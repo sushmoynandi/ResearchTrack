@@ -25,6 +25,7 @@ export async function GET() {
         isActive: true,
         supervisorId: true,
         createdAt: true,
+        passwordHash: true,
         _count: {
           select: {
             papers: true,
@@ -41,7 +42,14 @@ export async function GET() {
       return NextResponse.json({ authenticated: false, user: null }, { status: 401 })
     }
 
-    return NextResponse.json({ authenticated: true, user })
+    // Never hand the hash to the client — just whether one exists, so the
+    // Profile page can offer "Add password" instead of "Change password".
+    const { passwordHash, ...safeUser } = user
+
+    return NextResponse.json({
+      authenticated: true,
+      user: { ...safeUser, hasPassword: Boolean(passwordHash) },
+    })
   } catch (error) {
     console.error('Error fetching current user:', error)
     return NextResponse.json({ error: 'Failed to fetch user session' }, { status: 500 })

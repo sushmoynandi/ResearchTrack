@@ -242,6 +242,9 @@ export default function ProfilePage() {
     }
   }
 
+  // Google accounts that never set a password get "Add Password" instead
+  const hasPassword = user?.hasPassword !== false
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
 
@@ -292,16 +295,22 @@ export default function ProfilePage() {
       })
 
       if (res.ok) {
-        addToast('success', 'Password changed successfully')
+        addToast(
+          'success',
+          hasPassword
+            ? 'Password changed successfully'
+            : 'Password added — you can now sign in with your email and password too'
+        )
+        await refreshUser()
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
       } else {
         const err = await res.json()
-        addToast('error', err.error || 'Failed to change password')
+        addToast('error', err.error || 'Failed to save your password')
       }
     } catch {
-      addToast('error', 'Network error changing password')
+      addToast('error', 'Network error saving your password')
     } finally {
       setSavingPassword(false)
     }
@@ -544,28 +553,39 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Password Change (for Credentials users) */}
+      {/* Password — "Change" for password accounts, "Add" for Google-only ones */}
       {!user.isGuest && (
         <div className="glass-card p-6 space-y-6">
           <div className="flex items-center gap-2 border-b border-border-default pb-3">
             <Lock size={18} className="text-accent" />
             <h3 className="text-base font-semibold text-text-primary font-display">
-              Change Password
+              {hasPassword ? 'Change Password' : 'Add Password'}
             </h3>
           </div>
 
+          {!hasPassword && (
+            <p className="text-xs text-text-secondary leading-relaxed max-w-2xl -mt-2">
+              You signed up with Google, so there&apos;s no password on this account
+              yet. Add one and you&apos;ll be able to sign in either way — with Google, or with{' '}
+              <span className="text-text-primary font-medium">{user.email}</span> and
+              your password.
+            </p>
+          )}
+
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-2xl">
-            <Input
-              label="Current Password"
-              placeholder="••••••••"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
+            {hasPassword && (
+              <Input
+                label="Current Password"
+                placeholder="••••••••"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="New Password"
+                label={hasPassword ? 'New Password' : 'Password'}
                 placeholder="At least 6 characters"
                 type="password"
                 value={newPassword}
@@ -573,7 +593,7 @@ export default function ProfilePage() {
               />
 
               <Input
-                label="Confirm New Password"
+                label={hasPassword ? 'Confirm New Password' : 'Confirm Password'}
                 placeholder="••••••••"
                 type="password"
                 value={confirmPassword}
@@ -588,7 +608,7 @@ export default function ProfilePage() {
                 loading={savingPassword}
                 disabled={!newPassword}
               >
-                Update Password
+                {hasPassword ? 'Update Password' : 'Add Password'}
               </Button>
             </div>
           </form>
