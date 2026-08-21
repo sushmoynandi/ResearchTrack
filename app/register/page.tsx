@@ -50,24 +50,6 @@ function RegisterForm() {
     router.replace("/register");
   }, [searchParams, addToast, router]);
 
-  // Surface Google sign-up errors passed back via ?error=
-  useEffect(() => {
-    const err = searchParams.get('error')
-    if (!err) return
-    const messages: Record<string, string> = {
-      google_not_configured: 'Google sign-up isn’t set up yet. Add your Google keys to enable it.',
-      google_denied: 'Google sign-up was cancelled.',
-      google_state: 'Your Google session expired. Please try again.',
-      google_token: 'Couldn’t complete Google sign-up. Please try again.',
-      google_verify: 'Couldn’t verify your Google account. Please try again.',
-      google_email: 'Your Google account didn’t share a verified email address.',
-      google_account: 'Something went wrong creating your account. Please try again.',
-      account_disabled: 'This account has been deactivated. Contact your administrator.',
-    }
-    addToast('error', messages[err] || 'Google sign-up failed. Please try again.')
-    // Clean the error out of the URL so it doesn't reappear on refresh
-    router.replace('/register')
-  }, [searchParams, addToast, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,14 +75,20 @@ function RegisterForm() {
           setAuthSession(data.user, data.token);
         }
         addToast("success", "Account created! Just one more step.");
-        // Same landing as Continue with Google — finish your profile first
-        window.location.href = "/welcome";
-      } else {
-        addToast("error", data.error || "Failed to create account");
+        // Move across without reloading the app — the session is already in
+        // memory, so /welcome opens straight away instead of booting from
+        // scratch and working out who you are all over again. The button stays
+        // in its loading state until the next screen takes over; dropping it
+        // back to normal for a split second reads as a glitch.
+        router.replace("/welcome");
+        router.refresh();
+        return;
       }
+
+      addToast("error", data.error || "Failed to create account");
+      setLoading(false);
     } catch {
       addToast("error", "Network error creating account");
-    } finally {
       setLoading(false);
     }
   };

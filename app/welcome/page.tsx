@@ -38,19 +38,21 @@ function WelcomeForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { addToast } = useToast()
-  const { user, loading: authLoading, setAuthSession } = useAuth()
+  const { user, sessionChecked, setAuthSession } = useAuth()
 
   const [systemRole, setSystemRole] = useState('STUDENT')
   const [institution, setInstitution] = useState('')
   const [department, setDepartment] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Must be signed in to complete a profile
+  // Must be signed in to complete a profile. Wait for the server's answer —
+  // a Google sign-up arrives here with a cookie but nothing in localStorage, so
+  // checking too early bounced people through the login page first.
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (sessionChecked && !user) {
       router.replace('/login')
     }
-  }, [user, authLoading, router])
+  }, [user, sessionChecked, router])
 
   const redirectTarget = searchParams.get('redirect') || '/'
 
@@ -97,7 +99,7 @@ function WelcomeForm() {
 
   // Wait until we know who this is. Rendering first and correcting a moment
   // later is what made this page feel broken.
-  if (authLoading || !user) {
+  if (!user) {
     return <WelcomeLoading />
   }
 

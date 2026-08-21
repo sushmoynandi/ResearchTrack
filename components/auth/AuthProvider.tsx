@@ -6,6 +6,12 @@ import type { User, SystemRole } from '@/lib/types'
 interface AuthContextType {
   user: User | null
   loading: boolean
+  /**
+   * True once the server has actually answered who this is. `loading` can go
+   * false before that (nothing in localStorage to restore), so anything that
+   * redirects on "no user" must wait for this instead.
+   */
+  sessionChecked: boolean
   token: string | null
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -19,6 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  sessionChecked: false,
   token: null,
   logout: async () => {},
   refreshUser: async () => {},
@@ -33,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionChecked, setSessionChecked] = useState(false)
   const tokenRef = useRef<string | null>(null)
 
   // Keep tokenRef in sync with state
@@ -45,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(newToken)
     tokenRef.current = newToken
     setLoading(false)
+    setSessionChecked(true)
     try {
       localStorage.setItem('researchtrack_user', JSON.stringify(newUser))
       localStorage.setItem('researchtrack_token', newToken)
@@ -106,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       clearTimeout(timeoutId)
       setLoading(false)
+      setSessionChecked(true)
     }
   }, [])
 
@@ -222,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       loading,
+      sessionChecked,
       token,
       logout,
       refreshUser,
