@@ -153,10 +153,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         ],
       },
+      include: {
+        user: { select: { supervisorId: true } },
+        assignments: { select: { studentId: true, assignedById: true } },
+        shares: { select: { sharedWithId: true, permission: true } },
+      },
     })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (isOwner ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments?.some((a: { assignedById: string }) => a.assignedById === user.id))
+    const isAssigned = paper.assignments?.some((a: { studentId: string }) => a.studentId === user.id)
+
+    // If accessing solely via share, verify COMMENT permission
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+      const userShare = paper.shares?.find((s: { sharedWithId: string }) => s.sharedWithId === user.id)
+      if (!userShare || userShare.permission !== 'COMMENT') {
+        return NextResponse.json(
+          { error: 'You have view-only access to this paper. Comment permission is required to add notes & annotations.' },
+          { status: 403 }
+        )
+      }
     }
 
     const note = await prisma.note.create({

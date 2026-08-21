@@ -22,6 +22,7 @@ import {
   EyeOff,
   GraduationCap,
   Users,
+  Eye,
 } from 'lucide-react'
 import type { Note } from '@/lib/types'
 
@@ -30,6 +31,7 @@ interface NotesSectionProps {
   initialNotes?: Note[]
   selectedStudentId?: string
   students?: { id: string; name: string }[]
+  canComment?: boolean
 }
 
 export function NotesSection({
@@ -37,6 +39,7 @@ export function NotesSection({
   initialNotes = [],
   selectedStudentId,
   students = [],
+  canComment = true,
 }: NotesSectionProps) {
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
@@ -212,7 +215,7 @@ export function NotesSection({
           </p>
         </div>
 
-        {!isAdding && (
+        {!isAdding && canComment && (
           <Button
             size="sm"
             onClick={() => {
@@ -223,6 +226,13 @@ export function NotesSection({
           >
             Add Note
           </Button>
+        )}
+
+        {!isAdding && !canComment && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-tertiary text-text-tertiary border border-border-default text-xs font-mono">
+            <Eye size={13} className="text-accent" />
+            <span>View-Only Access</span>
+          </div>
         )}
       </div>
 

@@ -92,6 +92,9 @@ export interface Paper {
     permission: string
     literatureReview: string | null
   }[]
+  currentSharePermission?: 'VIEW' | 'COMMENT' | null
+  canComment?: boolean
+  canEdit?: boolean
   _count?: { notes?: number; feedback?: number }
 }
 
@@ -188,6 +191,10 @@ export interface QuestionAnswer {
   pageNumber?: number | string
   lastUpdatedBy?: string
   comment?: string
+  commentAuthor?: string
+  commentAuthorId?: string
+  commentAuthorRole?: string
+  commentCreatedAt?: string
   [key: string]: any
 }
 
@@ -199,6 +206,10 @@ export interface CustomQuestion {
   shortSummary?: string
   detailedAnswer?: string
   comment?: string
+  commentAuthor?: string
+  commentAuthorId?: string
+  commentAuthorRole?: string
+  commentCreatedAt?: string
   category?: 'Methodology' | 'Evaluation' | 'Limitations' | 'Compute' | 'Custom' | string
   [key: string]: any
 }
