@@ -709,6 +709,9 @@ interface LiteratureReviewViewProps {
   paperTitle?: string
   paperUrl?: string
   doi?: string
+  canComment?: boolean
+  canEdit?: boolean
+  currentUserName?: string
   onSaveQuestionComment?: (questionKey: string, comment: string) => Promise<void>
 }
 
@@ -717,6 +720,9 @@ export function LiteratureReviewView({
   paperTitle,
   paperUrl,
   doi,
+  canComment = true,
+  canEdit = true,
+  currentUserName,
   onSaveQuestionComment,
 }: LiteratureReviewViewProps) {
   const { addToast } = useToast()
@@ -920,7 +926,7 @@ export function LiteratureReviewView({
                     </div>
                   </div>
 
-                  {onSaveQuestionComment && !isEditingThisComment && (
+                  {onSaveQuestionComment && canComment && !isEditingThisComment && (
                     <button
                       type="button"
                       onClick={() => handleStartEditComment(q.key, val.comment || '')}
@@ -962,7 +968,7 @@ export function LiteratureReviewView({
                     <Textarea
                       value={tempCommentText}
                       onChange={(e) => setTempCommentText(e.target.value)}
-                      placeholder={`Add faculty feedback, critique, guidance, or discussion point for ${q.num}...`}
+                      placeholder={`Add reviewer feedback, critique, guidance, or discussion point for ${q.num}...`}
                       rows={2}
                       className="text-xs"
                       autoFocus
@@ -990,26 +996,45 @@ export function LiteratureReviewView({
                 ) : (
                   /* Question Comment Callout */
                   val.comment && (
-                    <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start justify-between gap-2 text-xs text-text-secondary">
-                      <div className="flex items-start gap-2 min-w-0">
-                        <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
-                        <div className="space-y-0.5 min-w-0">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block font-mono">
-                            Reviewer Comment / Discussion Note:
-                          </span>
+                    <div className="ml-8 p-3 rounded-xl bg-bg-primary/95 border border-accent/25 flex items-start justify-between gap-3 text-xs text-text-secondary">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div className="w-6 h-6 rounded-full bg-accent/15 text-accent flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                          {(val.commentAuthor || val.lastUpdatedBy || 'R')[0].toUpperCase()}
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-text-primary">
+                              {val.commentAuthor || val.lastUpdatedBy || 'Faculty / Peer Researcher'}
+                            </span>
+                            {val.commentAuthorRole && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-bg-tertiary text-text-tertiary font-mono uppercase font-bold">
+                                {val.commentAuthorRole}
+                              </span>
+                            )}
+                            {val.commentCreatedAt && (
+                              <span className="text-[10px] text-text-tertiary font-mono">
+                                {new Date(val.commentCreatedAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
                             {val.comment}
                           </p>
                         </div>
                       </div>
-                      {onSaveQuestionComment && (
+                      {onSaveQuestionComment && canComment && (
                         <button
                           type="button"
                           onClick={() => handleStartEditComment(q.key, val.comment || '')}
                           className="text-text-tertiary hover:text-accent p-1 cursor-pointer shrink-0"
                           title="Edit Comment"
                         >
-                          <Edit3 size={12} />
+                          <Edit3 size={13} />
                         </button>
                       )}
                     </div>
@@ -1042,7 +1067,7 @@ export function LiteratureReviewView({
                     </div>
                   </div>
 
-                  {onSaveQuestionComment && !isEditingThisComment && (
+                  {onSaveQuestionComment && canComment && !isEditingThisComment && (
                     <button
                       type="button"
                       onClick={() => handleStartEditComment(customKey, cq.comment || '')}
@@ -1064,27 +1089,18 @@ export function LiteratureReviewView({
                   </p>
                 )}
 
-                {cq.shortSummary && (
-                  <div className="ml-8 p-2 rounded-lg bg-bg-primary/80 border border-accent/20 flex items-start gap-2 text-xs text-text-primary">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/20 text-accent uppercase tracking-wider shrink-0 font-mono">
-                      Summary
-                    </span>
-                    <span className="font-medium">{cq.shortSummary}</span>
-                  </div>
-                )}
-
-                {/* Inline Comment Editor */}
+                {/* Custom Question Comment */}
                 {isEditingThisComment ? (
                   <div className="ml-8 p-3 rounded-xl bg-bg-secondary border border-accent/40 space-y-2.5 animate-slide-up">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold text-accent flex items-center gap-1">
-                        <MessageSquare size={12} /> Reviewer Comment for {labelNum}:
+                        <MessageSquare size={12} /> Comment for {labelNum}:
                       </span>
                     </div>
                     <Textarea
                       value={tempCommentText}
                       onChange={(e) => setTempCommentText(e.target.value)}
-                      placeholder={`Add discussion note for ${labelNum}...`}
+                      placeholder={`Add reviewer feedback for ${labelNum}...`}
                       rows={2}
                       className="text-xs"
                       autoFocus
@@ -1111,30 +1127,57 @@ export function LiteratureReviewView({
                   </div>
                 ) : (
                   cq.comment && (
-                    <div className="ml-8 p-2.5 rounded-lg bg-bg-primary/90 border border-border-default/80 flex items-start justify-between gap-2 text-xs text-text-secondary">
-                      <div className="flex items-start gap-2 min-w-0">
-                        <MessageSquare size={13} className="text-accent shrink-0 mt-0.5" />
-                        <div className="space-y-0.5 min-w-0">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block font-mono">
-                            Reviewer Comment / Discussion Note:
-                          </span>
+                    <div className="ml-8 p-3 rounded-xl bg-bg-primary/95 border border-accent/25 flex items-start justify-between gap-3 text-xs text-text-secondary">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div className="w-6 h-6 rounded-full bg-accent/15 text-accent flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                          {(cq.commentAuthor || 'R')[0].toUpperCase()}
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-text-primary">
+                              {cq.commentAuthor || 'Faculty / Peer Researcher'}
+                            </span>
+                            {cq.commentAuthorRole && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-bg-tertiary text-text-tertiary font-mono uppercase font-bold">
+                                {cq.commentAuthorRole}
+                              </span>
+                            )}
+                            {cq.commentCreatedAt && (
+                              <span className="text-[10px] text-text-tertiary font-mono">
+                                {new Date(cq.commentCreatedAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
                             {cq.comment}
                           </p>
                         </div>
                       </div>
-                      {onSaveQuestionComment && (
+                      {onSaveQuestionComment && canComment && (
                         <button
                           type="button"
                           onClick={() => handleStartEditComment(customKey, cq.comment || '')}
                           className="text-text-tertiary hover:text-accent p-1 cursor-pointer shrink-0"
                           title="Edit Comment"
                         >
-                          <Edit3 size={12} />
+                          <Edit3 size={13} />
                         </button>
                       )}
                     </div>
                   )
+                )}
+                {cq.shortSummary && (
+                  <div className="ml-8 p-2 rounded-lg bg-bg-primary/80 border border-accent/20 flex items-start gap-2 text-xs text-text-primary">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/20 text-accent uppercase tracking-wider shrink-0 font-mono">
+                      Summary
+                    </span>
+                    <span className="font-medium">{cq.shortSummary}</span>
+                  </div>
                 )}
               </div>
             )

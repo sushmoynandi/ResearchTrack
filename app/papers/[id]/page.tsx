@@ -335,6 +335,18 @@ export default function PaperDetailPage() {
     ? paper.assignments?.find((a) => a.studentId === selectedReviewerId) || paper.assignments?.[0]
     : paper.assignments?.[0]
 
+  // User capabilities & Share Permission
+  const isOwner = paper.userId === user?.id
+  const isAssigned = paper.assignments?.some((a) => a.studentId === user?.id)
+  const isDirectCollaborator = isOwner || isAdmin || isSupervisor || isAssigned
+
+  const currentShare = paper.shares?.find((s) => s.sharedWithId === user?.id)
+  const isSharedPaper = Boolean(currentShare) && !isDirectCollaborator
+  const sharePermission = currentShare?.permission || paper.currentSharePermission || 'VIEW'
+
+  const canComment = paper.canComment ?? (isDirectCollaborator || (isSharedPaper && sharePermission === 'COMMENT'))
+  const canEdit = paper.canEdit ?? (isDirectCollaborator || (isSharedPaper && sharePermission === 'COMMENT'))
+
   // Parse benchmarks
   const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
     ? (() => {
@@ -468,17 +480,39 @@ export default function PaperDetailPage() {
   }
 
   const handleSaveQuestionComment = async (questionKey: string, comment: string) => {
+    if (!canComment) {
+      addToast('error', 'You have view-only access. Comment permission is required to post remarks.')
+      return
+    }
+
     const currentReview = { ...parsedLiteratureReview }
+    const nowIso = new Date().toISOString()
+    const authorName = user?.name || 'Researcher'
+    const authorRole = user?.systemRole || 'STUDENT'
+
     if (questionKey.startsWith('custom_')) {
       const customId = questionKey.replace('custom_', '')
       currentReview.customQuestions = (currentReview.customQuestions || []).map((cq) =>
-        cq.id === customId ? { ...cq, comment } : cq
+        cq.id === customId
+          ? {
+              ...cq,
+              comment,
+              commentAuthor: authorName,
+              commentAuthorId: user?.id,
+              commentAuthorRole: authorRole,
+              commentCreatedAt: nowIso,
+            }
+          : cq
       )
     } else {
       const existingQ = (currentReview[questionKey as keyof LiteratureReviewData] as QuestionAnswer) || {}
       ;(currentReview as Record<string, unknown>)[questionKey] = {
         ...existingQ,
         comment,
+        commentAuthor: authorName,
+        commentAuthorId: user?.id,
+        commentAuthorRole: authorRole,
+        commentCreatedAt: nowIso,
       }
     }
 
@@ -498,12 +532,13 @@ export default function PaperDetailPage() {
           if (!prev) return prev
           return {
             ...prev,
+            literatureReview: updated.literatureReview,
             assignments: (prev.assignments || []).map((a) =>
               a.id === activeStudentAssignment.id ? { ...a, literatureReview: updated.literatureReview } : a
             ),
           }
         })
-        addToast('success', 'Saved reviewer comment / discussion note')
+        addToast('success', 'Discussion note saved!')
       } else {
         throw new Error('Failed to save comment')
       }
@@ -518,9 +553,10 @@ export default function PaperDetailPage() {
 
       if (res.ok) {
         setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(currentReview) } : prev))
-        addToast('success', 'Saved reviewer comment / discussion note')
+        addToast('success', 'Discussion note saved!')
       } else {
-        throw new Error('Failed to save comment')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to save comment')
       }
     }
   }
@@ -1123,7 +1159,7 @@ export default function PaperDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isStudent && (visibleAssignment || paper.userId === user?.id) && (
+            {isStudent && canEdit && (visibleAssignment || paper.userId === user?.id) && (
               <Button
                 size="sm"
                 variant="primary"
@@ -1163,23 +1199,23 @@ export default function PaperDetailPage() {
                     key={assignment.id}
                     type="button"
                     onClick={() => setSelectedReviewerId(assignment.studentId)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
                       isSelected
-                        ? 'bg-accent/15 text-accent border-accent shadow-xs'
-                        : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                        ? 'bg-accent/15 border-accent text-accent font-semibold shadow-xs'
+                        : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-accent/40'
                     }`}
                   >
-                    <GraduationCap size={13} className={isSelected ? 'text-accent' : 'text-text-tertiary'} />
+                    <div className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-[10px]">
+                      {(assignment.student?.name || 'S')[0].toUpperCase()}
+                    </div>
                     <span>{assignment.student?.name || 'Student'}</span>
-                    <span
-                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
-                        stStatus === 'COMPLETED'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : stStatus === 'IN_PROGRESS'
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-amber-500/20 text-amber-300'
-                      }`}
-                    >
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                      stStatus === 'COMPLETED'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : stStatus === 'IN_PROGRESS'
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-bg-primary text-text-tertiary'
+                    }`}>
                       {stStatus}
                     </span>
                   </button>
@@ -1189,32 +1225,33 @@ export default function PaperDetailPage() {
           </div>
         )}
 
-        {/* Student Collaborative Literature Review Switcher (when peers shared their answers) */}
+        {/* Peer Shared Review Switcher (for students viewing papers shared by other students) */}
         {isStudent && paper.sharedReviews && paper.sharedReviews.length > 0 && (
-          <div className="p-3.5 rounded-2xl bg-bg-secondary border border-emerald-500/30 space-y-2.5">
+          <div className="p-3.5 rounded-2xl bg-bg-secondary border border-border-default space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <span className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 font-display text-[11px]">
-                <Share2 size={14} className="text-emerald-400" /> Collaborative Literature Reviews
+              <span className="font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 font-display text-[11px]">
+                <Users size={14} className="text-accent" /> Peer Shared Syntheses ({paper.sharedReviews.length})
               </span>
               <span className="text-[11px] text-text-tertiary">
-                Compare your synthesis answers with answers shared by peer researchers.
+                Choose whose literature review answers you wish to view.
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Option to view own review */}
               <button
                 type="button"
                 onClick={() => setSelectedSharedReviewId('')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
                   selectedSharedReviewId === ''
-                    ? 'bg-accent/15 text-accent border-accent shadow-xs'
-                    : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                    ? 'bg-accent/15 border-accent text-accent font-semibold shadow-xs'
+                    : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-accent/40'
                 }`}
               >
-                <User size={13} />
-                <span>My Synthesis Answers</span>
+                <span>📝 My Synthesis Answers</span>
               </button>
 
+              {/* Options for each shared peer review */}
               {paper.sharedReviews.map((sr) => {
                 const isSelected = selectedSharedReviewId === sr.sharedById
                 return (
@@ -1222,31 +1259,23 @@ export default function PaperDetailPage() {
                     key={sr.sharedById}
                     type="button"
                     onClick={() => setSelectedSharedReviewId(sr.sharedById)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
                       isSelected
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-xs'
-                        : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                        ? 'bg-purple-500/15 border-purple-500 text-purple-300 font-semibold shadow-xs'
+                        : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-purple-500/40'
                     }`}
                   >
-                    <Share2 size={13} className={isSelected ? 'text-emerald-400' : 'text-text-tertiary'} />
-                    <span>Shared: {sr.sharedByName}&apos;s Answers</span>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300">
+                    <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-[10px]">
+                      {(sr.sharedByName || 'P')[0].toUpperCase()}
+                    </div>
+                    <span>🤝 Shared: {sr.sharedByName}&apos;s Answers</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">
                       {sr.permission}
                     </span>
                   </button>
                 )
               })}
             </div>
-          </div>
-        )}
-
-        {/* Viewing Shared Review Indicator Banner */}
-        {selectedSharedReview && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 text-xs text-emerald-300">
-            <span className="flex items-center gap-2 font-medium">
-              <Share2 size={15} className="text-emerald-400 shrink-0" />
-              Viewing synthesis answers shared by <strong>{selectedSharedReview.sharedByName}</strong> ({selectedSharedReview.permission} Mode)
-            </span>
           </div>
         )}
 
@@ -1273,6 +1302,9 @@ export default function PaperDetailPage() {
             paperTitle={paper.title}
             paperUrl={paper.url || undefined}
             doi={paper.doi || undefined}
+            canComment={canComment}
+            canEdit={canEdit}
+            currentUserName={user?.name}
             onSaveQuestionComment={handleSaveQuestionComment}
           />
         ) : (
@@ -1338,15 +1370,15 @@ export default function PaperDetailPage() {
           <div className="glass-card p-4">
             <div className="flex items-center gap-1.5 text-text-tertiary mb-1">
               <ExternalLink size={13} />
-              <span className="text-[11px] font-medium uppercase tracking-wider">Paper Link</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider">Source</span>
             </div>
             <a
               href={paper.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-accent hover:text-accent-hover truncate block font-medium"
+              className="text-sm text-accent hover:underline truncate block"
             >
-              Open Link
+              Open External Link
             </a>
           </div>
         )}
@@ -1440,6 +1472,7 @@ export default function PaperDetailPage() {
           id: a.studentId,
           name: a.student?.name || 'Student',
         }))}
+        canComment={canComment}
       />
 
       {/* Faculty Review Rubric & Conference Scorecard */}

@@ -270,7 +270,7 @@ function LoginForm() {
       subtitle={
         is2FA
           ? 'Administrator 2-step authentication'
-          : 'Welcome back — enter your details to continue.'
+          : 'Welcome back, enter your details to continue.'
       }
     >
           {/* Google sign-in found no account for that address */}

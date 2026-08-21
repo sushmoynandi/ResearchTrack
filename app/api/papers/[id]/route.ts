@@ -145,15 +145,23 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       paper.assignments = studentAssignment ? [studentAssignment] : []
 
       paper.notes = paper.notes.filter(
-        (n) =>
-          n.userId === user.id ||
-          (n.user?.systemRole !== 'STUDENT' && !n.isPrivate) ||
-          (sharedByUserIds.includes(n.userId) && !n.isPrivate)
+        (n) => n.userId === user.id || !n.isPrivate
       )
       paper.feedback = paper.feedback.filter(
         (f) => f.targetUserId === user.id || f.authorId === user.id || f.author?.systemRole !== 'STUDENT'
       )
     }
+
+    // Attach current user's effective collaboration permissions
+    const userShare = paper.shares?.find((s) => s.sharedWithId === user.id)
+    const isDirectCollaborator = isOwner || isAdmin || isSupervisor || isAssigned
+    const currentSharePermission = userShare ? (userShare.permission as 'VIEW' | 'COMMENT') : null
+    const canComment = isDirectCollaborator || currentSharePermission === 'COMMENT'
+    const canEdit = isDirectCollaborator || currentSharePermission === 'COMMENT'
+
+    ;(paper as any).currentSharePermission = currentSharePermission
+    ;(paper as any).canComment = canComment
+    ;(paper as any).canEdit = canEdit
 
     return NextResponse.json(paper)
   } catch (error) {
@@ -218,6 +226,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isSharedWith) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // If accessing strictly as a shared peer student, verify COMMENT permission
+    if (isSharedWith && !isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+      const userShare = existing.shares?.find((s) => s.sharedWithId === user.id)
+      if (userShare?.permission !== 'COMMENT') {
+        return NextResponse.json(
+          { error: 'You have view-only access to this paper. Comment permission is required to make modifications.' },
+          { status: 403 }
+        )
+      }
     }
 
     const body = await request.json()
