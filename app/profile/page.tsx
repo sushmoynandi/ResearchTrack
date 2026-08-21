@@ -13,6 +13,7 @@ import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
 import { useToast } from '@/components/ui/Toast'
 import { roleLabel } from '@/lib/roles'
+import { TwoFactorCard } from '@/components/auth/TwoFactorCard'
 import {
   User as UserIcon,
   Building,
@@ -884,6 +885,9 @@ export default function ProfilePage() {
           )}
         </div>
       )}
+
+      {/* Two-factor — the card looks after itself and hides for non-admins */}
+      {user.systemRole === 'ADMIN' && <TwoFactorCard />}
 
       {/* Password — "Change" for password accounts, "Add" for Google-only ones */}
       {!user.isGuest && (

@@ -89,6 +89,7 @@ export async function PUT(request: NextRequest) {
         image: true,
         isGuest: true,
         provider: true,
+        twoFactorSetupDone: true,
       },
     })
 
@@ -103,6 +104,7 @@ export async function PUT(request: NextRequest) {
       image: updatedUser.image,
       isGuest: updatedUser.isGuest,
       provider: updatedUser.provider,
+      twoFactorSetupDone: updatedUser.twoFactorSetupDone,
     })
 
     const response = NextResponse.json({ success: true, user: updatedUser })

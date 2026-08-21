@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       image: user.image,
       isGuest: false,
       provider: user.provider,
+      twoFactorSetupDone: user.twoFactorSetupDone,
     })
 
     const response = NextResponse.json({

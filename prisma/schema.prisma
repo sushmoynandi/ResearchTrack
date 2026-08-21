@@ -37,8 +37,17 @@ model User {
   providerId   String?
   isGuest      Boolean      @default(false)
   isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+
+  // Two-factor, administrators only. They pick how they want to receive the
+  // code — an authenticator app or their email. `twoFactorSetupDone` records
+  // that they've been through the one-time setup step, so it's asked for once
+  // and never again, whichever way they answered.
+  twoFactorEnabled   Boolean          @default(false)
+  twoFactorMethod    TwoFactorMethod?
+  twoFactorSecret    String?
+  twoFactorSetupDone Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   // Own data
   papers      Paper[]
@@ -614,6 +623,11 @@ model LabTask {
 }
 
 // ─── Admin Two-Factor Verification ──────────────────────────
+enum TwoFactorMethod {
+  APP
+  EMAIL
+}
+
 // ─── Password Reset Codes ───────────────────────────────────
 model PasswordResetOtp {
   id        String   @id @default(cuid())

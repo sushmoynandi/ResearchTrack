@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verify2FAToken, verifyPassword, createSessionToken } from '@/lib/auth'
+import { verify2FAToken, createSessionToken, verifyPassword } from '@/lib/auth'
+import { verifyTwoFactorCode } from '@/lib/totp'
 import { cookies } from 'next/headers'
 
 // POST /api/auth/verify-2fa — Verify Admin 6-digit OTP code and issue session
@@ -45,37 +46,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Find latest active OTP challenge
-    const otpRecord = await prisma.twoFactorOtp.findFirst({
-      where: {
-        userId: user.id,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    if (!otpRecord) {
+    // 3. Check the code the way this admin chose to receive it
+    if (!user.twoFactorEnabled || !user.twoFactorMethod) {
       return NextResponse.json(
-        { error: 'Verification code has expired or was not found. Please click Resend Code.' },
+        { error: 'Two-factor is not set up on this account. Please sign in again.' },
         { status: 400 }
       )
     }
 
-    // 4. Verify code against hash
-    const isValid = await verifyPassword(cleanCode, otpRecord.codeHash)
+    let isValid = false
+
+    if (user.twoFactorMethod === 'APP') {
+      isValid = Boolean(
+        user.twoFactorSecret && (await verifyTwoFactorCode(user.twoFactorSecret, cleanCode))
+      )
+    } else {
+      const otp = await prisma.twoFactorOtp.findFirst({
+        where: { userId: user.id, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      if (!otp) {
+        return NextResponse.json(
+          { error: 'That code has expired. Please sign in again to get a new one.' },
+          { status: 400 }
+        )
+      }
+
+      isValid = await verifyPassword(cleanCode, otp.codeHash)
+      if (isValid) {
+        await prisma.twoFactorOtp.deleteMany({ where: { userId: user.id } }).catch(() => {})
+      }
+    }
+
     if (!isValid) {
       return NextResponse.json(
-        { error: 'Incorrect verification code. Please check your email and try again.' },
+        {
+          error:
+            user.twoFactorMethod === 'APP'
+              ? 'Incorrect code. Check your authenticator app and try the next one.'
+              : 'Incorrect code. Check your email and try again.',
+        },
         { status: 401 }
       )
     }
 
-    // 5. Clean up used OTP challenges
-    await prisma.twoFactorOtp.deleteMany({
-      where: { userId: user.id },
-    }).catch(() => {})
-
-    // 6. Create full authenticated session token
+    // 4. Create full authenticated session token
     const sessionToken = await createSessionToken({
       id: user.id,
       email: user.email,
@@ -86,6 +102,7 @@ export async function POST(request: NextRequest) {
       image: user.image,
       isGuest: user.isGuest,
       provider: user.provider,
+      twoFactorSetupDone: user.twoFactorSetupDone,
     })
 
     const isProd = process.env.NODE_ENV === 'production'

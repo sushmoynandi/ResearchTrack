@@ -6,7 +6,13 @@ const key = new TextEncoder().encode(
 )
 
 /** Pages a signed-in person can always reach, finished profile or not. */
-const ALWAYS_ALLOWED = ['/login', '/register', '/welcome', '/forgot-password']
+const ALWAYS_ALLOWED = [
+  '/login',
+  '/register',
+  '/welcome',
+  '/forgot-password',
+  '/security-setup',
+]
 
 function isAllowed(pathname: string) {
   if (pathname.startsWith('/api/')) return true
@@ -42,6 +48,15 @@ export default async function proxy(request: NextRequest) {
 
     const institution = typeof payload.institution === 'string' ? payload.institution.trim() : ''
     const department = typeof payload.department === 'string' ? payload.department.trim() : ''
+
+    // An administrator picks how they'll receive sign-in codes before anything
+    // else opens up. Asked once — the session carries a flag once it's answered.
+    if (payload.systemRole === 'ADMIN' && payload.twoFactorSetupDone !== true) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/security-setup'
+      url.search = pathname === '/' ? '' : `?redirect=${encodeURIComponent(pathname)}`
+      return NextResponse.redirect(url)
+    }
 
     if (!institution || !department) {
       const url = request.nextUrl.clone()

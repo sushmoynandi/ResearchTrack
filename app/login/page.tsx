@@ -40,8 +40,12 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  // Stays on screen (unlike the toast) when Google sign-in found no account
-  const [noGoogleAccount, setNoGoogleAccount] = useState(false)
+  // Stays on screen (unlike the toast) when Google sign-in found no account.
+  // Read once at first render — the effect below strips the query string, so
+  // deriving it every render would make the notice vanish again.
+  const [noGoogleAccount, setNoGoogleAccount] = useState(
+    () => searchParams.get('error') === 'google_no_account'
+  )
 
   // 2-Step Verification State
   const [is2FA, setIs2FA] = useState(false)
@@ -49,8 +53,6 @@ function LoginForm() {
   const [adminEmail, setAdminEmail] = useState('')
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [verifying, setVerifying] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resendCountdown, setResendCountdown] = useState(0)
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -78,20 +80,10 @@ function LoginForm() {
         'No ResearchTrack account uses that Google address yet. Create an account first, then you can sign in with Google.',
       account_disabled: 'This account has been deactivated. Contact your administrator.',
     }
-    if (err === 'google_no_account') setNoGoogleAccount(true)
     addToast('error', messages[err] || 'Google sign-in failed. Please try again.')
     // Clean the error out of the URL so it doesn't reappear on refresh
     router.replace('/login')
   }, [searchParams, addToast, router])
-
-  // Resend countdown timer
-  useEffect(() => {
-    if (resendCountdown <= 0) return
-    const interval = setInterval(() => {
-      setResendCountdown((prev) => prev - 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [resendCountdown])
 
   // Focus first OTP box when entering 2FA screen
   useEffect(() => {
@@ -130,8 +122,7 @@ function LoginForm() {
           setTempToken(data.tempToken)
           setAdminEmail(data.email || targetEmail)
           setOtpDigits(['', '', '', '', '', ''])
-          setResendCountdown(30)
-          addToast('info', '🛡️ 2-Step Verification required for Administrator')
+          addToast('info', '🛡️ Enter the code from your authenticator app')
           return
         }
 
@@ -235,34 +226,6 @@ function LoginForm() {
     }
   }
 
-  // Resend 2FA Code
-  const handleResendCode = async () => {
-    if (resendCountdown > 0 || resending) return
-
-    setResending(true)
-    try {
-      const res = await fetch('/api/auth/resend-2fa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tempToken }),
-      })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        setResendCountdown(30)
-        setOtpDigits(['', '', '', '', '', ''])
-        otpInputRefs.current[0]?.focus()
-        addToast('success', '📩 A fresh 6-digit code has been dispatched to your email.')
-      } else {
-        addToast('error', data.error || 'Failed to resend code')
-      }
-    } catch {
-      addToast('error', 'Network error resending verification code')
-    } finally {
-      setResending(false)
-    }
-  }
 
   return (
     <AuthSplitLayout
@@ -271,7 +234,7 @@ function LoginForm() {
       title={is2FA ? 'Security verification' : 'Sign in'}
       subtitle={
         is2FA
-          ? 'Administrator 2-step authentication'
+          ? 'Enter the code from your authenticator app'
           : 'Welcome back, enter your details to continue.'
       }
     >
@@ -369,7 +332,7 @@ function LoginForm() {
                   <KeyRound size={12} /> Two-Factor Protection
                 </div>
                 <p className="text-xs text-text-secondary leading-relaxed pt-1">
-                  Enter the 6-digit security passcode dispatched to:
+                  Open your authenticator app and enter the 6-digit code for
                 </p>
                 <p className="text-xs font-mono font-bold text-text-primary bg-bg-tertiary py-1 px-2.5 rounded-lg inline-block border border-border-default">
                   {maskEmail(adminEmail)}
@@ -408,7 +371,7 @@ function LoginForm() {
                 Verify &amp; Access Admin
               </Button>
 
-              {/* Resend & Back Controls */}
+              {/* Back control */}
               <div className="flex items-center justify-between pt-2 text-xs">
                 <button
                   type="button"
@@ -418,19 +381,9 @@ function LoginForm() {
                   <ArrowLeft size={13} /> Back to Sign In
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={resendCountdown > 0 || resending}
-                  className={`flex items-center gap-1.5 font-medium cursor-pointer ${
-                    resendCountdown > 0
-                      ? 'text-text-tertiary cursor-not-allowed'
-                      : 'text-accent hover:text-accent-hover'
-                  }`}
-                >
-                  <RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
-                  {resendCountdown > 0 ? `Resend code (${resendCountdown}s)` : 'Resend Code'}
-                </button>
+                <span className="flex items-center gap-1.5 text-text-tertiary">
+                  <RefreshCw size={12} /> A new code appears every 30 seconds
+                </span>
               </div>
             </form>
           )}

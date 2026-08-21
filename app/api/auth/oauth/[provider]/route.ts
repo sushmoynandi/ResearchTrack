@@ -66,6 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       image: user.image,
       isGuest: false,
       provider: user.provider,
+      twoFactorSetupDone: user.twoFactorSetupDone,
     })
 
     const cookieOptions = getSessionCookieOptions(30)

@@ -27,6 +27,7 @@ export async function GET() {
         supervisorId: true,
         createdAt: true,
         passwordHash: true,
+        twoFactorSetupDone: true,
         _count: {
           select: {
             papers: true,
@@ -55,7 +56,10 @@ export async function GET() {
     // An admin may have changed this person's role since the session cookie was
     // issued (e.g. approving a role change request). Re-issue it here so the new
     // role takes effect on the next page load instead of after a sign-out.
-    if (user.systemRole !== sessionUser.systemRole) {
+    if (
+      user.systemRole !== sessionUser.systemRole ||
+      Boolean(user.twoFactorSetupDone) !== Boolean(sessionUser.twoFactorSetupDone)
+    ) {
       const freshToken = await createSessionToken({
         id: user.id,
         email: user.email,
@@ -66,6 +70,7 @@ export async function GET() {
         image: user.image,
         isGuest: user.isGuest,
         provider: user.provider,
+        twoFactorSetupDone: user.twoFactorSetupDone,
       })
       const cookieOptions = getSessionCookieOptions(30)
       response.cookies.set({ ...cookieOptions, value: freshToken })
