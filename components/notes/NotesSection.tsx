@@ -500,11 +500,11 @@ export function NotesSection({
                         <div className="flex items-center gap-2">
                           {note.isPrivate ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                              <Lock size={11} /> PRIVATE NOTE (HIDDEN FROM SUPERVISOR)
+                              <Lock size={11} /> PRIVATE NOTE
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              <Globe size={11} /> PUBLIC NOTE (VISIBLE TO SUPERVISOR)
+                              <Globe size={11} /> PUBLIC NOTE
                             </span>
                           )}
                         </div>
