@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { ImageCropper } from '@/components/ui/ImageCropper'
 import { Textarea } from '@/components/ui/Textarea'
 import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
@@ -91,6 +92,7 @@ export default function ProfilePage() {
   // Profile photo
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
+  const [photoToCrop, setPhotoToCrop] = useState<string | null>(null)
 
   // Role change request
   const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
@@ -352,45 +354,6 @@ export default function ProfilePage() {
     }
   }
 
-  /**
-   * Shrink whatever they picked to a 256px square before it ever leaves the
-   * browser — a phone photo would otherwise be several megabytes.
-   */
-  const squareThumbnail = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(new Error('Could not read that file'))
-      reader.onload = () => {
-        const img = new Image()
-        img.onerror = () => reject(new Error('That file is not an image'))
-        img.onload = () => {
-          const size = 256
-          const canvas = document.createElement('canvas')
-          canvas.width = size
-          canvas.height = size
-          const ctx = canvas.getContext('2d')
-          if (!ctx) return reject(new Error('Could not process that image'))
-
-          // Cover-crop: fill the square from the middle of the picture
-          const side = Math.min(img.width, img.height)
-          ctx.drawImage(
-            img,
-            (img.width - side) / 2,
-            (img.height - side) / 2,
-            side,
-            side,
-            0,
-            0,
-            size,
-            size
-          )
-          resolve(canvas.toDataURL('image/jpeg', 0.85))
-        }
-        img.src = reader.result as string
-      }
-      reader.readAsDataURL(file)
-    })
-
   const savePhoto = async (image: string | null) => {
     setSavingPhoto(true)
     try {
@@ -402,6 +365,7 @@ export default function ProfilePage() {
 
       if (res.ok) {
         await refreshUser()
+        setPhotoToCrop(null)
         addToast('success', image ? 'Profile photo updated' : 'Profile photo removed')
       } else {
         const err = await res.json()
@@ -414,7 +378,8 @@ export default function ProfilePage() {
     }
   }
 
-  const handlePhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** Read the picked file, then hand it to the cropper so they can frame it. */
+  const handlePhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     // Let them pick the same file again later
     e.target.value = ''
@@ -429,14 +394,10 @@ export default function ProfilePage() {
       return
     }
 
-    setSavingPhoto(true)
-    try {
-      const thumbnail = await squareThumbnail(file)
-      await savePhoto(thumbnail)
-    } catch (err) {
-      setSavingPhoto(false)
-      addToast('error', err instanceof Error ? err.message : 'Could not process that image')
-    }
+    const reader = new FileReader()
+    reader.onerror = () => addToast('error', 'Could not read that file')
+    reader.onload = () => setPhotoToCrop(reader.result as string)
+    reader.readAsDataURL(file)
   }
 
   // Google accounts that never set a password get "Add Password" instead
@@ -1049,6 +1010,17 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      {/* ─── Frame your profile photo ─── */}
+      {photoToCrop && (
+        <ImageCropper
+          key={photoToCrop}
+          src={photoToCrop}
+          saving={savingPhoto}
+          onCancel={() => setPhotoToCrop(null)}
+          onCropped={(dataUrl) => savePhoto(dataUrl)}
+        />
+      )}
 
       {/* ─── Confirmation window ─── */}
       <Modal
