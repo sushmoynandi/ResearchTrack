@@ -27,7 +27,7 @@
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
-- **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, avatar, and password changes
+- **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, avatar, and password changes, plus a **Danger Zone** at the bottom for deleting the account
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
 - **Add New Paper** (`/papers/new`) — 1-click ArXiv/Semantic Scholar auto-importer, model architecture specs, benchmark matrix builder, and code/weight hub
 - **Paper Detail** (`/papers/[id]`) — Full research overview, code/weights hub, benchmark scores, 3-minute digest, PDF viewer, citation generator, and notes timeline
@@ -64,6 +64,7 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Added **Delete Account** at the bottom of the Profile page, in a red "Danger Zone" box. Clicking it opens a confirmation window that lists what will be removed and asks you to type **DELETE** before the button turns on — so it can't happen by accident. Deleting clears your papers, notes, tags, collections, assignments and lab memberships, then signs you out. If you're the lead of a lab, it stops and asks you to hand the lab over first, so nobody else's work disappears with you.
 - 2026-08-21: Fixed the profile step showing the app's sidebar and header around it — `/welcome` now renders on its own like the Login and Register pages, so there's nothing to click away to before it's filled in.
 - 2026-08-21: Added `suppressHydrationWarning` to the page `<body>`. Browser extensions (password managers, grammar checkers, dark-mode tools) add their own attributes to the page before it loads, which made the dev server report a false error in `app/layout.tsx`.
 - 2026-08-21: Made the profile step required again. After signing up — with Google or with email/password — everyone now has to pick their role, institution, and department on `/welcome` before they can open any other page; a new `proxy.ts` gate redirects them back there until it's filled in. The Register form itself stays short (name, email, password, confirm password).

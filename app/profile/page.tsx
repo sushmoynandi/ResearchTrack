@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 import {
   User as UserIcon,
@@ -26,6 +27,7 @@ import {
   AlertTriangle,
   Send,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -53,6 +55,11 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+
+  // Delete account state
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   // Web Push Notification State
   const [pushSupported, setPushSupported] = useState(false)
@@ -233,6 +240,35 @@ export default function ProfilePage() {
     } finally {
       setSavingProfile(false)
     }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
+
+    setDeletingAccount(true)
+    try {
+      const res = await fetch('/api/user/account', { method: 'DELETE' })
+      const data = await res.json()
+
+      if (res.ok) {
+        addToast('success', 'Your account has been deleted.')
+        // Full reload so every bit of in-memory session state is dropped
+        window.location.href = '/login'
+        return
+      }
+
+      addToast('error', data.error || 'Could not delete your account')
+      setDeletingAccount(false)
+    } catch {
+      addToast('error', 'Network error while deleting your account')
+      setDeletingAccount(false)
+    }
+  }
+
+  const closeDeleteModal = () => {
+    if (deletingAccount) return
+    setDeleteOpen(false)
+    setDeleteConfirmText('')
   }
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -558,6 +594,84 @@ export default function ProfilePage() {
           </form>
         </div>
       )}
+
+      {/* ─── Danger Zone: delete account ─── */}
+      <div className="glass-card p-6 space-y-5 border-danger/30">
+        <div className="flex items-center gap-2 border-b border-danger/20 pb-3">
+          <AlertTriangle size={18} className="text-danger" />
+          <h3 className="text-base font-semibold text-text-primary font-display">
+            Danger Zone
+          </h3>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1 max-w-2xl">
+            <p className="text-sm font-semibold text-text-primary">Delete this account</p>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Removes your account along with your papers, notes, tags, collections,
+              assignments and lab memberships. This cannot be undone.
+            </p>
+          </div>
+
+          <Button
+            variant="danger"
+            onClick={() => setDeleteOpen(true)}
+            icon={<Trash2 size={15} />}
+            className="shrink-0"
+          >
+            Delete Account
+          </Button>
+        </div>
+      </div>
+
+      {/* ─── Confirmation window ─── */}
+      <Modal
+        isOpen={deleteOpen}
+        onClose={closeDeleteModal}
+        size="sm"
+        title="Delete your account?"
+        description="This is permanent — there is no undo and no way to recover the data."
+      >
+        <div className="space-y-5">
+          <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/25 space-y-2">
+            <p className="text-xs font-semibold text-danger flex items-center gap-1.5">
+              <AlertTriangle size={13} /> What gets deleted
+            </p>
+            <ul className="text-xs text-text-secondary space-y-1 list-disc list-inside">
+              <li>Every paper in your library, and all the notes on them</li>
+              <li>Your collections, tags and saved reading progress</li>
+              <li>Your lab memberships, assignments and meeting history</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-text-secondary">
+              Type <span className="font-bold text-text-primary">DELETE</span> below to confirm
+            </label>
+            <Input
+              placeholder="DELETE"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={closeDeleteModal} disabled={deletingAccount}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteAccount}
+              loading={deletingAccount}
+              disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+              icon={<Trash2 size={15} />}
+            >
+              Delete My Account
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
