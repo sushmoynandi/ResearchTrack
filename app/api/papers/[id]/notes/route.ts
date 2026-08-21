@@ -51,27 +51,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     let notesWhere: Record<string, unknown> = {}
 
     if (user.systemRole === 'STUDENT') {
-      const sharedByUserIds = (paper.shares || [])
-        .filter((s) => s.sharedWithId === user.id)
-        .map((s) => s.sharedById)
-
-      // Student only sees:
-      // 1. Their own notes (public or private)
-      // 2. Public notes (isPrivate: false) from peers who shared with this student
-      // 3. Public notes (isPrivate: false) from faculty/supervisors
-      // Private notes from any other user are NEVER returned.
+      // Student sees their own notes (public & private) and all public notes on this paper
       notesWhere = {
         paperId: paper.id,
         OR: [
-          { userId: user.id },
-          {
-            isPrivate: false,
-            userId: { in: sharedByUserIds },
-          },
-          {
-            isPrivate: false,
-            user: { systemRole: { in: ['SUPERVISOR' as const, 'ADMIN' as const] } },
-          },
+          { userId: user.id }, // Own notes (public & private)
+          { isPrivate: false }, // All public notes on this paper
         ],
       }
     } else if (targetStudentId) {

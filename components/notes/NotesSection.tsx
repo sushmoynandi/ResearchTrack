@@ -121,7 +121,7 @@ export function NotesSection({
         setNotes((prev) =>
           prev.map((n) =>
             n.id === noteId
-              ? { ...n, content: updated.content, isPrivate: updated.isPrivate, updatedAt: updated.updatedAt }
+              ? { ...n, ...updated, user: updated.user || n.user }
               : n
           )
         )

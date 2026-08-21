@@ -41,6 +41,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const note = await prisma.note.update({
       where: { id: noteId },
       data: updateData,
+      include: {
+        user: { select: { id: true, name: true, systemRole: true } },
+      },
     })
 
     return NextResponse.json(note)

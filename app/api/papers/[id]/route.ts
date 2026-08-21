@@ -145,10 +145,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       paper.assignments = studentAssignment ? [studentAssignment] : []
 
       paper.notes = paper.notes.filter(
-        (n) =>
-          n.userId === user.id ||
-          (n.user?.systemRole !== 'STUDENT' && !n.isPrivate) ||
-          (sharedByUserIds.includes(n.userId) && !n.isPrivate)
+        (n) => n.userId === user.id || !n.isPrivate
       )
       paper.feedback = paper.feedback.filter(
         (f) => f.targetUserId === user.id || f.authorId === user.id || f.author?.systemRole !== 'STUDENT'
