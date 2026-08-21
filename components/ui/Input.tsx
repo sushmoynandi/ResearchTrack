@@ -7,10 +7,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string
   helperText?: string
   icon?: React.ReactNode
+  /** Optional element pinned inside the right edge of the box (e.g. a show/hide password eye). */
+  trailing?: React.ReactNode
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, icon, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, icon, trailing, className = '', id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
 
     return (
@@ -41,11 +43,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent
               disabled:opacity-50 disabled:cursor-not-allowed
               ${icon ? 'pl-10' : ''}
+              ${trailing ? 'pr-10' : ''}
               ${error ? 'border-danger focus:ring-danger/40 focus:border-danger' : ''}
               ${className}
             `}
             {...props}
           />
+          {trailing && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+              {trailing}
+            </div>
+          )}
         </div>
         {error && <p className="text-xs text-danger">{error}</p>}
         {helperText && !error && (

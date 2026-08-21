@@ -11,7 +11,7 @@
 - **Login Options** (both available on `/login` and `/register`):
   - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter, admin 2-step verification
   - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up. New Google users get an account created automatically; existing email accounts get Google linked to them so they can use either method.
-  - **Complete-your-profile step** (`/welcome`): The first time someone signs up with Google, they're asked to pick their role (Student vs. Supervisor) plus institution and department — the same choices the manual form offers. Returning Google users skip this and go straight to the dashboard.
+  - **Straight to the dashboard after sign-up**: Both sign-up paths behave identically — finish the Register form or tap "Continue with Google" and you land on the main dashboard (`/`) right away. No extra profile step. Everyone starts as a Student Researcher; role, institution, and department are optional and can be filled in any time on the Profile page.
 - **How Google Sign-In works** (for the curious):
   - `GET /api/auth/google` sends the user to Google's account chooser (with an anti-CSRF `state`)
   - `GET /api/auth/google/callback` exchanges the code server-side, **verifies Google's ID-token signature** with `jose`, then creates the session
@@ -25,7 +25,7 @@
 ## Pages & Routes
 - **Dashboard** (`/`) — Reading pipeline overview, live counters, recent papers, and collection shortcuts
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
-- **Register** (`/register`) — Account creation with institution, role selection, and live password strength indicator
+- **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, avatar, and password changes
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
 - **Add New Paper** (`/papers/new`) — 1-click ArXiv/Semantic Scholar auto-importer, model architecture specs, benchmark matrix builder, and code/weight hub
@@ -57,6 +57,11 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Rebalanced the Login and Register layout for a cleaner, more professional look — the branding panel is wider (62% / 38% split) with a bigger headline and wider text column, and the form column is narrower and tighter so the two sides sit level with each other and leave about the same margin on both edges of the screen.
+- 2026-08-21: Tightened the left branding panel on Login and Register. The logo, headline and feature list used to be pushed to the very top and bottom of the screen with big empty gaps in between — now they sit together as one vertically centred block, and the text column is wider (it gets wider still on large monitors) so lines don't wrap so early.
+- 2026-08-21: Moved the show/hide password eye **inside** the password box on both Login and Register (it used to be a small "Show" link above the box). On Register the Password and Confirm Password boxes each have their own eye, so you can reveal one without revealing the other.
+- 2026-08-21: Removed the extra "Complete your profile" step (`/welcome`) entirely. Signing up with email/password or with Google now goes straight to the main dashboard, exactly the same way. The "I am a…", "Institution / University" and "Department" questions are gone from sign-up — people fill those in later on the Profile page if they want to.
+- 2026-08-21: Simplified the Register form to name + email + password + confirm password, and added a live "passwords don't match" check. Role, institution, and department were removed from the form — after sign-up everyone (Google and email/password alike) now lands on the shared `/welcome` step to choose them, so both paths feel identical. Widened the left branding panel to 58% and removed the divider line down the middle of the auth pages.
 - 2026-08-21: Redesigned Login and Register with a two-column split layout — a branded panel on the left and the form on the right (like Facebook and other pro sites). On phones/tablets the left panel hides and only the form shows. Shared `components/auth/AuthSplitLayout.tsx` powers both pages; drop an image in `/public` and pass `imageSrc="/your-image.jpg"` to use a photo instead of the branded panel.
 - 2026-08-21: Connected a real database. Created a local PostgreSQL `researchtrack` database and synced all 27 tables from the schema with `prisma db push`, fixing the "Something went wrong creating your account" error that was blocking both Google and email/password signup (the old `DATABASE_URL` was a placeholder).
 - 2026-08-21: Added a "Complete your profile" step (`/welcome`) shown once to first-time Google users, so they can choose their role, institution, and department — matching the manual sign-up options.

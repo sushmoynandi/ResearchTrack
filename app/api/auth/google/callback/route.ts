@@ -104,12 +104,10 @@ export async function GET(request: NextRequest) {
 
   // ── 3. Find or create the researcher account ──
   let user
-  let isNewUser = false
   try {
     user = await prisma.user.findUnique({ where: { email } })
 
     if (!user) {
-      isNewUser = true
       user = await prisma.user.create({
         data: {
           name,
@@ -197,14 +195,9 @@ export async function GET(request: NextRequest) {
     maxAge: 30 * 24 * 60 * 60,
   }
 
-  // First-time Google users complete their profile (role / institution / dept).
-  // Returning users go straight to where they were headed.
-  const destination =
-    user.systemRole === 'ADMIN'
-      ? '/admin/users'
-      : isNewUser
-        ? `/welcome${redirectTarget !== '/' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`
-        : redirectTarget
+  // Everyone lands on the main page (or wherever they were headed) right away —
+  // role / institution / department are optional and editable later in /profile.
+  const destination = user.systemRole === 'ADMIN' ? '/admin/users' : redirectTarget
   const response = NextResponse.redirect(new URL(destination, request.url))
 
   response.cookies.set('researchtrack_session', sessionToken, sessionCookie)

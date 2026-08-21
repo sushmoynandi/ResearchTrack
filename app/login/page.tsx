@@ -9,12 +9,11 @@ import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
+import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import {
   Lock,
   Mail,
   ArrowRight,
-  Eye,
-  EyeOff,
   Atom,
   ShieldCheck,
   RefreshCw,
@@ -270,7 +269,7 @@ function LoginForm() {
     >
           {!is2FA ? (
             /* ─── Standard Email / Password Form ─── */
-            <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-4">
+            <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-3.5">
               <Input
                 label="Email Address"
                 placeholder="researcher@institute.edu"
@@ -281,27 +280,21 @@ function LoginForm() {
                 required
               />
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-text-secondary">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-[11px] text-text-tertiary hover:text-accent cursor-pointer flex items-center gap-1"
-                  >
-                    {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <Input
-                  placeholder="••••••••"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock size={15} />}
-                  required
-                />
-              </div>
+              <Input
+                label="Password"
+                placeholder="••••••••"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock size={15} />}
+                trailing={
+                  <PasswordToggle
+                    visible={showPassword}
+                    onToggle={() => setShowPassword((v) => !v)}
+                  />
+                }
+                required
+              />
 
               <Button
                 type="submit"
@@ -401,7 +394,7 @@ function LoginForm() {
           )}
 
           {/* Bottom link */}
-          <p className="text-center text-sm text-text-secondary border-t border-border-default pt-5">
+          <p className="text-center text-[13px] text-text-secondary border-t border-border-default pt-4">
             Don&apos;t have an account?{' '}
             <Link
               href="/register"

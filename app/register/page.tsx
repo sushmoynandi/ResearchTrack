@@ -3,27 +3,13 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
-import {
-  User as UserIcon,
-  Mail,
-  Lock,
-  Building,
-  GraduationCap,
-  ArrowRight,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
-
-const systemRoleOptions = [
-  { value: 'STUDENT', label: 'Student Researcher' },
-  { value: 'SUPERVISOR', label: 'Supervisor / Faculty Advisor' },
-]
+import { PasswordToggle } from '@/components/auth/PasswordToggle'
+import { User as UserIcon, Mail, Lock, ArrowRight } from 'lucide-react'
 
 export default function RegisterPage() {
   const { addToast } = useToast()
@@ -32,10 +18,9 @@ export default function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [institution, setInstitution] = useState('')
-  const [department, setDepartment] = useState('')
-  const [systemRole, setSystemRole] = useState('STUDENT')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // Password strength calculation
@@ -54,19 +39,17 @@ export default function RegisterPage() {
     e.preventDefault()
     if (!name || !email || !password) return
 
+    if (password !== confirmPassword) {
+      addToast('error', 'Passwords do not match')
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          institution,
-          department,
-          systemRole,
-        }),
+        body: JSON.stringify({ name, email, password }),
       })
 
       const data = await res.json()
@@ -76,6 +59,7 @@ export default function RegisterPage() {
           setAuthSession(data.user, data.token)
         }
         addToast('success', 'Account created! Welcome to ResearchTrack.')
+        // Same landing as Continue with Google — straight to the main page
         window.location.href = '/'
       } else {
         addToast('error', data.error || 'Failed to create account')
@@ -89,13 +73,13 @@ export default function RegisterPage() {
 
   return (
     <AuthSplitLayout
-      contentClassName="max-w-md"
+      contentClassName="max-w-sm"
       headline="Start your research library today."
       subheadline="Create an account to track papers, extract ArXiv metadata in one click, and collaborate with your lab."
       title="Create your account"
       subtitle="Set up your workspace in under a minute."
     >
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <Input
               label="Full Name *"
               placeholder="Dr. Evelyn Vance"
@@ -117,23 +101,20 @@ export default function RegisterPage() {
 
             {/* Password with strength meter */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-text-secondary">Password *</label>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[11px] text-text-tertiary hover:text-accent cursor-pointer flex items-center gap-1"
-                >
-                  {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
               <Input
+                label="Password *"
                 placeholder="At least 6 characters"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 icon={<Lock size={15} />}
+                trailing={
+                  <PasswordToggle
+                    visible={showPassword}
+                    onToggle={() => setShowPassword((v) => !v)}
+                    label="password"
+                  />
+                }
                 required
               />
 
@@ -157,40 +138,37 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Account Type */}
-            <Select
-              label="I am a..."
-              options={systemRoleOptions}
-              value={systemRole}
-              onChange={(e) => setSystemRole(e.target.value)}
-            />
-
-            {/* Institution & Department row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
               <Input
-                label="Institution / University"
-                placeholder="e.g. Stanford University"
-                value={institution}
-                onChange={(e) => setInstitution(e.target.value)}
-                icon={<Building size={15} />}
+                label="Confirm Password *"
+                placeholder="Re-enter your password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                icon={<Lock size={15} />}
+                trailing={
+                  <PasswordToggle
+                    visible={showConfirmPassword}
+                    onToggle={() => setShowConfirmPassword((v) => !v)}
+                    label="confirm password"
+                  />
+                }
+                required
               />
-
-              <Input
-                label="Department"
-                placeholder="e.g. Computer Science"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                icon={<GraduationCap size={15} />}
-              />
+              {confirmPassword.length > 0 && confirmPassword !== password && (
+                <span className="text-[10px] text-danger">Passwords don&apos;t match</span>
+              )}
             </div>
 
             <Button
               type="submit"
               loading={loading}
-              className="w-full mt-3 h-11"
+              disabled={!!confirmPassword && confirmPassword !== password}
+              className="w-full mt-5 h-11"
               icon={<ArrowRight size={15} />}
             >
-              Complete Registration
+              Create Account
             </Button>
           </form>
 
@@ -205,7 +183,7 @@ export default function RegisterPage() {
           <GoogleButton mode="register" label="Sign up with Google" />
 
           {/* Bottom link */}
-          <p className="text-center text-sm text-text-secondary border-t border-border-default pt-5">
+          <p className="text-center text-[13px] text-text-secondary border-t border-border-default pt-4">
             Already have an account?{' '}
             <Link
               href="/login"
