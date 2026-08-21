@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 import {
   Lock,
   Mail,
@@ -57,6 +58,25 @@ function LoginForm() {
       router.replace(target)
     }
   }, [user, authLoading, searchParams, router])
+
+  // Surface Google sign-in errors passed back via ?error=
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (!err) return
+    const messages: Record<string, string> = {
+      google_not_configured: 'Google sign-in isn’t set up yet. Add your Google keys to enable it.',
+      google_denied: 'Google sign-in was cancelled.',
+      google_state: 'Your Google session expired. Please try signing in again.',
+      google_token: 'Couldn’t complete Google sign-in. Please try again.',
+      google_verify: 'Couldn’t verify your Google account. Please try again.',
+      google_email: 'Your Google account didn’t share a verified email address.',
+      google_account: 'Something went wrong creating your account. Please try again.',
+      account_disabled: 'This account has been deactivated. Contact your administrator.',
+    }
+    addToast('error', messages[err] || 'Google sign-in failed. Please try again.')
+    // Clean the error out of the URL so it doesn't reappear on refresh
+    router.replace('/login')
+  }, [searchParams, addToast, router])
 
   // Resend countdown timer
   useEffect(() => {
@@ -302,6 +322,20 @@ function LoginForm() {
               >
                 Sign In
               </Button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-px flex-1 bg-border-default" />
+                <span className="text-[11px] uppercase tracking-wider text-text-tertiary">or</span>
+                <div className="h-px flex-1 bg-border-default" />
+              </div>
+
+              {/* Google sign-in */}
+              <GoogleButton
+                mode="login"
+                redirect={searchParams.get('redirect')}
+                label="Continue with Google"
+              />
             </form>
           ) : (
             /* ─── Admin 2-Step Verification Form ─── */

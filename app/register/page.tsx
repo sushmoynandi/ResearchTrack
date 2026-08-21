@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 import {
   User as UserIcon,
   Mail,
@@ -208,6 +209,16 @@ export default function RegisterPage() {
               Complete Registration
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border-default" />
+            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">or sign up with</span>
+            <div className="h-px flex-1 bg-border-default" />
+          </div>
+
+          {/* Google sign-up */}
+          <GoogleButton mode="register" label="Sign up with Google" />
 
           {/* Bottom links */}
           <div className="pt-4 border-t border-border-default text-center">
