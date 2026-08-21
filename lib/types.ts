@@ -84,6 +84,12 @@ export interface Paper {
   user?: { id: string; name: string; systemRole: SystemRole; email?: string }
   assignments?: Assignment[]
   shares?: PaperShare[]
+  sharedReviews?: {
+    sharedById: string
+    sharedByName: string
+    permission: string
+    literatureReview: string | null
+  }[]
   _count?: { notes?: number; feedback?: number }
 }
 

@@ -30,7 +30,19 @@ interface FeedbackItem {
   }
 }
 
-export function FeedbackPanel({ paperId, paperOwnerId }: { paperId: string; paperOwnerId: string }) {
+interface FeedbackPanelProps {
+  paperId: string
+  paperOwnerId: string
+  selectedStudentId?: string
+  selectedStudentName?: string
+}
+
+export function FeedbackPanel({
+  paperId,
+  paperOwnerId,
+  selectedStudentId,
+  selectedStudentName,
+}: FeedbackPanelProps) {
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
 
@@ -42,7 +54,10 @@ export function FeedbackPanel({ paperId, paperOwnerId }: { paperId: string; pape
 
   const loadFeedback = async () => {
     try {
-      const res = await fetch(`/api/feedback?paperId=${paperId}`)
+      const url = `/api/feedback?paperId=${paperId}${
+        selectedStudentId ? `&studentId=${selectedStudentId}` : ''
+      }`
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setFeedbackList(data)
@@ -56,7 +71,7 @@ export function FeedbackPanel({ paperId, paperOwnerId }: { paperId: string; pape
 
   useEffect(() => {
     loadFeedback()
-  }, [paperId])
+  }, [paperId, selectedStudentId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,11 +86,12 @@ export function FeedbackPanel({ paperId, paperOwnerId }: { paperId: string; pape
           paperId,
           content,
           type,
+          targetUserId: selectedStudentId || paperOwnerId,
         }),
       })
 
       if (res.ok) {
-        addToast('success', 'Feedback posted')
+        addToast('success', `Feedback posted for ${selectedStudentName || 'student'}`)
         setContent('')
         loadFeedback()
       } else {
@@ -106,7 +122,13 @@ export function FeedbackPanel({ paperId, paperOwnerId }: { paperId: string; pape
     <div className="glass-card p-6 space-y-6">
       <div className="flex items-center justify-between border-b border-border-default pb-3">
         <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
-          <MessageSquare size={18} className="text-purple-500" /> Supervisor Feedback &amp; Review Remarks
+          <MessageSquare size={18} className="text-purple-500" />
+          Supervisor Feedback &amp; Review Remarks
+          {selectedStudentName && isSupervisor && (
+            <span className="text-xs font-normal text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+              for {selectedStudentName}
+            </span>
+          )}
         </h3>
         <span className="text-xs text-text-tertiary">
           {feedbackList.length} feedback {feedbackList.length === 1 ? 'entry' : 'entries'}

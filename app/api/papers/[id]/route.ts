@@ -104,14 +104,45 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // For assigned student researchers, strictly isolate their own assignment, notes, and synthesis
+    // For assigned student researchers, strictly isolate their own assignment, notes, and synthesis,
+    // while providing access to reviews shared with them by peer researchers.
     if (user.systemRole === 'STUDENT') {
       const studentAssignment = paper.assignments.find((a) => a.studentId === user.id)
-      paper.literatureReview = studentAssignment?.literatureReview || (paper.userId === user.id ? paper.literatureReview : null)
-      paper.assignments = studentAssignment ? [studentAssignment] : []
       const sharedByUserIds = (paper.shares || [])
         .filter((s) => s.sharedWithId === user.id)
         .map((s) => s.sharedById)
+
+      // Collect shared literature reviews from peers who shared with this student
+      const sharedReviews = (paper.shares || [])
+        .filter((s) => s.sharedWithId === user.id)
+        .map((s) => {
+          const sharerAssignment = paper.assignments.find((a) => a.studentId === s.sharedById)
+          const reviewContent =
+            sharerAssignment?.literatureReview || (paper.userId === s.sharedById ? paper.literatureReview : null)
+          return {
+            sharedById: s.sharedById,
+            sharedByName: s.sharedBy?.name || 'Peer Researcher',
+            permission: s.permission,
+            literatureReview: reviewContent,
+          }
+        })
+        .filter((sr) => Boolean(sr.literatureReview))
+
+      // If student has their own assignment, use it.
+      // Else if student is paper owner, use paper.literatureReview.
+      // Else if paper was shared with this student, use the shared review!
+      if (studentAssignment?.literatureReview) {
+        paper.literatureReview = studentAssignment.literatureReview
+      } else if (paper.userId === user.id) {
+        paper.literatureReview = paper.literatureReview
+      } else if (sharedReviews.length > 0) {
+        paper.literatureReview = sharedReviews[0].literatureReview
+      } else {
+        paper.literatureReview = null
+      }
+
+      ;(paper as any).sharedReviews = sharedReviews
+      paper.assignments = studentAssignment ? [studentAssignment] : []
 
       paper.notes = paper.notes.filter(
         (n) =>

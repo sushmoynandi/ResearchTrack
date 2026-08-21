@@ -42,8 +42,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const targetStudentId = searchParams.get('studentId')
+
+    let whereCondition: Record<string, unknown> = { paperId }
+
+    if (user.systemRole === 'STUDENT') {
+      // Student strictly only sees feedback intended for them or authored by them
+      whereCondition = {
+        paperId,
+        OR: [
+          { targetUserId: user.id },
+          { authorId: user.id },
+        ],
+      }
+    } else if (targetStudentId) {
+      // Supervisor inspecting a specific student
+      whereCondition = {
+        paperId,
+        OR: [
+          { targetUserId: targetStudentId },
+          { authorId: targetStudentId },
+          { targetUserId: paper.userId },
+        ],
+      }
+    }
+
     const feedback = await prisma.feedback.findMany({
-      where: { paperId },
+      where: whereCondition,
       include: {
         author: {
           select: {
@@ -81,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { paperId, content, type = 'COMMENT' } = body
+    const { paperId, content, type = 'COMMENT', targetUserId, studentId } = body
 
     if (!paperId || !content || !content.trim()) {
       return NextResponse.json(
@@ -121,12 +146,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const resolvedTargetId =
+      targetUserId || studentId || paper.assignments[0]?.studentId || paper.userId
+
     const feedback = await prisma.feedback.create({
       data: {
         paperId,
         content: content.trim(),
         authorId: user.id,
-        targetUserId: paper.userId,
+        targetUserId: resolvedTargetId,
         type: type || 'COMMENT',
       },
       include: {
@@ -142,27 +170,16 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Feedback on a supervisor-owned paper belongs to the shared assignment,
-    // so notify every assigned student rather than only the paper owner.
-    const notificationRecipients = new Set(
-      paper.assignments.length > 0
-        ? paper.assignments.map((assignment) => assignment.studentId)
-        : [paper.userId]
-    )
-
-    await Promise.all(
-      [...notificationRecipients]
-        .filter((recipientId) => recipientId !== user.id)
-        .map((recipientId) =>
-          createNotification({
-            userId: recipientId,
-            title: 'New Feedback on Paper',
-            message: `${user.name} left ${type.toLowerCase().replace('_', ' ')} on "${paper.title}"`,
-            type: 'FEEDBACK',
-            link: `/papers/${paper.slug || paperId}`,
-          })
-        )
-    )
+    // Send notification specifically to target student
+    if (resolvedTargetId !== user.id) {
+      await createNotification({
+        userId: resolvedTargetId,
+        title: 'New Feedback on Paper',
+        message: `${user.name} left ${type.toLowerCase().replace('_', ' ')} on "${paper.title}"`,
+        type: 'FEEDBACK',
+        link: `/papers/${paper.slug || paperId}`,
+      })
+    }
 
     return NextResponse.json(feedback, { status: 201 })
   } catch (error) {

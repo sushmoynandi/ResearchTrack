@@ -7,7 +7,7 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-// GET /api/papers/[id]/rubric — Fetch rubric evaluation
+// GET /api/papers/[id]/rubric — Fetch rubric evaluation for specific student
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser()
@@ -16,20 +16,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const targetStudentId = searchParams.get('studentId')
 
     const paper = await prisma.paper.findFirst({
       where: {
         OR: [{ id }, { slug: id }],
       },
-      select: { id: true },
+      select: { id: true, userId: true },
     })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
     }
 
+    const whereCondition: Record<string, unknown> = {
+      paperId: paper.id,
+    }
+
+    if (user.systemRole === 'STUDENT') {
+      whereCondition.studentId = user.id
+    } else if (targetStudentId) {
+      whereCondition.studentId = targetStudentId
+    }
+
     const rubric = await prisma.reviewRubric.findFirst({
-      where: { paperId: paper.id },
+      where: whereCondition,
       include: {
         supervisor: { select: { id: true, name: true, email: true } },
         student: { select: { id: true, name: true, email: true } },
@@ -44,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// POST /api/papers/[id]/rubric — Submit or update faculty rubric evaluation
+// POST /api/papers/[id]/rubric — Submit or update faculty rubric evaluation for a specific student
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser()
@@ -59,6 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     const body = await request.json()
     const {
+      studentId,
       problemScore = 3,
       methodologyScore = 3,
       empiricalScore = 3,
@@ -71,17 +84,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: {
         OR: [{ id }, { slug: id }],
       },
+      include: {
+        assignments: { select: { studentId: true } },
+      },
     })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
     }
 
+    const targetStudentId = studentId || paper.assignments[0]?.studentId || paper.userId
+
     const rubric = await prisma.reviewRubric.create({
       data: {
         paperId: paper.id,
         supervisorId: user.id,
-        studentId: paper.userId,
+        studentId: targetStudentId,
         problemScore: Number(problemScore),
         methodologyScore: Number(methodologyScore),
         empiricalScore: Number(empiricalScore),
@@ -97,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Send notification to student researcher
     await createNotification({
-      userId: paper.userId,
+      userId: targetStudentId,
       title: 'Faculty Evaluation Received',
       message: `${user.name} posted a formal Review Scorecard for "${paper.title}" (Verdict: ${verdict.replace('_', ' ')})`,
       type: 'FEEDBACK',

@@ -54,6 +54,7 @@ import {
   ShieldCheck,
   Building,
   Layers,
+  User,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -81,6 +82,7 @@ export default function PaperDetailPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>('')
+  const [selectedSharedReviewId, setSelectedSharedReviewId] = useState<string>('')
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   // Student Literature Review Editor Modal State
@@ -98,7 +100,18 @@ export default function PaperDetailPage() {
         setSelectedReviewerId(paper.assignments[0].studentId)
       }
     }
-  }, [paper?.assignments, searchParams, selectedReviewerId])
+
+    if (
+      paper?.sharedReviews &&
+      paper.sharedReviews.length > 0 &&
+      !paper.assignments?.some((a) => a.studentId === user?.id) &&
+      paper.userId !== user?.id
+    ) {
+      if (!selectedSharedReviewId) {
+        setSelectedSharedReviewId(paper.sharedReviews[0].sharedById)
+      }
+    }
+  }, [paper?.assignments, paper?.sharedReviews, paper?.userId, searchParams, selectedReviewerId, selectedSharedReviewId, user?.id])
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -335,10 +348,15 @@ export default function PaperDetailPage() {
       })()
     : []
 
+  // Selected peer shared review (for students viewing shared reviews)
+  const selectedSharedReview = paper.sharedReviews?.find((sr) => sr.sharedById === selectedSharedReviewId)
+
   // Active Literature Review Raw Content
-  const activeLitReviewRawString = activeStudentAssignment
+  const activeLitReviewRawString = selectedSharedReview
+    ? selectedSharedReview.literatureReview || ''
+    : activeStudentAssignment
     ? activeStudentAssignment.literatureReview || ''
-    : isStudent && paper.userId === user?.id
+    : isStudent
     ? paper.literatureReview || ''
     : ''
 
@@ -356,7 +374,13 @@ export default function PaperDetailPage() {
 
   const parsedLiteratureReview: LiteratureReviewData = {
     sl: rawLitReview.sl || '1',
-    assignedPerson: rawLitReview.assignedPerson || (activeStudentAssignment?.student?.name ? activeStudentAssignment.student.name : (user?.name || '')),
+    assignedPerson:
+      rawLitReview.assignedPerson ||
+      (selectedSharedReview
+        ? `${selectedSharedReview.sharedByName} (Shared)`
+        : activeStudentAssignment?.student?.name
+        ? activeStudentAssignment.student.name
+        : user?.name || ''),
     reviewDueDate: rawLitReview.reviewDueDate || (activeStudentAssignment?.dueDate ? activeStudentAssignment.dueDate.slice(0, 10) : ''),
     reviewWorkflowStatus: rawLitReview.reviewWorkflowStatus || (activeStudentAssignment?.status === 'COMPLETED' ? 'COMPLETED' : activeStudentAssignment?.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING_REVIEW'),
     selectedPaperTitle: rawLitReview.selectedPaperTitle || paper.title,
@@ -531,20 +555,22 @@ export default function PaperDetailPage() {
             </Button>
           </Link>
 
-          {/* Peer Student Sharing Action */}
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Share2 size={14} className="text-purple-400" />}
-            onClick={() => setIsShareModalOpen(true)}
-          >
-            Share
-            {Boolean(paper.shares && paper.shares.length > 0) && (
-              <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-purple-500/20 text-purple-400 rounded-md font-mono font-bold">
-                {paper.shares?.length}
-              </span>
-            )}
-          </Button>
+          {/* Peer Student Sharing Action (Students Only - Supervisors use Assign) */}
+          {isStudent && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Share2 size={14} className="text-purple-400" />}
+              onClick={() => setIsShareModalOpen(true)}
+            >
+              Share
+              {Boolean(paper.shares && paper.shares.length > 0) && (
+                <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-purple-500/20 text-purple-400 rounded-md font-mono font-bold">
+                  {paper.shares?.length}
+                </span>
+              )}
+            </Button>
+          )}
 
           {/* 1-Click Supervisor Assignment Action */}
           {(isSupervisor || isAdmin) && (
@@ -563,13 +589,15 @@ export default function PaperDetailPage() {
               More actions
             </summary>
             <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-border-default bg-bg-secondary p-1.5 shadow-xl space-y-1">
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(true)}
-                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
-              >
-                <Share2 size={13} className="text-purple-400" /> Share with peers
-              </button>
+              {isStudent && (
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+                >
+                  <Share2 size={13} className="text-purple-400" /> Share with peers
+                </button>
+              )}
               <Link
                 href={`/papers/${paper.slug || paper.id}/present`}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
@@ -1161,8 +1189,69 @@ export default function PaperDetailPage() {
           </div>
         )}
 
+        {/* Student Collaborative Literature Review Switcher (when peers shared their answers) */}
+        {isStudent && paper.sharedReviews && paper.sharedReviews.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-bg-secondary border border-emerald-500/30 space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 font-display text-[11px]">
+                <Share2 size={14} className="text-emerald-400" /> Collaborative Literature Reviews
+              </span>
+              <span className="text-[11px] text-text-tertiary">
+                Compare your synthesis answers with answers shared by peer researchers.
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedSharedReviewId('')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedSharedReviewId === ''
+                    ? 'bg-accent/15 text-accent border-accent shadow-xs'
+                    : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                }`}
+              >
+                <User size={13} />
+                <span>My Synthesis Answers</span>
+              </button>
+
+              {paper.sharedReviews.map((sr) => {
+                const isSelected = selectedSharedReviewId === sr.sharedById
+                return (
+                  <button
+                    key={sr.sharedById}
+                    type="button"
+                    onClick={() => setSelectedSharedReviewId(sr.sharedById)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-xs'
+                        : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
+                    }`}
+                  >
+                    <Share2 size={13} className={isSelected ? 'text-emerald-400' : 'text-text-tertiary'} />
+                    <span>Shared: {sr.sharedByName}&apos;s Answers</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300">
+                      {sr.permission}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Viewing Shared Review Indicator Banner */}
+        {selectedSharedReview && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 text-xs text-emerald-300">
+            <span className="flex items-center gap-2 font-medium">
+              <Share2 size={15} className="text-emerald-400 shrink-0" />
+              Viewing synthesis answers shared by <strong>{selectedSharedReview.sharedByName}</strong> ({selectedSharedReview.permission} Mode)
+            </span>
+          </div>
+        )}
+
         {/* Active Student Review Banner */}
-        {activeStudentAssignment && (
+        {activeStudentAssignment && !selectedSharedReview && (
           <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-300">
             <span className="flex items-center gap-2 font-medium">
               <GraduationCap size={15} className="text-blue-400 shrink-0" />
@@ -1354,10 +1443,20 @@ export default function PaperDetailPage() {
       />
 
       {/* Faculty Review Rubric & Conference Scorecard */}
-      <FacultyRubricCard paperId={paper.id} paperTitle={paper.title} />
+      <FacultyRubricCard
+        paperId={paper.id}
+        paperTitle={paper.title}
+        selectedStudentId={selectedReviewerId}
+        selectedStudentName={activeStudentAssignment?.student?.name}
+      />
 
       {/* Supervisor Feedback & Annotation Section */}
-      <FeedbackPanel paperId={paper.id} paperOwnerId={paper.userId} />
+      <FeedbackPanel
+        paperId={paper.id}
+        paperOwnerId={paper.userId}
+        selectedStudentId={selectedReviewerId}
+        selectedStudentName={activeStudentAssignment?.student?.name}
+      />
 
       {/* Advanced tools stay available without competing with the reading workflow. */}
       <section className="glass-card p-4 md:p-5">

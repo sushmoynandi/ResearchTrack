@@ -36,9 +36,16 @@ interface RubricData {
 interface FacultyRubricCardProps {
   paperId: string
   paperTitle: string
+  selectedStudentId?: string
+  selectedStudentName?: string
 }
 
-export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProps) {
+export function FacultyRubricCard({
+  paperId,
+  paperTitle,
+  selectedStudentId,
+  selectedStudentName,
+}: FacultyRubricCardProps) {
   const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
 
@@ -57,7 +64,10 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
 
   const fetchRubric = async () => {
     try {
-      const res = await fetch(`/api/papers/${paperId}/rubric`)
+      const url = `/api/papers/${paperId}/rubric${
+        selectedStudentId ? `?studentId=${selectedStudentId}` : ''
+      }`
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setRubric(data)
@@ -68,6 +78,14 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
           setSynthesisScore(data.synthesisScore)
           setVerdict(data.verdict)
           setFeedbackSummary(data.feedbackSummary || '')
+        } else {
+          setRubric(null)
+          setProblemScore(4)
+          setMethodologyScore(4)
+          setEmpiricalScore(4)
+          setSynthesisScore(4)
+          setVerdict('APPROVED')
+          setFeedbackSummary('')
         }
       }
     } catch {
@@ -79,7 +97,7 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
 
   useEffect(() => {
     fetchRubric()
-  }, [paperId])
+  }, [paperId, selectedStudentId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,6 +113,7 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
           synthesisScore,
           verdict,
           feedbackSummary,
+          studentId: selectedStudentId,
         }),
       })
 
@@ -102,13 +121,13 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
         const saved = await res.json()
         setRubric(saved)
         setIsEditing(false)
-        addToast('success', 'Faculty review scorecard submitted!')
+        addToast('success', `Faculty review scorecard saved for ${selectedStudentName || 'student'}!`)
       } else {
         const err = await res.json()
         addToast('error', err.error || 'Failed to submit evaluation')
       }
     } catch {
-      addToast('error', 'Network error submitting evaluation')
+      addToast('error', 'Network error submitting rubric')
     } finally {
       setSubmitting(false)
     }
@@ -137,6 +156,11 @@ export function FacultyRubricCard({ paperId, paperTitle }: FacultyRubricCardProp
           <div>
             <h3 className="text-base font-bold text-text-primary font-display flex items-center gap-2">
               Faculty Literature Evaluation &amp; Review Scorecard
+              {selectedStudentName && isSupervisor && (
+                <span className="text-xs font-normal text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+                  for {selectedStudentName}
+                </span>
+              )}
             </h3>
             <p className="text-xs text-text-secondary">
               Standardized academic rubric for thesis defense readiness and literature survey grading.

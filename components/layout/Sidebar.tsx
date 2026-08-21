@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard,
   FileText,
@@ -20,12 +20,15 @@ import {
   Building,
   X,
   User,
+  Share2,
 } from 'lucide-react'
 import { useSidebar } from './SidebarContext'
 import { useAuth } from '@/components/auth/AuthProvider'
 
 export function Sidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentScope = searchParams?.get('scope')
   const prevPathname = useRef(pathname)
   const { isCollapsed, toggleCollapsed, isMobileOpen, closeMobile } = useSidebar()
   const { user, isSupervisor, isAdmin } = useAuth()
@@ -47,6 +50,9 @@ export function Sidebar() {
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/labs', label: 'Research Labs', icon: Building },
         { href: '/papers', label: 'Paper Library', icon: FileText },
+        ...(user?.systemRole === 'STUDENT'
+          ? [{ href: '/papers?scope=shared', label: 'Shared Papers', icon: Share2 }]
+          : []),
         { href: '/tracks', label: 'Reading Tracks', icon: Milestone },
         { href: '/collections', label: 'Collections', icon: FolderOpen },
         { href: '/tags', label: 'Tags', icon: Tags },
@@ -60,6 +66,8 @@ export function Sidebar() {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
+    if (href === '/papers?scope=shared') return pathname === '/papers' && currentScope === 'shared'
+    if (href === '/papers') return pathname === '/papers' && currentScope !== 'shared'
     return pathname.startsWith(href)
   }
 

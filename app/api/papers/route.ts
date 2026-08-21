@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     if (user.systemRole === 'ADMIN') {
       if (targetUserId) {
         userFilter = { userId: targetUserId }
+      } else if (scope === 'shared') {
+        userFilter = { shares: { some: {} } }
       }
     } else if (user.systemRole === 'SUPERVISOR') {
       if (targetUserId) {
@@ -48,23 +50,39 @@ export async function GET(request: NextRequest) {
         userFilter = {
           assignments: { some: { assignedById: user.id } },
         }
+      } else if (scope === 'shared') {
+        userFilter = {
+          OR: [
+            { shares: { some: { sharedWithId: user.id } } },
+            { shares: { some: { sharedById: user.id } } },
+          ],
+        }
       } else {
-        // Supervisor only sees own papers + papers assigned by supervisor
+        // Supervisor only sees own papers + papers assigned by supervisor + shared papers
         userFilter = {
           OR: [
             { userId: user.id },
             { assignments: { some: { assignedById: user.id } } },
+            { shares: { some: { sharedWithId: user.id } } },
           ],
         }
       }
     } else {
       // STUDENT role: own papers, assigned papers, AND shared papers
-      userFilter = {
-        OR: [
-          { userId: user.id },
-          { assignments: { some: { studentId: user.id } } },
-          { shares: { some: { sharedWithId: user.id } } },
-        ],
+      if (scope === 'own') {
+        userFilter = { userId: user.id }
+      } else if (scope === 'assigned') {
+        userFilter = { assignments: { some: { studentId: user.id } } }
+      } else if (scope === 'shared') {
+        userFilter = { shares: { some: { sharedWithId: user.id } } }
+      } else {
+        userFilter = {
+          OR: [
+            { userId: user.id },
+            { assignments: { some: { studentId: user.id } } },
+            { shares: { some: { sharedWithId: user.id } } },
+          ],
+        }
       }
     }
 

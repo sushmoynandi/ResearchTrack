@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { useSearchParams } from 'next/navigation'
 import {
   LayoutGrid,
   List,
@@ -19,18 +20,22 @@ import {
   BookOpen,
   User,
   GraduationCap,
+  Share2,
 } from 'lucide-react'
 import type { Paper } from '@/lib/types'
 
 type ViewMode = 'grid' | 'list' | 'matrix'
-type ScopeMode = 'all' | 'own' | 'students'
+type ScopeMode = 'all' | 'own' | 'assigned' | 'students' | 'shared'
 
 export default function PapersPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
+  const initialScope = (searchParams?.get('scope') as ScopeMode) || 'all'
+
   const [papers, setPapers] = useState<(Paper & { _count?: { notes: number } })[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [scope, setScope] = useState<ScopeMode>('all')
+  const [scope, setScope] = useState<ScopeMode>(initialScope)
 
   // Filter state
   const [search, setSearch] = useState('')
@@ -42,7 +47,7 @@ export default function PapersPage() {
   const [isExportOpen, setIsExportOpen] = useState(false)
 
   const isSupervisorOrAdmin = user?.systemRole === 'SUPERVISOR' || user?.systemRole === 'ADMIN'
-  const hasActiveFilters = !!(search || status || priority || tag || favoritesOnly || (isSupervisorOrAdmin && scope !== 'all'))
+  const hasActiveFilters = !!(search || status || priority || tag || favoritesOnly || scope !== 'all')
 
   const fetchPapers = useCallback(async () => {
     setLoading(true)
@@ -98,7 +103,18 @@ export default function PapersPage() {
             Research Paper Library
           </h1>
           <p className="text-text-secondary text-xs">
-            {papers.length} paper{papers.length !== 1 ? 's' : ''} {isSupervisorOrAdmin ? 'across your research sphere' : 'in your personal library'}
+            {papers.length} paper{papers.length !== 1 ? 's' : ''}{' '}
+            {scope === 'shared'
+              ? 'shared with you for collaboration'
+              : scope === 'assigned'
+              ? 'assigned to you for reading'
+              : scope === 'students'
+              ? 'assigned to students across your lab'
+              : scope === 'own'
+              ? 'added by you'
+              : isSupervisorOrAdmin
+              ? 'across your research sphere'
+              : 'in your personal research library'}
           </p>
         </div>
 
@@ -158,33 +174,35 @@ export default function PapersPage() {
         </div>
       </div>
 
-      {/* Supervisor Scope Tabs */}
-      {isSupervisorOrAdmin && (
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-secondary border border-border-default w-fit text-xs">
-          <button
-            type="button"
-            onClick={() => setScope('all')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-              scope === 'all'
-                ? 'bg-accent text-bg-primary font-bold shadow-xs'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
-            }`}
-          >
-            <BookOpen size={13} />
-            All Assigned &amp; Own Papers
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope('own')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-              scope === 'own'
-                ? 'bg-accent text-bg-primary font-bold shadow-xs'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
-            }`}
-          >
-            <User size={13} />
-            My Papers
-          </button>
+      {/* Scope Navigation Tabs (Students & Supervisors) */}
+      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-secondary border border-border-default w-fit text-xs flex-wrap">
+        <button
+          type="button"
+          onClick={() => setScope('all')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+            scope === 'all'
+              ? 'bg-accent text-bg-primary font-bold shadow-xs'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+          }`}
+        >
+          <BookOpen size={13} />
+          {isSupervisorOrAdmin ? 'All Research Sphere' : 'All Papers'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setScope('own')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+            scope === 'own'
+              ? 'bg-accent text-bg-primary font-bold shadow-xs'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+          }`}
+        >
+          <User size={13} />
+          My Papers
+        </button>
+
+        {isSupervisorOrAdmin ? (
           <button
             type="button"
             onClick={() => setScope('students')}
@@ -197,8 +215,36 @@ export default function PapersPage() {
             <GraduationCap size={13} />
             Assigned to Students
           </button>
-        </div>
-      )}
+        ) : (
+          <button
+            type="button"
+            onClick={() => setScope('assigned')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              scope === 'assigned'
+                ? 'bg-accent text-bg-primary font-bold shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+          >
+            <GraduationCap size={13} />
+            Assigned to Me
+          </button>
+        )}
+
+        {!isSupervisorOrAdmin && (
+          <button
+            type="button"
+            onClick={() => setScope('shared')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              scope === 'shared'
+                ? 'bg-emerald-500 text-white font-bold shadow-xs'
+                : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10'
+            }`}
+          >
+            <Share2 size={13} />
+            🤝 Shared with Me
+          </button>
+        )}
+      </div>
 
       {/* Filters (only show in grid/list mode or when not in matrix) */}
       {viewMode !== 'matrix' && (
@@ -237,10 +283,18 @@ export default function PapersPage() {
       {/* Empty state */}
       {!loading && viewMode !== 'matrix' && papers.length === 0 && (
         <EmptyState
-          icon={<FileText size={48} />}
-          title={hasActiveFilters ? 'No papers match your filters' : 'No papers yet'}
+          icon={scope === 'shared' ? <Share2 size={48} className="text-emerald-400" /> : <FileText size={48} />}
+          title={
+            scope === 'shared'
+              ? 'No Shared Papers Yet'
+              : hasActiveFilters
+              ? 'No papers match your filters'
+              : 'No papers yet'
+          }
           description={
-            hasActiveFilters
+            scope === 'shared'
+              ? 'Papers shared with you by peer students or fellow researchers will appear here.'
+              : hasActiveFilters
               ? 'Try adjusting your search or filters.'
               : 'Add your first research paper to start building your library.'
           }
