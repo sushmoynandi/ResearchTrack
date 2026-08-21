@@ -411,7 +411,7 @@ export function LabProgressReportModal({
           </div>
 
           {/* Cumulative Scorecard & Grade Radar Banner */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/30 via-bg-secondary to-accent/10 border border-purple-500/30 space-y-3">
+          <div className="p-5 rounded-2xl bg-linear-to-r from-purple-950/30 via-bg-secondary to-accent/10 border border-purple-500/30 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-purple-400 flex items-center gap-1.5">
@@ -433,7 +433,7 @@ export function LabProgressReportModal({
 
             <div className="w-full bg-bg-primary h-2.5 rounded-full overflow-hidden border border-border-default/80">
               <div
-                className="bg-gradient-to-r from-purple-500 via-accent to-emerald-400 h-full rounded-full transition-all duration-700"
+                className="bg-linear-to-r from-purple-500 via-accent to-emerald-400 h-full rounded-full transition-all duration-700"
                 style={{ width: `${cumulativeIndex}%` }}
               />
             </div>

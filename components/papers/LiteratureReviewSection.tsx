@@ -1144,7 +1144,7 @@ export function LiteratureReviewView({
 
       {/* OutCome Section */}
       {data.outcome && (
-        <div className="p-5 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-tertiary to-accent-subtle/30 border border-accent/40 space-y-2">
+        <div className="p-5 rounded-xl bg-linear-to-r from-bg-tertiary via-bg-tertiary to-accent-subtle/30 border border-accent/40 space-y-2">
           <h4 className="text-xs font-semibold text-accent uppercase tracking-wider flex items-center gap-2">
             <Sparkles size={14} /> Final OutCome &amp; Review Synthesis
           </h4>

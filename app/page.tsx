@@ -362,7 +362,7 @@ export default function DashboardPage() {
 
           {/* Upcoming 1-on-1 Research Meeting Banner (if scheduled) */}
           {stats.upcomingMeeting && (
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-bg-secondary to-accent/10 border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-2xl bg-linear-to-r from-purple-950/40 via-bg-secondary to-accent/10 border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
