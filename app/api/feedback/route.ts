@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
             title: 'New Feedback on Paper',
             message: `${user.name} left ${type.toLowerCase().replace('_', ' ')} on "${paper.title}"`,
             type: 'FEEDBACK',
-            link: `/papers/${paperId}`,
+            link: `/papers/${paper.slug || paperId}`,
           })
         )
     )

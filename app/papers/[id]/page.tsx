@@ -12,7 +12,7 @@ import { NotesSection } from '@/components/notes/NotesSection'
 import { FeedbackPanel } from '@/components/papers/FeedbackPanel'
 import { FacultyRubricCard } from '@/components/papers/FacultyRubricCard'
 import { GroupReadingRadarCard } from '@/components/papers/GroupReadingRadarCard'
-import { LiteratureReviewView } from '@/components/papers/LiteratureReviewSection'
+import { LiteratureReviewView, LiteratureReviewEditor } from '@/components/papers/LiteratureReviewSection'
 import { CitationGraph } from '@/components/papers/CitationGraph'
 import { ConnectedLiteratureExplorer } from '@/components/papers/ConnectedLiteratureExplorer'
 import { PaperChatAssistant } from '@/components/papers/PaperChatAssistant'
@@ -79,15 +79,24 @@ export default function PaperDetailPage() {
   const [isCitationModalOpen, setIsCitationModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
-  const [selectedReviewerId, setSelectedReviewerId] = useState<string>('SUPERVISOR')
+  const [selectedReviewerId, setSelectedReviewerId] = useState<string>('')
 
-  // Auto-select reviewer tab if studentId or reviewerId param is present
+  // Student Literature Review Editor Modal State
+  const [isEditReviewModalOpen, setIsEditReviewModalOpen] = useState(false)
+  const [editReviewData, setEditReviewData] = useState<LiteratureReviewData>({})
+  const [savingStudentReview, setSavingStudentReview] = useState(false)
+
+  // Auto-select reviewer tab if studentId or reviewerId param is present, or default to first assigned student
   useEffect(() => {
-    const studentIdParam = searchParams?.get('studentId') || searchParams?.get('reviewerId')
-    if (studentIdParam) {
-      setSelectedReviewerId(studentIdParam)
+    if (paper?.assignments && paper.assignments.length > 0) {
+      const studentIdParam = searchParams?.get('studentId') || searchParams?.get('reviewerId')
+      if (studentIdParam && paper.assignments.some((a) => a.studentId === studentIdParam)) {
+        setSelectedReviewerId(studentIdParam)
+      } else if (!selectedReviewerId || !paper.assignments.some((a) => a.studentId === selectedReviewerId)) {
+        setSelectedReviewerId(paper.assignments[0].studentId)
+      }
     }
-  }, [searchParams])
+  }, [paper?.assignments, searchParams, selectedReviewerId])
 
   // 1-Click Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -185,6 +194,12 @@ export default function PaperDetailPage() {
       if (res.ok) {
         const data = await res.json()
         setPaper(data)
+        // If accessed via old CUID or different slug, update the browser URL bar to the clean title slug
+        if (data.slug && paperId !== data.slug && typeof window !== 'undefined') {
+          const currentUrl = new URL(window.location.href)
+          currentUrl.pathname = `/papers/${data.slug}`
+          window.history.replaceState(null, '', currentUrl.toString())
+        }
       } else {
         addToast('error', 'Paper not found')
         router.push('/papers')
@@ -292,19 +307,18 @@ export default function PaperDetailPage() {
 
   const visibleAssignment = isStudent
     ? paper.assignments?.find((assignment) => assignment.studentId === user?.id)
-    : selectedReviewerId !== 'SUPERVISOR'
+    : selectedReviewerId
     ? paper.assignments?.find((assignment) => assignment.studentId === selectedReviewerId)
     : paper.assignments?.[0]
 
   const canManagePaper = paper.userId === user?.id || isSupervisor || isAdmin
 
-  // Find active student assignment based on role & selected reviewer tab
-  const activeStudentAssignment =
-    selectedReviewerId !== 'SUPERVISOR'
-      ? paper.assignments?.find((a) => a.studentId === selectedReviewerId)
-      : isStudent
-      ? visibleAssignment
-      : null
+  // Active student assignment being viewed
+  const activeStudentAssignment = isStudent
+    ? visibleAssignment
+    : selectedReviewerId
+    ? paper.assignments?.find((a) => a.studentId === selectedReviewerId) || paper.assignments?.[0]
+    : paper.assignments?.[0]
 
   // Parse benchmarks
   const parsedBenchmarks: BenchmarkScore[] = paper.benchmarks
@@ -319,18 +333,12 @@ export default function PaperDetailPage() {
       })()
     : []
 
-  // Parse literature review data (Supervisor Master vs Student-Specific Review)
-  const isViewingStudent = selectedReviewerId !== 'SUPERVISOR' || isStudent
-  const isSupervisorMaster = selectedReviewerId === 'SUPERVISOR' && !isStudent
-
-  const activeLitReviewRawString =
-    selectedReviewerId !== 'SUPERVISOR' && activeStudentAssignment
-      ? activeStudentAssignment.literatureReview || ''
-      : isStudent && visibleAssignment?.literatureReview
-      ? visibleAssignment.literatureReview
-      : isStudent
-      ? ''
-      : paper.literatureReview || ''
+  // Active Literature Review Raw Content
+  const activeLitReviewRawString = activeStudentAssignment
+    ? activeStudentAssignment.literatureReview || ''
+    : isStudent && paper.userId === user?.id
+    ? paper.literatureReview || ''
+    : ''
 
   const rawLitReview: LiteratureReviewData = activeLitReviewRawString
     ? (() => {
@@ -353,27 +361,84 @@ export default function PaperDetailPage() {
     paperTitle: rawLitReview.paperTitle || paper.title,
     paperLink: rawLitReview.paperLink || paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : ''),
     pdfAccessibility: rawLitReview.pdfAccessibility || (paper.pdfPath ? 'Open Access' : 'Pre-print Available'),
-    researchGap: rawLitReview.researchGap || (isSupervisorMaster ? paper.problemSolved || '' : ''),
-    usedDataset: rawLitReview.usedDataset || (isSupervisorMaster ? paper.datasetUrl || '' : ''),
-    summaryRepository: rawLitReview.summaryRepository || (isSupervisorMaster ? paper.codeUrl || '' : ''),
+    researchGap: rawLitReview.researchGap || '',
+    usedDataset: rawLitReview.usedDataset || '',
+    summaryRepository: rawLitReview.summaryRepository || '',
     remarks: rawLitReview.remarks || '',
-    q1ProblemImportance: rawLitReview.q1ProblemImportance || (isSupervisorMaster && paper.problemSolved ? { detailedAnswer: paper.problemSolved, shortSummary: paper.problemSolved } : undefined),
+    q1ProblemImportance: rawLitReview.q1ProblemImportance,
     q2DataDetails: rawLitReview.q2DataDetails,
-    q3FeaturesInputs: rawLitReview.q3FeaturesInputs || (isSupervisorMaster && paper.contextWindow ? { detailedAnswer: `Context length: ${paper.contextWindow}`, shortSummary: paper.contextWindow } : undefined),
-    q4MethodsPipeline: rawLitReview.q4MethodsPipeline || (isSupervisorMaster && paper.architecture ? { detailedAnswer: `Architecture: ${paper.architecture}`, shortSummary: paper.architecture } : undefined),
+    q3FeaturesInputs: rawLitReview.q3FeaturesInputs,
+    q4MethodsPipeline: rawLitReview.q4MethodsPipeline,
     q5Baselines: rawLitReview.q5Baselines,
     q6Evaluation: rawLitReview.q6Evaluation,
     q7KeyResults: rawLitReview.q7KeyResults,
-    q8LimitationsBiases: rawLitReview.q8LimitationsBiases || (isSupervisorMaster && paper.limitations ? { detailedAnswer: paper.limitations, shortSummary: paper.limitations } : undefined),
-    q9ArtifactsReplication: rawLitReview.q9ArtifactsReplication || (isSupervisorMaster && paper.codeUrl ? { detailedAnswer: `Code: ${paper.codeUrl}`, shortSummary: 'Code available' } : undefined),
+    q8LimitationsBiases: rawLitReview.q8LimitationsBiases,
+    q9ArtifactsReplication: rawLitReview.q9ArtifactsReplication,
     customQuestions: rawLitReview.customQuestions || [],
-    outcome: rawLitReview.outcome || (isSupervisorMaster ? paper.keyContribution || '' : ''),
+    outcome: rawLitReview.outcome || '',
     rubricReviews: rawLitReview.rubricReviews || [],
     collaborationComments: rawLitReview.collaborationComments || [],
   }
 
   const handleUpdateLitReview = (updated: LiteratureReviewData) => {
     setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(updated) } : prev))
+  }
+
+  const handleOpenEditReviewModal = () => {
+    setEditReviewData(parsedLiteratureReview)
+    setIsEditReviewModalOpen(true)
+  }
+
+  const handleSaveStudentReview = async () => {
+    setSavingStudentReview(true)
+    try {
+      if (visibleAssignment) {
+        const res = await fetch('/api/assignments', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: visibleAssignment.id,
+            literatureReview: JSON.stringify(editReviewData),
+            status: editReviewData.q1ProblemImportance?.detailedAnswer ? 'IN_PROGRESS' : visibleAssignment.status,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setPaper((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              assignments: (prev.assignments || []).map((a) =>
+                a.id === visibleAssignment.id ? { ...a, literatureReview: updated.literatureReview, status: updated.status } : a
+              ),
+            }
+          })
+          addToast('success', 'Literature review saved successfully!')
+          setIsEditReviewModalOpen(false)
+        } else {
+          addToast('error', 'Failed to save review')
+        }
+      } else {
+        const res = await fetch(`/api/papers/${paper.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            literatureReview: JSON.stringify(editReviewData),
+          }),
+        })
+        if (res.ok) {
+          setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(editReviewData) } : prev))
+          addToast('success', 'Literature review saved successfully!')
+          setIsEditReviewModalOpen(false)
+        } else {
+          addToast('error', 'Failed to save review')
+        }
+      }
+    } catch {
+      addToast('error', 'Network error saving review')
+    } finally {
+      setSavingStudentReview(false)
+    }
   }
 
   const handleSaveQuestionComment = async (questionKey: string, comment: string) => {
@@ -391,7 +456,7 @@ export default function PaperDetailPage() {
       }
     }
 
-    if (selectedReviewerId !== 'SUPERVISOR' && activeStudentAssignment) {
+    if (activeStudentAssignment) {
       const res = await fetch('/api/assignments', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -412,6 +477,7 @@ export default function PaperDetailPage() {
             ),
           }
         })
+        addToast('success', 'Saved reviewer comment / discussion note')
       } else {
         throw new Error('Failed to save comment')
       }
@@ -426,6 +492,7 @@ export default function PaperDetailPage() {
 
       if (res.ok) {
         setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(currentReview) } : prev))
+        addToast('success', 'Saved reviewer comment / discussion note')
       } else {
         throw new Error('Failed to save comment')
       }
@@ -447,7 +514,7 @@ export default function PaperDetailPage() {
           <StarButton paperId={paper.id} isFavorite={paper.isFavorite} />
 
           {/* Dedicated In-App PDF Reader Action */}
-          <Link href={`/papers/${paper.id}/reader`}>
+          <Link href={`/papers/${paper.slug || paper.id}/reader`}>
             <Button
               size="sm"
               variant="primary"
@@ -480,7 +547,7 @@ export default function PaperDetailPage() {
             </summary>
             <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-border-default bg-bg-secondary p-1.5 shadow-xl space-y-1">
               <Link
-                href={`/papers/${paper.id}/present`}
+                href={`/papers/${paper.slug || paper.id}/present`}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
               >
                 <Sparkles size={13} className="text-purple-400" /> Journal Club
@@ -495,7 +562,7 @@ export default function PaperDetailPage() {
               {canManagePaper && (
                 <>
                   <Link
-                    href={`/papers/${paper.id}/edit`}
+                    href={`/papers/${paper.slug || paper.id}/edit`}
                     className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
                   >
                     <Edit size={13} /> Edit paper
@@ -968,50 +1035,51 @@ export default function PaperDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-default pb-3">
           <div className="flex items-center gap-2">
             <FileCheck size={20} className="text-accent" />
-            <h3 className="text-base font-semibold text-text-primary font-display">
-              Structured Literature Review &amp; Paper Survey (Q1–Q9 Framework)
-            </h3>
+            <div>
+              <h3 className="text-base font-semibold text-text-primary font-display">
+                Structured Literature Review &amp; Paper Survey (Q1–Q9 Framework)
+              </h3>
+              <p className="text-xs text-text-secondary mt-0.5">
+                {isStudent
+                  ? 'Your independent 9-point research evaluation, short summaries, and synthesis.'
+                  : 'Student researcher evaluations, methodology analysis, and faculty critique.'}
+              </p>
+            </div>
           </div>
-          {canManagePaper && selectedReviewerId === 'SUPERVISOR' && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => router.push(`/papers/${paper.id}/edit`)}
-              icon={<Edit size={13} />}
-            >
-              Edit Master Review
-            </Button>
-          )}
+
+          <div className="flex items-center gap-2">
+            {isStudent && (visibleAssignment || paper.userId === user?.id) && (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleOpenEditReviewModal}
+                icon={<Edit size={13} />}
+              >
+                Edit My Literature Review
+              </Button>
+            )}
+
+            {(isSupervisor || isAdmin) && (
+              <Badge variant="outline" size="sm" className="bg-bg-tertiary border-border-default">
+                <MessageSquare size={12} className="mr-1 text-accent" /> Supervisor Feedback Mode
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {/* Multi-Student Synthesis Comparison Switcher (for Supervisor / Paper Lead) */}
-        {paper.assignments && paper.assignments.length > 0 && (isSupervisor || isAdmin || paper.userId === user?.id) && (
+        {/* Multi-Student Synthesis Switcher (when multiple students are assigned) */}
+        {paper.assignments && paper.assignments.length > 1 && (isSupervisor || isAdmin || paper.userId === user?.id) && (
           <div className="p-3.5 rounded-2xl bg-bg-secondary border border-border-default space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <span className="font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 font-display text-[11px]">
-                <Users size={14} className="text-purple-400" /> Assigned Student Syntheses ({paper.assignments.length})
+                <Users size={14} className="text-accent" /> Assigned Student Syntheses ({paper.assignments.length})
               </span>
               <span className="text-[11px] text-text-tertiary">
-                Click a student to view their isolated Q1–Q9 answers without affecting your master library.
+                Select a student researcher to inspect their Q1–Q9 answers and leave discussion comments.
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Supervisor's Master Review Tab */}
-              <button
-                type="button"
-                onClick={() => setSelectedReviewerId('SUPERVISOR')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                  selectedReviewerId === 'SUPERVISOR'
-                    ? 'bg-purple-500/20 text-purple-300 border-purple-500 shadow-xs'
-                    : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
-                }`}
-              >
-                <ShieldCheck size={13} />
-                <span>My Master Review (Supervisor)</span>
-              </button>
-
-              {/* Student Review Tabs */}
               {paper.assignments.map((assignment) => {
                 const isSelected = selectedReviewerId === assignment.studentId
                 const stStatus = assignment.status
@@ -1022,11 +1090,11 @@ export default function PaperDetailPage() {
                     onClick={() => setSelectedReviewerId(assignment.studentId)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-500 shadow-xs'
+                        ? 'bg-accent/15 text-accent border-accent shadow-xs'
                         : 'bg-bg-tertiary text-text-secondary border-border-default hover:text-text-primary hover:bg-bg-elevated'
                     }`}
                   >
-                    <GraduationCap size={13} className={isSelected ? 'text-blue-400' : 'text-text-tertiary'} />
+                    <GraduationCap size={13} className={isSelected ? 'text-accent' : 'text-text-tertiary'} />
                     <span>{assignment.student?.name || 'Student'}</span>
                     <span
                       className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
@@ -1047,11 +1115,11 @@ export default function PaperDetailPage() {
         )}
 
         {/* Active Student Review Banner */}
-        {activeStudentAssignment && selectedReviewerId !== 'SUPERVISOR' && (
+        {activeStudentAssignment && (
           <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-300">
             <span className="flex items-center gap-2 font-medium">
               <GraduationCap size={15} className="text-blue-400 shrink-0" />
-              Viewing Student Synthesis by <strong>{activeStudentAssignment.student?.name || 'Student'}</strong> (
+              Student Synthesis by <strong>{activeStudentAssignment.student?.name || 'Student'}</strong> (
               <span className="font-mono">{activeStudentAssignment.status}</span>)
             </span>
             {activeStudentAssignment.dueDate && (
@@ -1062,13 +1130,35 @@ export default function PaperDetailPage() {
           </div>
         )}
 
-        <LiteratureReviewView
-          data={parsedLiteratureReview}
-          paperTitle={paper.title}
-          paperUrl={paper.url || undefined}
-          doi={paper.doi || undefined}
-          onSaveQuestionComment={handleSaveQuestionComment}
-        />
+        {/* Display Literature Review Matrix or Empty State */}
+        {activeStudentAssignment || isStudent ? (
+          <LiteratureReviewView
+            data={parsedLiteratureReview}
+            paperTitle={paper.title}
+            paperUrl={paper.url || undefined}
+            doi={paper.doi || undefined}
+            onSaveQuestionComment={handleSaveQuestionComment}
+          />
+        ) : (
+          <div className="p-8 text-center glass-card border border-dashed border-border-default rounded-2xl space-y-3">
+            <FileCheck size={28} className="mx-auto opacity-30 text-accent" />
+            <p className="text-sm font-semibold text-text-secondary">
+              No student literature review assigned yet.
+            </p>
+            <p className="text-xs text-text-tertiary max-w-md mx-auto">
+              Assign this paper to your student researchers. Once assigned, students will independently evaluate the paper using the Q1–Q9 framework, and you can review their answers and leave discussion comments &amp; feedback.
+            </p>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setIsAssignModalOpen(true)}
+              icon={<Users size={13} />}
+              className="mt-2"
+            >
+              Assign Paper to Student
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Metadata Badges Grid */}
@@ -1145,7 +1235,7 @@ export default function PaperDetailPage() {
           />
 
           <div className="flex items-center gap-2">
-            <Link href={`/papers/${paper.id}/reader`}>
+            <Link href={`/papers/${paper.slug || paper.id}/reader`}>
               <Button size="xs" variant="primary" icon={<BookOpen size={12} />}>
                 Open Side-by-Side Reader
               </Button>
@@ -1458,6 +1548,38 @@ export default function PaperDetailPage() {
           </Button>
         </div>
       </Modal>
+
+      {/* Student Literature Review Editor Modal */}
+      {isEditReviewModalOpen && (
+        <Modal
+          isOpen={isEditReviewModalOpen}
+          onClose={() => setIsEditReviewModalOpen(false)}
+          title={`Literature Review & Synthesis: ${paper.title}`}
+          description="Evaluate the paper across the 9 core research methodology questions, short summaries, and research gaps."
+          size="lg"
+        >
+          <div className="space-y-6 pt-2 max-h-[75vh] overflow-y-auto pr-2">
+            <LiteratureReviewEditor
+              data={editReviewData}
+              onChange={setEditReviewData}
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-border-default sticky bottom-0 bg-bg-secondary/95 backdrop-blur-md py-2.5 px-2 rounded-xl z-20">
+              <Button variant="ghost" onClick={() => setIsEditReviewModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveStudentReview}
+                loading={savingStudentReview}
+                icon={<CheckCircle2 size={14} />}
+              >
+                Save Literature Review
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

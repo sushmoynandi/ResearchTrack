@@ -15,10 +15,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: paperId } = await params
+    const { id: paperIdentifier } = await params
+
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id: paperIdentifier }, { slug: paperIdentifier }],
+      },
+      select: { id: true },
+    })
+
+    if (!paper) {
+      return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
 
     const assignments = await prisma.assignment.findMany({
-      where: { paperId },
+      where: { paperId: paper.id },
       include: {
         student: {
           select: {
@@ -38,10 +49,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const completed = assignments.filter((a) => a.status === 'COMPLETED').length
     const inProgress = assignments.filter((a) => a.status === 'IN_PROGRESS').length
     const pending = assignments.filter((a) => a.status === 'PENDING').length
+
+    // Group-by breakdown
+    const groupStats: Record<string, { id: string; name: string; color: string; total: number; completed: number }> = {}
+
+    assignments.forEach((a) => {
+      a.student.groupMemberships?.forEach((gm) => {
+        const gid = gm.group.id
+        if (!groupStats[gid]) {
+          groupStats[gid] = {
+            id: gid,
+            name: gm.group.name,
+            color: gm.group.color,
+            total: 0,
+            completed: 0,
+          }
+        }
+        groupStats[gid].total += 1
+        if (a.status === 'COMPLETED') {
+          groupStats[gid].completed += 1
+        }
+      })
+    })
+
     const completionRate = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : 0
 
     return NextResponse.json({
-      paperId,
+      paperId: paper.id,
       totalAssigned,
       completed,
       inProgress,
@@ -58,21 +92,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })),
     })
   } catch (error) {
-    console.error('Error fetching paper group progress:', error)
+    console.error('Error fetching group reading progress:', error)
     return NextResponse.json({ error: 'Failed to fetch group progress' }, { status: 500 })
   }
 }
 
-// POST /api/papers/[id]/group-progress — Send 1-click nudge to all pending readers of this paper
+// POST /api/papers/[id]/group-progress — Nudge / send reminder notification to incomplete readers
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser()
-    if (!user || (user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN')) {
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { id: paperId } = await params
-    const paper = await prisma.paper.findUnique({ where: { id: paperId } })
+    const { id: paperIdentifier } = await params
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id: paperIdentifier }, { slug: paperIdentifier }],
+      },
+    })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
@@ -80,7 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const pendingAssignments = await prisma.assignment.findMany({
       where: {
-        paperId,
+        paperId: paper.id,
         status: { in: ['PENDING', 'IN_PROGRESS'] },
       },
       include: { student: true },
@@ -92,7 +134,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         title: 'Group Literature Reminder ⚡',
         message: `${user.name} sent a reminder to complete your reading for: "${paper.title}".`,
         type: 'ASSIGNMENT',
-        link: `/papers/${paperId}`,
+        link: `/papers/${paper.slug || paper.id}`,
       })
     }
 

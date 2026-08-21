@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
 import { PdfDropzoneExtractor } from '@/components/papers/PdfDropzoneExtractor'
+import { useAuth } from '@/components/auth/AuthProvider'
 import {
   LiteratureReviewEditor,
   QUESTION_CONFIG,
@@ -114,6 +115,7 @@ interface FetchedPaperPreview {
 export function PaperForm({ paper, mode }: PaperFormProps) {
   const router = useRouter()
   const { addToast } = useToast()
+  const { isSupervisor, isAdmin } = useAuth()
   const [loading, setLoading] = useState(false)
   const [fetchingArxiv, setFetchingArxiv] = useState(false)
   const [arxivQuery, setArxivQuery] = useState('')
@@ -549,7 +551,7 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
           ? 'Paper added to research library!'
           : 'Paper updated successfully!'
       )
-      window.location.href = `/papers/${result.id}`
+      window.location.href = `/papers/${result.slug || result.id}`
     } catch (error) {
       addToast('error', error instanceof Error ? error.message : 'Failed to save paper')
     } finally {
@@ -744,13 +746,24 @@ export function PaperForm({ paper, mode }: PaperFormProps) {
         </div>
       </div>
 
-      {/* Optional Literature Review & Research Questionnaire Section */}
-      <div className="space-y-4">
-        <LiteratureReviewEditor
-          data={literatureReview}
-          onChange={setLiteratureReview}
-        />
-      </div>
+      {/* For Students: Literature Review Editor. For Supervisors: Info Note */}
+      {!(isSupervisor || isAdmin) ? (
+        <div className="space-y-4">
+          <LiteratureReviewEditor
+            data={literatureReview}
+            onChange={setLiteratureReview}
+          />
+        </div>
+      ) : (
+        <div className="p-4 rounded-xl bg-bg-secondary border border-border-default space-y-1 text-xs text-text-secondary">
+          <span className="font-semibold text-text-primary flex items-center gap-1.5">
+            <FileCheck size={14} className="text-accent" /> Student Literature Review Matrix (Q1–Q9)
+          </span>
+          <p className="text-[11px] text-text-tertiary">
+            As a supervisor, after adding or saving this paper, you can assign it to student researchers. Students will independently evaluate and answer the Q1–Q9 survey matrix, and you can review their work and leave discussion comments &amp; faculty feedback.
+          </p>
+        </div>
+      )}
 
       {/* AI/ML Code & Model Hub */}
       <div className="space-y-4 pt-2">

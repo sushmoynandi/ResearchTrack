@@ -529,7 +529,7 @@ function ReadingTrackPaperCard({
       {/* Paper Title & Authors */}
       <div className="space-y-1">
         <Link
-          href={`/papers/${paper.id}`}
+          href={`/papers/${paper.slug || paper.id}`}
           className="text-sm font-bold text-text-primary hover:text-accent font-display line-clamp-2 transition-colors"
         >
           {paper.title}

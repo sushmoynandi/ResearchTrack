@@ -25,6 +25,7 @@ interface StarterItem {
   note: string | null
   paper: {
     id: string
+    slug?: string | null
     title: string
     authors: string
     journal: string | null
@@ -211,7 +212,7 @@ export function StarterPackSection({
 
                 <div className="min-w-0 space-y-0.5">
                   <Link
-                    href={`/papers/${item.paper.id}`}
+                    href={`/papers/${item.paper.slug || item.paper.id}`}
                     className="text-xs font-bold text-text-primary hover:text-accent transition-colors block truncate"
                   >
                     {item.paper.title}
@@ -228,7 +229,7 @@ export function StarterPackSection({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <Link href={`/papers/${item.paper.id}`}>
+                <Link href={`/papers/${item.paper.slug || item.paper.id}`}>
                   <Button size="xs" variant="ghost" icon={<ArrowRight size={12} />}>
                     View
                   </Button>

@@ -26,8 +26,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         tags: true,
         collections: true,

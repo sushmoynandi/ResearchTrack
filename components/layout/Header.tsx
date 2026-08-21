@@ -221,7 +221,7 @@ export function Header() {
                   {searchResults.map((p) => (
                     <Link
                       key={p.id}
-                      href={`/papers/${p.id}`}
+                      href={`/papers/${p.slug || p.id}`}
                       onClick={() => setIsSpotlightOpen(false)}
                       className="flex items-center justify-between p-3 rounded-lg hover:bg-bg-tertiary transition-colors group"
                     >

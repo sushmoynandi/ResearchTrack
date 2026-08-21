@@ -40,7 +40,7 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
   }
 
   return (
-    <Link href={`/papers/${paper.id}`} className="block group">
+    <Link href={`/papers/${paper.slug || paper.id}`} className="block group">
       <article className="glass-card p-5 h-full flex flex-col justify-between transition-all duration-200 group-hover:border-border-hover">
         <div>
           {/* Top row: Status + Priority + Star */}

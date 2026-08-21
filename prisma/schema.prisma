@@ -90,6 +90,7 @@ model User {
 // ─── Paper ──────────────────────────────────────────────────
 model Paper {
   id              String   @id @default(cuid())
+  slug            String?  @unique
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

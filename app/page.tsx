@@ -418,7 +418,7 @@ export default function DashboardPage() {
                         <Badge variant="info" size="sm">PENDING</Badge>
                       </div>
                       <h4 className="text-sm font-semibold text-text-primary hover:text-accent transition-colors line-clamp-1">
-                        <Link href={`/papers/${a.paper.id}`}>{a.paper.title}</Link>
+                        <Link href={`/papers/${a.paper.slug || a.paper.id}`}>{a.paper.title}</Link>
                       </h4>
                       <p className="text-xs text-text-secondary line-clamp-1">{a.paper.authors}</p>
                     </div>

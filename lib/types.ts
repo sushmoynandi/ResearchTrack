@@ -39,6 +39,7 @@ export interface UserWithStudents extends User {
 // ─── Paper ──────────────────────────────────────────────────
 export interface Paper {
   id: string
+  slug?: string | null
   userId: string
   title: string
   authors: string

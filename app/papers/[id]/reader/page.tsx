@@ -24,6 +24,11 @@ export default function PaperReaderPage() {
       if (res.ok) {
         const data = await res.json()
         setPaper(data)
+        if (data.slug && paperId !== data.slug && typeof window !== 'undefined') {
+          const currentUrl = new URL(window.location.href)
+          currentUrl.pathname = `/papers/${data.slug}/reader`
+          window.history.replaceState(null, '', currentUrl.toString())
+        }
       } else {
         addToast('error', 'Paper not found')
         router.push('/papers')

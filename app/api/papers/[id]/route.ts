@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { getUniquePaperSlug } from '@/lib/slug'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -17,9 +18,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params
 
-    // Check paper exists
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    // Check paper exists (lookup by cuid ID or human-readable slug)
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         tags: true,
         collections: { select: { id: true, name: true, color: true } },
@@ -117,8 +120,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const existing = await prisma.paper.findUnique({
-      where: { id },
+    const existing = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         user: {
           select: {
@@ -333,8 +338,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    if (title && title.trim() !== existing.title) {
+      updateData.slug = await getUniquePaperSlug(title.trim(), existing.id)
+    } else if (!existing.slug) {
+      updateData.slug = await getUniquePaperSlug(existing.title, existing.id)
+    }
+
     const updated = await prisma.paper.update({
-      where: { id },
+      where: { id: existing.id },
       data: updateData,
       include: {
         tags: true,
@@ -400,8 +411,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const existing = await prisma.paper.findUnique({
-      where: { id },
+    const existing = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         user: { select: { id: true, supervisorId: true } },
       },
@@ -421,15 +434,17 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const paperId = existing.id
+
     // Safely remove related dependent records in a transaction
     await prisma.$transaction([
-      prisma.note.deleteMany({ where: { paperId: id } }),
-      prisma.assignment.deleteMany({ where: { paperId: id } }),
-      prisma.feedback.deleteMany({ where: { paperId: id } }),
-      prisma.reviewRubric.deleteMany({ where: { paperId: id } }),
-      prisma.starterPackItem.deleteMany({ where: { paperId: id } }),
-      prisma.journalClubSession.deleteMany({ where: { paperId: id } }),
-      prisma.paper.delete({ where: { id } }),
+      prisma.note.deleteMany({ where: { paperId } }),
+      prisma.assignment.deleteMany({ where: { paperId } }),
+      prisma.feedback.deleteMany({ where: { paperId } }),
+      prisma.reviewRubric.deleteMany({ where: { paperId } }),
+      prisma.starterPackItem.deleteMany({ where: { paperId } }),
+      prisma.journalClubSession.deleteMany({ where: { paperId } }),
+      prisma.paper.delete({ where: { id: paperId } }),
     ])
 
     return NextResponse.json({ success: true })

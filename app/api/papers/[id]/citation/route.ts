@@ -13,8 +13,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { searchParams } = new URL(request.url)
     const format = (searchParams.get('format')?.toUpperCase() || 'APA') as CitationFormat
 
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
     })
 
     if (!paper) {

@@ -22,8 +22,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
     })
 
     if (!paper) {

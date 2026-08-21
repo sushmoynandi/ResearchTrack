@@ -24,7 +24,7 @@ export function PaperRow({ paper, onUpdate }: PaperRowProps) {
 
   return (
     <Link
-      href={`/papers/${paper.id}`}
+      href={`/papers/${paper.slug || paper.id}`}
       className="flex items-center gap-4 px-4 py-3 rounded-lg surface-interactive group border border-transparent hover:border-border-default"
     >
       {/* Star */}

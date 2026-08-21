@@ -34,6 +34,7 @@ interface AssignmentItem {
   createdAt: string
   paper: {
     id: string
+    slug?: string | null
     title: string
     authors: string
     status: string
@@ -317,7 +318,7 @@ export default function AssignmentsPage() {
                 </div>
 
                 <h3 className="text-base font-bold text-text-primary hover:text-accent transition-colors font-display">
-                  <Link href={`/papers/${a.paper.id}`}>{a.paper.title}</Link>
+                  <Link href={`/papers/${a.paper.slug || a.paper.id}`}>{a.paper.title}</Link>
                 </h3>
 
                 <p className="text-xs text-text-secondary">{a.paper.authors}</p>
@@ -363,7 +364,7 @@ export default function AssignmentsPage() {
                   </div>
                 )}
 
-                <Link href={`/papers/${a.paper.id}`}>
+                <Link href={`/papers/${a.paper.slug || a.paper.id}`}>
                   <Button size="xs" variant="secondary" icon={<ArrowRight size={13} />}>
                     Open Paper
                   </Button>

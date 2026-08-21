@@ -246,9 +246,13 @@ export default function JournalClubPresentationPage() {
   }
 
   let literatureReview: LiteratureReviewData = {}
-  if (paper.literatureReview) {
+  const rawLitSource =
+    paper.assignments?.find((a) => a.literatureReview)?.literatureReview ||
+    paper.literatureReview
+  if (rawLitSource) {
     try {
-      literatureReview = typeof paper.literatureReview === 'string' ? JSON.parse(paper.literatureReview) : paper.literatureReview
+      literatureReview =
+        typeof rawLitSource === 'string' ? JSON.parse(rawLitSource) : rawLitSource
     } catch {
       literatureReview = {}
     }
@@ -268,7 +272,7 @@ export default function JournalClubPresentationPage() {
         {/* Left: Exit & Mode Badge */}
         <div className="flex items-center gap-3">
           <Link
-            href={`/papers/${paper.id}`}
+            href={`/papers/${paper.slug || paper.id}`}
             className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors bg-bg-tertiary px-2.5 py-1.5 rounded-lg border border-border-default font-medium"
             title="Exit Presentation"
           >

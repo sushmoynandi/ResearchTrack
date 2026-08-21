@@ -18,8 +18,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         user: { select: { id: true, systemRole: true, supervisorId: true } },
         assignments: { select: { studentId: true, assignedById: true } },
@@ -48,9 +50,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
+    const bytes = await file.arrayBuffer()
+
+    // Validate magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D)
+    const header = new Uint8Array(bytes.slice(0, 5))
+    const isPdf =
+      header[0] === 0x25 &&
+      header[1] === 0x50 &&
+      header[2] === 0x44 &&
+      header[3] === 0x46 &&
+      header[4] === 0x2d
+
+    if (!isPdf) {
       return NextResponse.json(
-        { error: 'Only PDF files are supported' },
+        { error: 'Invalid file format. Only valid PDF files are accepted.' },
         { status: 400 }
       )
     }
@@ -63,16 +76,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+    // Ensure uploads directory exists inside public/
+    const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true })
     }
 
-    const safeBaseName = path
-      .basename(file.name, path.extname(file.name))
-      .replace(/[^a-zA-Z0-9.-]/g, '_')
-      .slice(0, 80)
-    const safeFileName = `${id}-${randomUUID()}-${safeBaseName || 'paper'}.pdf`
+    // Generate unique filename with sanitized original name
+    const rawFileName = (file.name || 'paper.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const safeBaseName = path.parse(rawFileName).name.slice(0, 40)
+    const safeFileName = `${paper.id}-${randomUUID()}-${safeBaseName || 'paper'}.pdf`
     const filePath = path.join(uploadsDir, safeFileName)
 
     const arrayBuffer = await file.arrayBuffer()
@@ -82,7 +95,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const relativePath = `/uploads/${safeFileName}`
 
     const updatedPaper = await prisma.paper.update({
-      where: { id },
+      where: { id: paper.id },
       data: { pdfPath: relativePath },
     })
 
@@ -105,8 +118,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         user: { select: { supervisorId: true } },
         assignments: { select: { studentId: true } },
@@ -141,7 +156,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       }
 
       await prisma.paper.update({
-        where: { id },
+        where: { id: paper.id },
         data: { pdfPath: null },
       })
     }

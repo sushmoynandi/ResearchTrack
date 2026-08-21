@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
             title: `New Lab Paper Assigned (${lab.name})`,
             message: `${user.name} assigned "${paper.title}" to ${lab.name}.`,
             type: 'ASSIGNMENT',
-            link: `/papers/${paperId}`,
+            link: `/papers/${paper.slug || paperId}`,
           }).catch(() => {})
         }
       }
@@ -325,7 +325,7 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
       },
       include: {
-        paper: { select: { id: true, title: true, authors: true } },
+        paper: { select: { id: true, slug: true, title: true, authors: true } },
         student: { select: { id: true, name: true, email: true } },
         assignedBy: { select: { id: true, name: true } },
       },
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
       title: 'New Paper Assigned',
       message: `${user.name} assigned you: "${paper.title}"`,
       type: 'ASSIGNMENT',
-      link: `/papers/${paperId}`,
+      link: `/papers/${paper.slug || paperId}`,
     }).catch(() => {})
 
     return NextResponse.json(assignment, { status: 201 })
@@ -364,7 +364,11 @@ export async function PUT(request: NextRequest) {
 
     const assignment = await prisma.assignment.findUnique({
       where: { id },
-      include: { paper: true, student: true, assignedBy: true },
+      include: { 
+        paper: { select: { id: true, slug: true, title: true, authors: true } }, 
+        student: true, 
+        assignedBy: true 
+      },
     })
 
     if (!assignment) {
@@ -402,7 +406,7 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: updateData,
       include: {
-        paper: { select: { id: true, title: true, authors: true } },
+        paper: { select: { id: true, slug: true, title: true, authors: true } },
         student: { select: { id: true, name: true, email: true } },
         assignedBy: { select: { id: true, name: true } },
       },
@@ -415,7 +419,7 @@ export async function PUT(request: NextRequest) {
         title: 'Task Completed',
         message: `${user.name} completed assigned reading: "${assignment.paper.title}"`,
         type: 'STATUS_UPDATE',
-        link: `/papers/${assignment.paperId}`,
+        link: `/papers/${assignment.paper.slug || assignment.paperId}`,
       })
     }
 

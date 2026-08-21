@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
+import { getUniquePaperSlug } from '@/lib/slug'
 
 // GET /api/papers — List papers scoped by role (Student, Supervisor, Admin)
 export async function GET(request: NextRequest) {
@@ -209,9 +210,12 @@ export async function POST(request: NextRequest) {
     const parsedCitations = citationCount ? parseInt(String(citationCount)) : 0
     const cleanCitations = parsedCitations && !isNaN(parsedCitations) ? parsedCitations : 0
 
+    const slug = await getUniquePaperSlug(title.trim())
+
     const paper = await prisma.paper.create({
       data: {
         userId: user.id,
+        slug,
         title: title.trim(),
         authors: authors.trim(),
         abstract: abstract?.trim() || null,

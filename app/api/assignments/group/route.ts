@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
           title: `Group Literature Assigned: ${group.name} 🔬`,
           message: `${user.name} assigned your research cluster "${group.name}": "${paper.title}"`,
           type: 'ASSIGNMENT',
-          link: `/papers/${paperId}`,
+          link: `/papers/${paper.slug || paperId}`,
         })
       }
     }

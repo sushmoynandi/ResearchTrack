@@ -261,7 +261,7 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
 
                     {/* 3. Frozen Paper Title */}
                     <td className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky left-[230px] z-20 bg-bg-secondary group-hover:bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_rgba(0,0,0,0.35)] font-semibold">
-                      <Link href={`/papers/${paper.id}`} className="hover:text-accent transition-colors line-clamp-2">
+                      <Link href={`/papers/${paper.slug || paper.id}`} className="hover:text-accent transition-colors line-clamp-2">
                         {rev.selectedPaperTitle || paper.title}
                       </Link>
                       {paper.authors && (

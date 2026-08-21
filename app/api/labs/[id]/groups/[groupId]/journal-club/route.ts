@@ -115,6 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         paper: {
           select: {
             id: true,
+            slug: true,
             title: true,
             authors: true,
             journal: true,
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       title: 'Assigned as Journal Club Presenter 🎤',
       message: `You are scheduled to present "${session.paper.title}" for ${group.name} on ${new Date(scheduledAt).toLocaleDateString()}.`,
       type: 'ASSIGNMENT',
-      link: `/papers/${paperId}/present`,
+      link: `/papers/${session.paper.slug || paperId}/present`,
     })
 
     // Notify all other members

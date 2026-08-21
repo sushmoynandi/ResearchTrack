@@ -15,10 +15,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: paperId } = await params
+    const { id } = await params
+
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
+      select: { id: true },
+    })
+
+    if (!paper) {
+      return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
 
     const rubric = await prisma.reviewRubric.findFirst({
-      where: { paperId },
+      where: { paperId: paper.id },
       include: {
         supervisor: { select: { id: true, name: true, email: true } },
         student: { select: { id: true, name: true, email: true } },
@@ -45,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden: Only faculty supervisors can submit rubrics' }, { status: 403 })
     }
 
-    const { id: paperId } = await params
+    const { id } = await params
     const body = await request.json()
     const {
       problemScore = 3,
@@ -56,8 +67,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       feedbackSummary,
     } = body
 
-    const paper = await prisma.paper.findUnique({
-      where: { id: paperId },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
     })
 
     if (!paper) {
@@ -66,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const rubric = await prisma.reviewRubric.create({
       data: {
-        paperId,
+        paperId: paper.id,
         supervisorId: user.id,
         studentId: paper.userId,
         problemScore: Number(problemScore),
@@ -88,7 +101,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       title: 'Faculty Evaluation Received',
       message: `${user.name} posted a formal Review Scorecard for "${paper.title}" (Verdict: ${verdict.replace('_', ' ')})`,
       type: 'FEEDBACK',
-      link: `/papers/${paperId}`,
+      link: `/papers/${paper.slug || paper.id}`,
     })
 
     return NextResponse.json(rubric, { status: 201 })

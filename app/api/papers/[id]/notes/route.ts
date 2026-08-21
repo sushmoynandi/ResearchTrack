@@ -15,8 +15,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const paper = await prisma.paper.findUnique({
-      where: { id },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
       include: {
         user: { select: { id: true, systemRole: true, supervisorId: true } },
         assignments: { select: { studentId: true, assignedById: true } },
@@ -40,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const notes = await prisma.note.findMany({
       where: {
-        paperId: id,
+        paperId: paper.id,
         OR: [
           { userId: user.id }, // Author sees their own private and public notes
           { isPrivate: false }, // Others (supervisors / peers) only see public notes
@@ -84,14 +86,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Verify paper access (Owner, Admin, Supervisor, or Assigned Student)
     const paper = await prisma.paper.findFirst({
       where: {
-        id,
-        OR: [
-          { userId: user.id },
-          { assignments: { some: { studentId: user.id } } },
-          ...(user.systemRole === 'SUPERVISOR'
-            ? [{ assignments: { some: { assignedById: user.id } } }]
-            : []),
-          ...(user.systemRole === 'ADMIN' ? [{}] : []),
+        AND: [
+          { OR: [{ id }, { slug: id }] },
+          {
+            OR: [
+              { userId: user.id },
+              { assignments: { some: { studentId: user.id } } },
+              ...(user.systemRole === 'SUPERVISOR'
+                ? [{ assignments: { some: { assignedById: user.id } } }]
+                : []),
+              ...(user.systemRole === 'ADMIN' ? [{}] : []),
+            ],
+          },
         ],
       },
     })
@@ -105,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         userId: user.id,
         content: content.trim(),
         isPrivate: Boolean(isPrivate),
-        paperId: id,
+        paperId: paper.id,
       },
       include: {
         user: { select: { id: true, name: true, systemRole: true } },

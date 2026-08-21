@@ -61,6 +61,7 @@ interface StudentData {
   }[]
   papers: {
     id: string
+    slug?: string | null
     title: string
     status: string
     priority: string
@@ -75,14 +76,14 @@ interface StudentData {
     createdAt: string
     assignedById: string
     literatureReview?: string | null
-    paper: { id: string; title: string; status: string; doi?: string | null; url?: string | null }
+    paper: { id: string; slug?: string | null; title: string; status: string; doi?: string | null; url?: string | null }
   }[]
   feedbackGiven?: {
     id: string
     content: string
     type: string
     createdAt: string
-    paper: { id: string; title: string }
+    paper: { id: string; slug?: string | null; title: string }
   }[]
   assignedLabTasks: {
     id: string
@@ -784,7 +785,7 @@ export default function StudentsPage() {
                               className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
                             >
                               <Link
-                                href={`/papers/${a.paper.id}?studentId=${student.id}`}
+                                href={`/papers/${a.paper.slug || a.paper.id}?studentId=${student.id}`}
                                 className="text-text-primary hover:text-purple-400 truncate font-medium flex-1 flex items-center gap-1"
                               >
                                 <span className="truncate">{a.paper.title}</span>
@@ -829,7 +830,7 @@ export default function StudentsPage() {
                           >
                             <div className="flex items-center justify-between gap-1">
                               <Link
-                                href={`/papers/${fb.paper.id}?studentId=${student.id}`}
+                                href={`/papers/${fb.paper.slug || fb.paper.id}?studentId=${student.id}`}
                                 className="text-text-primary font-semibold hover:text-blue-400 truncate flex-1 flex items-center gap-1 text-[11px]"
                               >
                                 <span className="truncate">📄 {fb.paper.title}</span>

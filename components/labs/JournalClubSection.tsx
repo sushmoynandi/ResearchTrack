@@ -42,6 +42,7 @@ interface JournalClubSessionItem {
   notes: string | null
   paper: {
     id: string
+    slug?: string | null
     title: string
     authors: string
     journal: string | null
@@ -475,7 +476,7 @@ export function JournalClubSection({
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <Link
-                      href={`/papers/${s.paper.id}`}
+                      href={`/papers/${s.paper.slug || s.paper.id}`}
                       className="text-base font-bold text-text-primary hover:text-accent transition-colors block line-clamp-2"
                     >
                       {s.paper.title}
@@ -537,7 +538,7 @@ export function JournalClubSection({
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-default/80">
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Primary Presentation Launcher */}
-                    <Link href={`/papers/${s.paper.id}/present`}>
+                    <Link href={`/papers/${s.paper.slug || s.paper.id}/present`}>
                       <Button
                         size="sm"
                         variant="primary"
@@ -549,7 +550,7 @@ export function JournalClubSection({
                     </Link>
 
                     {/* Paper Workspace Link */}
-                    <Link href={`/papers/${s.paper.id}`}>
+                    <Link href={`/papers/${s.paper.slug || s.paper.id}`}>
                       <Button size="sm" variant="secondary" icon={<BookOpen size={13} />}>
                         Paper Workspace
                       </Button>
