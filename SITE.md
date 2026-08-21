@@ -57,6 +57,7 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Redesigned Login and Register with a two-column split layout — a branded panel on the left and the form on the right (like Facebook and other pro sites). On phones/tablets the left panel hides and only the form shows. Shared `components/auth/AuthSplitLayout.tsx` powers both pages; drop an image in `/public` and pass `imageSrc="/your-image.jpg"` to use a photo instead of the branded panel.
 - 2026-08-21: Connected a real database. Created a local PostgreSQL `researchtrack` database and synced all 27 tables from the schema with `prisma db push`, fixing the "Something went wrong creating your account" error that was blocking both Google and email/password signup (the old `DATABASE_URL` was a placeholder).
 - 2026-08-21: Added a "Complete your profile" step (`/welcome`) shown once to first-time Google users, so they can choose their role, institution, and department — matching the manual sign-up options.
 - 2026-08-21: Added "Continue with Google" sign-in and sign-up on the Login and Register pages, alongside the existing email/password option. Built a secure Google OAuth 2.0 flow (`/api/auth/google` + callback) with server-side ID-token verification.

@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { GoogleButton } from '@/components/auth/GoogleButton'
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import {
   User as UserIcon,
   Mail,
@@ -18,8 +18,6 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  CheckCircle2,
-  Atom,
 } from 'lucide-react'
 
 const systemRoleOptions = [
@@ -28,9 +26,8 @@ const systemRoleOptions = [
 ]
 
 export default function RegisterPage() {
-  const router = useRouter()
   const { addToast } = useToast()
-  const { refreshUser, setAuthSession } = useAuth()
+  const { setAuthSession } = useAuth()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -91,26 +88,13 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Ambient background blur */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" />
-
-      <div className="w-full max-w-lg relative z-10 animate-fade-in py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 mb-3 shadow-glow">
-            <Atom size={26} />
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-tight">
-            Create Researcher Account
-          </h1>
-          <p className="text-xs text-text-secondary mt-1">
-            Build and organize your personalized research library
-          </p>
-        </div>
-
-        {/* Card */}
-        <div className="glass-card p-6 sm:p-8 space-y-6">
+    <AuthSplitLayout
+      contentClassName="max-w-md"
+      headline="Start your research library today."
+      subheadline="Create an account to track papers, extract ArXiv metadata in one click, and collaborate with your lab."
+      title="Create your account"
+      subtitle="Set up your workspace in under a minute."
+    >
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Full Name *"
@@ -220,20 +204,16 @@ export default function RegisterPage() {
           {/* Google sign-up */}
           <GoogleButton mode="register" label="Sign up with Google" />
 
-          {/* Bottom links */}
-          <div className="pt-4 border-t border-border-default text-center">
-            <p className="text-xs text-text-secondary">
-              Already have an account?{' '}
-              <Link
-                href="/login"
-                className="text-accent hover:text-accent-hover font-semibold transition-colors"
-              >
-                Sign In
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+          {/* Bottom link */}
+          <p className="text-center text-sm text-text-secondary border-t border-border-default pt-5">
+            Already have an account?{' '}
+            <Link
+              href="/login"
+              className="text-accent hover:text-accent-hover font-semibold transition-colors"
+            >
+              Sign in
+            </Link>
+          </p>
+    </AuthSplitLayout>
   )
 }

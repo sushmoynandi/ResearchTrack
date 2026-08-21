@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { GoogleButton } from '@/components/auth/GoogleButton'
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import {
   Lock,
   Mail,
@@ -257,28 +258,16 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background ambient glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" />
-
-      <div className="w-full max-w-md relative z-10 animate-fade-in">
-        {/* Logo & Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 mb-3 shadow-glow">
-            {is2FA ? <ShieldCheck size={26} className="text-accent animate-pulse" /> : <Atom size={26} className="animate-spin-slow" />}
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-tight">
-            {is2FA ? 'Security Verification' : 'ResearchTrack'}
-          </h1>
-          <p className="text-xs text-text-secondary mt-1">
-            {is2FA
-              ? 'Administrator 2-Step Authentication'
-              : 'AI & Machine Learning Research Workspace'}
-          </p>
-        </div>
-
-        {/* Card */}
-        <div className="glass-card p-6 sm:p-8 space-y-6">
+    <AuthSplitLayout
+      headline="Welcome back to your research desk."
+      subheadline="Sign in to pick up where you left off — your papers, notes, and reading pipeline in one place."
+      title={is2FA ? 'Security verification' : 'Sign in'}
+      subtitle={
+        is2FA
+          ? 'Administrator 2-step authentication'
+          : 'Welcome back — enter your details to continue.'
+      }
+    >
           {!is2FA ? (
             /* ─── Standard Email / Password Form ─── */
             <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-4">
@@ -411,21 +400,17 @@ function LoginForm() {
             </form>
           )}
 
-          {/* Bottom links */}
-          <div className="pt-4 border-t border-border-default text-center">
-            <p className="text-xs text-text-secondary">
-              Don&apos;t have an account?{' '}
-              <Link
-                href="/register"
-                className="text-accent hover:text-accent-hover font-semibold transition-colors"
-              >
-                Create Account
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+          {/* Bottom link */}
+          <p className="text-center text-sm text-text-secondary border-t border-border-default pt-5">
+            Don&apos;t have an account?{' '}
+            <Link
+              href="/register"
+              className="text-accent hover:text-accent-hover font-semibold transition-colors"
+            >
+              Create account
+            </Link>
+          </p>
+    </AuthSplitLayout>
   )
 }
 
