@@ -48,6 +48,10 @@
 - Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
+- **The deployed database keeps itself in sync**: `npm run build` runs `prisma db push`,
+  so every deploy applies whatever `schema.prisma` says. Before this, adding a table
+  locally meant the live site kept crashing on it until someone remembered to run the
+  command by hand. A change that would destroy data fails the build instead of running.
 - **Demo accounts** (created by `npm run seed`, password `password123` for all of them):
   - `student@researchtrack.edu` — Sophia Chen, a student researcher (starts with one sample paper)
   - `supervisor@researchtrack.edu` — Dr. Elena Rostova, a supervisor (Sophia's advisor)
@@ -101,6 +105,7 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-22: Fixed "Could not start the reset" on the live site. The `PasswordResetOtp` table only ever existed on local machines — the deployed database was never told about it, so the first query for a real account failed. Deploys now run `prisma db push` as part of the build, so the live database picks up new tables on its own and this can't happen again with the next one.
 - 2026-08-22: Signing in no longer flashes past the login page on the way to the dashboard. The app shell was deciding "nobody is signed in" before the server had answered — the same fault already fixed on the welcome step, but this one affected every page in the app, which is why it showed up right after signing in. Sign-in and 2-step verification also dropped their artificial 100ms pause and full page reload; they now move straight to the destination with the session already in hand, and the button stays busy until the next screen appears instead of blinking back to normal first.
 - 2026-08-22: Fixed the login page flashing past on the way from sign-up to the profile step. Two separate causes: the app decided "nobody is signed in" before the server had answered — which hit Google sign-ups hardest, since they arrive with a cookie and nothing saved in the browser — and the Register form was doing a full page reload, restarting the whole app just to move one screen across. Signing up now slides straight to the welcome step with the session already in hand. Also removed a duplicated error handler on the Register page that a merge had left behind, which would have shown the same Google error message twice.
 - 2026-08-21: Moved "Forgot password?" to sit under the password box on the Login page rather than beside its label, which is where people look for it. Password reset email is now live — `APPSCRIPT_2FA_URL` is set, so requesting a reset actually sends the 6-digit code to your inbox instead of showing the "sign in with Google instead" message.
