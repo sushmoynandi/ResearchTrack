@@ -55,23 +55,7 @@ export function AuthSplitLayout({
             <div className="absolute inset-0 bg-linear-to-tr from-bg-primary via-bg-primary/70 to-bg-primary/30" />
           </>
         ) : (
-          <>
-            <div className="absolute inset-0 bg-linear-to-br from-bg-secondary via-bg-primary to-bg-primary" />
-            <div
-              className="absolute inset-0 opacity-60"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.035) 1px, transparent 1px)",
-                backgroundSize: "44px 44px",
-                maskImage:
-                  "radial-gradient(ellipse at 30% 25%, black, transparent 75%)",
-                WebkitMaskImage:
-                  "radial-gradient(ellipse at 30% 25%, black, transparent 75%)",
-              }}
-            />
-            <div className="absolute -top-24 -left-24 w-105 h-105 bg-accent/20 rounded-full blur-[130px] pointer-events-none" />
-            <div className="absolute bottom-0 right-0 w-90 h-90 bg-info/20 rounded-full blur-[130px] pointer-events-none" />
-          </>
+          <div className="auth-panel absolute inset-0" />
         )}
 
         {/* Foreground content — one centred column so the gaps never stretch
@@ -80,7 +64,8 @@ export function AuthSplitLayout({
           <div className="w-full max-w-2xl xl:max-w-3xl">
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 w-fit mb-14"
+              style={{ animationDelay: '40ms' }}
+              className="auth-rise inline-flex items-center gap-2.5 w-fit mb-14"
             >
               <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-accent-subtle text-accent border border-accent/30 shadow-glow">
                 <Atom size={22} className="animate-spin-slow" />
@@ -91,18 +76,25 @@ export function AuthSplitLayout({
             </Link>
 
             <div className="space-y-6">
-              <h2 className="text-[38px] xl:text-[46px] font-bold font-display text-text-primary leading-[1.1] tracking-[-0.02em] text-balance">
+              <h2
+                style={{ animationDelay: '100ms' }}
+                className="auth-rise text-[38px] xl:text-[46px] font-bold font-display text-text-primary leading-[1.1] tracking-[-0.02em] text-balance"
+              >
                 {headline || "Your AI research, finally organized."}
               </h2>
-              <p className="text-base text-text-secondary leading-relaxed max-w-xl xl:max-w-2xl">
+              <p
+                style={{ animationDelay: '160ms' }}
+                className="auth-rise text-base text-text-secondary leading-relaxed max-w-xl xl:max-w-2xl"
+              >
                 {subheadline ||
                   "Track papers, pull ArXiv metadata in one click, and turn scattered reading into a structured literature review."}
               </p>
               <ul className="space-y-4 pt-5">
-                {features.map(({ icon: Icon, text }) => (
+                {features.map(({ icon: Icon, text }, i) => (
                   <li
                     key={text}
-                    className="flex items-center gap-3.5 text-[15px] text-text-secondary"
+                    style={{ animationDelay: `${220 + i * 60}ms` }}
+                    className="auth-rise flex items-center gap-3.5 text-[15px] text-text-secondary"
                   >
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary/70 border border-border-default text-accent shrink-0">
                       <Icon size={15} />
@@ -113,7 +105,10 @@ export function AuthSplitLayout({
               </ul>
             </div>
 
-            <p className="text-xs text-text-tertiary mt-14">
+            <p
+              style={{ animationDelay: '400ms' }}
+              className="auth-rise text-xs text-text-tertiary mt-14"
+            >
               © {year} ResearchTrack · Built for researchers
             </p>
           </div>
@@ -122,11 +117,17 @@ export function AuthSplitLayout({
 
       {/* ─── RIGHT: form column (only content shown on mobile) ─── */}
       <main className="relative w-full lg:w-[38%] flex flex-col overflow-y-auto overflow-x-hidden">
-        {/* Soft ambient glow, mobile only */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-125 h-100 bg-accent/10 rounded-full blur-[140px] pointer-events-none lg:hidden" />
+        {/* Soft ambient glow, mobile only — painted, not blurred */}
+        <div
+          className="absolute inset-x-0 top-0 h-100 pointer-events-none lg:hidden"
+          style={{
+            backgroundImage:
+              'radial-gradient(28rem 22rem at 50% 0%, hsl(190 70% 50% / 0.13), transparent 70%)',
+          }}
+        />
 
         <div
-          className={`relative z-10 w-full ${contentClassName} mx-auto my-auto px-6 sm:px-8 py-12 animate-fade-in`}
+          className={`relative z-10 w-full ${contentClassName} mx-auto my-auto px-6 sm:px-8 py-12 auth-rise`}
         >
           {/* Compact logo — mobile only (desktop uses the left panel) */}
           <Link

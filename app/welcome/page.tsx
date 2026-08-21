@@ -20,6 +20,20 @@ const systemRoleOptions = [
   { value: 'SUPERVISOR', label: 'Supervisor / Faculty Advisor' },
 ]
 
+/** Shown while we work out who's signed in — and by Suspense on first paint. */
+function WelcomeLoading() {
+  return (
+    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 shadow-glow animate-spin-slow">
+          <Atom size={26} />
+        </div>
+        <p className="text-xs text-text-secondary">Loading ResearchTrack...</p>
+      </div>
+    </div>
+  )
+}
+
 function WelcomeForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -40,9 +54,6 @@ function WelcomeForm() {
 
   const redirectTarget = searchParams.get('redirect') || '/'
 
-  const finish = () => {
-    window.location.href = redirectTarget
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,39 +77,69 @@ function WelcomeForm() {
           setAuthSession(data.user, data.token)
         }
         addToast('success', 'You’re all set! Welcome to ResearchTrack.')
-        setTimeout(finish, 100)
-      } else {
-        addToast('error', data.error || 'Couldn’t save your profile. Please try again.')
+        // Stay in "saving" until the next page takes over — flipping the button
+        // back to idle for a split second read as a glitch. A client-side push
+        // also keeps the toast on screen instead of wiping it with a reload.
+        router.replace(redirectTarget)
+        router.refresh()
+        return
       }
+
+      addToast('error', data.error || 'Couldn’t save your profile. Please try again.')
+      setSaving(false)
     } catch {
       addToast('error', 'Network error saving your profile.')
-    } finally {
       setSaving(false)
     }
   }
 
   const firstName = user?.name?.split(' ')[0]
 
+  // Wait until we know who this is. Rendering first and correcting a moment
+  // later is what made this page feel broken.
+  if (authLoading || !user) {
+    return <WelcomeLoading />
+  }
+
   return (
     <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[140px] pointer-events-none" />
+      {/* Ambient glow — painted, not blurred */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'radial-gradient(36rem 28rem at 50% 18%, hsl(190 70% 50% / 0.13), transparent 68%)',
+        }}
+      />
 
-      <div className="w-full max-w-lg relative z-10 animate-fade-in py-8">
+      <div className="w-full max-w-lg relative z-10 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 mb-3 shadow-glow">
+          <div
+            style={{ animationDelay: '40ms' }}
+            className="auth-pop inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 mb-3 shadow-glow"
+          >
             <Sparkles size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-tight">
-            {firstName ? `Welcome, ${firstName}!` : 'Welcome!'}
+          <h1
+            style={{ animationDelay: '140ms' }}
+            className="auth-rise text-2xl font-bold text-text-primary font-display tracking-tight"
+          >
+            Welcome, {firstName}!
           </h1>
-          <p className="text-xs text-text-secondary mt-1">
+          <p
+            style={{ animationDelay: '200ms' }}
+            className="auth-rise text-xs text-text-secondary mt-1"
+          >
             One quick step before you start — we need these to set up your workspace
           </p>
         </div>
 
         {/* Card */}
-        <div className="glass-card p-6 sm:p-8 space-y-6">
+        <div
+          style={{ animationDelay: '280ms' }}
+          className="auth-rise glass-card p-6 sm:p-8 space-y-6"
+        >
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Account Type */}
             <Select
@@ -109,25 +150,23 @@ function WelcomeForm() {
               required
             />
 
-            {/* Institution & Department */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Institution / University *"
-                placeholder="e.g. Stanford University"
-                value={institution}
-                onChange={(e) => setInstitution(e.target.value)}
-                icon={<Building size={15} />}
-                required
-              />
-              <Input
-                label="Department *"
-                placeholder="e.g. Computer Science"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                icon={<GraduationCap size={15} />}
-                required
-              />
-            </div>
+            <Input
+              label="Institution / University *"
+              placeholder="e.g. Stanford University"
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value)}
+              icon={<Building size={15} />}
+              required
+            />
+
+            <Input
+              label="Department *"
+              placeholder="e.g. Computer Science"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              icon={<GraduationCap size={15} />}
+              required
+            />
 
             <Button
               type="submit"
@@ -152,18 +191,7 @@ function WelcomeForm() {
 
 export default function WelcomePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 shadow-glow animate-spin-slow">
-              <Atom size={26} />
-            </div>
-            <p className="text-xs text-text-secondary">Loading ResearchTrack...</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<WelcomeLoading />}>
       <WelcomeForm />
     </Suspense>
   )
