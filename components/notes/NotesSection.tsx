@@ -179,10 +179,16 @@ export function NotesSection({
     : 0
 
   const filteredNotes = notes.filter((n) => {
+    // Under no circumstances can a user ever see another user's private note
+    if (n.isPrivate && n.userId !== user?.id) return false
     if (filterMode === 'PUBLIC') return !n.isPrivate
     if (filterMode === 'PRIVATE') return n.isPrivate && n.userId === user?.id
     if (filterMode === 'STUDENT' && selectedStudentId) {
-      return n.userId === selectedStudentId || n.userId === user?.id || (n.user?.systemRole === 'SUPERVISOR' && !n.isPrivate)
+      return (
+        (n.userId === selectedStudentId && !n.isPrivate) ||
+        n.userId === user?.id ||
+        (n.user?.systemRole === 'SUPERVISOR' && !n.isPrivate)
+      )
     }
     return true
   })

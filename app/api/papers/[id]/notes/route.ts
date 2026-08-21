@@ -22,6 +22,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       include: {
         user: { select: { id: true, systemRole: true, supervisorId: true } },
         assignments: { select: { studentId: true, assignedById: true } },
+        shares: { select: { sharedById: true, sharedWithId: true } },
       },
     })
 
@@ -38,8 +39,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         paper.user?.supervisorId === user.id ||
         paper.assignments.some((a) => a.assignedById === user.id))
     const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
+    const isSharedWith = paper.shares?.some((s) => s.sharedWithId === user.id)
 
-    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isSharedWith) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -49,21 +51,26 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     let notesWhere: Record<string, unknown> = {}
 
     if (user.systemRole === 'STUDENT') {
-      // Student only sees their own notes + public notes from faculty / paper owner
+      const sharedByUserIds = (paper.shares || [])
+        .filter((s) => s.sharedWithId === user.id)
+        .map((s) => s.sharedById)
+
+      // Student only sees:
+      // 1. Their own notes (public or private)
+      // 2. Public notes (isPrivate: false) from peers who shared with this student
+      // 3. Public notes (isPrivate: false) from faculty/supervisors
+      // Private notes from any other user are NEVER returned.
       notesWhere = {
         paperId: paper.id,
         OR: [
           { userId: user.id },
           {
             isPrivate: false,
-            user: {
-              NOT: {
-                AND: [
-                  { systemRole: 'STUDENT' as const },
-                  { id: { not: user.id } },
-                ],
-              },
-            },
+            userId: { in: sharedByUserIds },
+          },
+          {
+            isPrivate: false,
+            user: { systemRole: { in: ['SUPERVISOR' as const, 'ADMIN' as const] } },
           },
         ],
       }
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Verify paper access (Owner, Admin, Supervisor, or Assigned Student)
+    // Verify paper access (Owner, Admin, Supervisor, Assigned Student, or Shared Peer)
     const paper = await prisma.paper.findFirst({
       where: {
         AND: [
@@ -134,6 +141,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             OR: [
               { userId: user.id },
               { assignments: { some: { studentId: user.id } } },
+              { shares: { some: { sharedWithId: user.id } } },
               ...(user.systemRole === 'SUPERVISOR'
                 ? [
                     { assignments: { some: { assignedById: user.id } } },
