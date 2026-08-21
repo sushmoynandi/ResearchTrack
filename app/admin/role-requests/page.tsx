@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Textarea } from '@/components/ui/Textarea'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { roleLabel, roleRingClass } from '@/lib/roles'
 import {
   UserCog,
   Check,
@@ -37,9 +38,6 @@ interface RoleRequestRecord {
   }
   reviewedBy: { name: string } | null
 }
-
-const roleLabel = (role: string) =>
-  role === 'SUPERVISOR' ? 'Supervisor' : role === 'ADMIN' ? 'Administrator' : 'Student Researcher'
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
@@ -162,7 +160,12 @@ export default function AdminRoleRequestsPage() {
             <div key={req.id} className="glass-card p-5 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex items-start gap-3.5 min-w-0">
-                  <span className="w-11 h-11 rounded-xl bg-accent-subtle border border-accent/30 text-accent font-bold flex items-center justify-center shrink-0 overflow-hidden">
+                  <span
+                    className={`w-11 h-11 rounded-xl bg-accent-subtle text-accent font-bold flex items-center justify-center shrink-0 overflow-hidden ${roleRingClass(
+                      req.currentRole
+                    )}`}
+                    title={roleLabel(req.currentRole)}
+                  >
                     {req.user.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

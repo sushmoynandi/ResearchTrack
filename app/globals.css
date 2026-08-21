@@ -273,3 +273,49 @@ body {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── Role Ring ────────────────────────────── */
+/* A coloured glow around a person's avatar that says what they are at a
+   glance: blue for a Student Researcher, green for a Supervisor, amber for an
+   Administrator. Pair `.role-ring` with one of the three colour classes. */
+
+.role-ring {
+  border: 1.5px solid var(--role-ring-color);
+  box-shadow:
+    0 0 0 3px var(--role-ring-halo),
+    0 0 14px 1px var(--role-ring-glow);
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.role-ring:hover,
+.group:hover .role-ring {
+  box-shadow:
+    0 0 0 3px var(--role-ring-halo),
+    0 0 22px 3px var(--role-ring-glow);
+}
+
+.role-ring-student {
+  --role-ring-color: hsl(210 85% 62%);
+  --role-ring-halo: hsl(210 85% 62% / 0.16);
+  --role-ring-glow: hsl(210 85% 62% / 0.55);
+}
+
+.role-ring-supervisor {
+  --role-ring-color: hsl(145 62% 48%);
+  --role-ring-halo: hsl(145 62% 48% / 0.16);
+  --role-ring-glow: hsl(145 62% 48% / 0.55);
+}
+
+.role-ring-admin {
+  --role-ring-color: hsl(38 92% 58%);
+  --role-ring-halo: hsl(38 92% 58% / 0.16);
+  --role-ring-glow: hsl(38 92% 58% / 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-ring {
+    transition: none;
+  }
+}

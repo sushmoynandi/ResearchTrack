@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from './AuthProvider'
+import { roleLabel, roleRingClass } from '@/lib/roles'
 import {
   User as UserIcon,
   LogOut,
@@ -64,8 +65,13 @@ export function UserMenu() {
         className="flex items-center gap-2 p-1 rounded-xl hover:bg-bg-tertiary transition-all cursor-pointer group"
         aria-label="User profile menu"
       >
-        {/* Avatar / Initials */}
-        <div className="w-8 h-8 rounded-lg bg-accent/20 border border-accent/40 text-accent font-semibold text-xs flex items-center justify-center transition-transform group-hover:scale-105">
+        {/* Avatar / Initials — the ring glows in this person's role colour */}
+        <div
+          className={`w-8 h-8 rounded-lg bg-accent/20 text-accent font-semibold text-xs flex items-center justify-center transition-transform group-hover:scale-105 ${roleRingClass(
+            user.systemRole
+          )}`}
+          title={roleLabel(user.systemRole)}
+        >
           {user.image ? (
             <img
               src={user.image}

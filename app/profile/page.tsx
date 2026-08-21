@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { PasswordToggle } from '@/components/auth/PasswordToggle'
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter'
 import { useToast } from '@/components/ui/Toast'
+import { roleLabel } from '@/lib/roles'
 import {
   User as UserIcon,
   Building,
@@ -49,9 +50,6 @@ function urlBase64ToUint8Array(base64String: string) {
   }
   return outputArray
 }
-
-const roleLabel = (role: string) =>
-  role === 'SUPERVISOR' ? 'Supervisor' : role === 'ADMIN' ? 'Administrator' : 'Student Researcher'
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
