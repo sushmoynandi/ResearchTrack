@@ -84,3 +84,52 @@ export async function sendAdmin2FACode(params: {
     deliveredVia: 'DEV_FALLBACK',
   }
 }
+
+/**
+ * Sends a password reset code through the same Google Apps Script mailer the
+ * admin 2FA codes use. With APPSCRIPT_2FA_URL unset (local development) the
+ * code is printed to the terminal instead, so the flow still works end to end.
+ */
+export async function sendPasswordResetCode(params: {
+  email: string
+  name: string
+  code: string
+  ip?: string
+}): Promise<{ success: boolean; deliveredVia: 'APPSCRIPT' | 'DEV_FALLBACK' }> {
+  const appscriptUrl = process.env.APPSCRIPT_2FA_URL
+
+  if (appscriptUrl && appscriptUrl.startsWith('http')) {
+    try {
+      const res = await fetch(appscriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: params.email,
+          name: params.name || 'Researcher',
+          code: params.code,
+          appName: 'ResearchTrack',
+          purpose: 'PASSWORD_RESET',
+          subject: 'Your ResearchTrack password reset code',
+          ip: params.ip || '127.0.0.1',
+          time: new Date().toUTCString(),
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (res.ok) return { success: true, deliveredVia: 'APPSCRIPT' }
+      console.warn(`[Password reset mail] HTTP ${res.status}`)
+    } catch (err) {
+      console.error('[Password reset mail] dispatch failed:', err)
+    }
+  }
+
+  console.log('──────────────────────────────────────────────────')
+  console.log('🔑 [PASSWORD RESET CODE]')
+  console.log(`👤 Account     : ${params.name} (${params.email})`)
+  console.log(`🔢 6-Digit Code: ${params.code}`)
+  console.log('⏱️ Expiration  : 15 minutes')
+  console.log('💡 Set APPSCRIPT_2FA_URL in .env to email this instead.')
+  console.log('──────────────────────────────────────────────────')
+
+  return { success: true, deliveredVia: 'DEV_FALLBACK' }
+}

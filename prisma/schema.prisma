@@ -614,6 +614,20 @@ model LabTask {
 }
 
 // ─── Admin Two-Factor Verification ──────────────────────────
+// ─── Password Reset Codes ───────────────────────────────────
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([email])
+}
+
 model TwoFactorOtp {
   id        String   @id @default(cuid())
   userId    String

@@ -29,6 +29,7 @@
 - **Dashboard** (`/`) — Reading pipeline overview, live counters, recent papers, and collection shortcuts
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
+- **Forgot password** (`/forgot-password`) — Emails a 6-digit code, then lets you set a new password
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
 - **Role Requests** (`/admin/role-requests`) — Admin-only queue for approving or declining role change requests
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, profile photo, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
@@ -44,7 +45,7 @@
 - **Research Radar** (`/radar`) — Real-time discovery feed from ArXiv and Hugging Face Daily Papers
 
 ## Database
-- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, plus lab/collaboration models (28 tables total).
+- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
 - **Demo accounts** (created by `npm run seed`, password `password123` for all of them):
@@ -68,6 +69,8 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Added **Forgot password**. There's a "Forgot password?" link next to the password box on the Login page; it asks for your email, sends a 6-digit code, and lets you set a new password — then signs you straight in. The code lasts 15 minutes, dies after 5 wrong guesses, and only one can be sent per minute per address. The page never says whether an email has an account, so it can't be used to find out who's registered. It works for Google accounts too: it simply gives you a password you didn't have, so afterwards either way of signing in works.
+- 2026-08-21: Reset codes go out through the same Google Apps Script mailer the admin 2-step codes use (`APPSCRIPT_2FA_URL` in `.env`). While that isn't set, the code is printed in the dev-server terminal instead, so the whole flow still works locally.
 - 2026-08-21: The profile picture in the top bar now glows in your role's colour — **blue** for a Student Researcher, **green** for a Supervisor, **amber** for an Administrator — so you can tell at a glance who you're signed in as. Hovering brightens it, and the same coloured ring is used on the avatars in the admin Role Requests queue.
 - 2026-08-21: You now set your own frame when adding a profile photo. Picking a picture opens a window with a square frame over it — drag the picture to move it, use the slider to zoom in, and whatever fills the frame is what gets saved. A reset button puts it back to the middle. Before this it just took a blind centre crop.
 - 2026-08-21: Tightened the Account Role card on the Profile page. Since there are only two roles, the dropdown is gone — it now simply says "Request to become **Supervisor**" with the role highlighted. Saying **why** is now required (an admin needs something to go on), the whole card is more compact, and the Withdraw request button has a visible background instead of blending into the panel.

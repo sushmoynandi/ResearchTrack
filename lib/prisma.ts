@@ -22,7 +22,8 @@ function isClientUpToDate(client: any): boolean {
       'assignment' in client &&
       'pushSubscription' in client &&
       'labTask' in client &&
-      'roleChangeRequest' in client
+      'roleChangeRequest' in client &&
+      'passwordResetOtp' in client
   )
 }
 

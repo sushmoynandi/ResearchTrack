@@ -6,7 +6,7 @@ const key = new TextEncoder().encode(
 )
 
 /** Pages a signed-in person can always reach, finished profile or not. */
-const ALWAYS_ALLOWED = ['/login', '/register', '/welcome']
+const ALWAYS_ALLOWED = ['/login', '/register', '/welcome', '/forgot-password']
 
 function isAllowed(pathname: string) {
   if (pathname.startsWith('/api/')) return true

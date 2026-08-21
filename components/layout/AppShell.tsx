@@ -37,7 +37,8 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const isAuthPage = Boolean(
     pathname?.startsWith('/login') ||
       pathname?.startsWith('/register') ||
-      pathname?.startsWith('/welcome')
+      pathname?.startsWith('/welcome') ||
+      pathname?.startsWith('/forgot-password')
   )
 
   useEffect(() => {

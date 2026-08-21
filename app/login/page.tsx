@@ -309,8 +309,17 @@ function LoginForm() {
                 required
               />
 
+              <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-text-secondary">Password</span>
+                <Link
+                  href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                  className="text-[11px] text-accent hover:text-accent-hover font-medium transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
-                label="Password"
                 placeholder="••••••••"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
@@ -324,6 +333,7 @@ function LoginForm() {
                 }
                 required
               />
+              </div>
 
               <Button
                 type="submit"
