@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -9,9 +10,11 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { AuthSplitLayout } from "@/components/auth/AuthSplitLayout";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
-import { User as UserIcon, Mail, Lock, ArrowRight } from "lucide-react";
+import { User as UserIcon, Mail, Lock, ArrowRight, Atom } from "lucide-react";
 
-export default function RegisterPage() {
+function RegisterForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { addToast } = useToast();
   const { setAuthSession } = useAuth();
 
@@ -34,6 +37,47 @@ export default function RegisterPage() {
   };
 
   const passwordScore = calculateStrength(password);
+
+  // Surface Google sign-up errors passed back via ?error=
+  useEffect(() => {
+    const err = searchParams.get("error");
+    if (!err) return;
+    const messages: Record<string, string> = {
+      google_not_configured:
+        "Google sign-up isn't set up yet. Add your Google keys to enable it.",
+      google_denied: "Google sign-up was cancelled.",
+      google_state: "Your Google session expired. Please try again.",
+      google_token: "Couldn't complete Google sign-up. Please try again.",
+      google_verify: "Couldn't verify your Google account. Please try again.",
+      google_email: "Your Google account didn't share a verified email address.",
+      google_account:
+        "Something went wrong creating your account. Please try again.",
+      account_disabled:
+        "This account has been deactivated. Contact your administrator.",
+    };
+    addToast("error", messages[err] || "Google sign-up failed. Please try again.");
+    // Clean the error out of the URL so it doesn't reappear on refresh
+    router.replace("/register");
+  }, [searchParams, addToast, router]);
+
+  // Surface Google sign-up errors passed back via ?error=
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (!err) return
+    const messages: Record<string, string> = {
+      google_not_configured: 'Google sign-up isn’t set up yet. Add your Google keys to enable it.',
+      google_denied: 'Google sign-up was cancelled.',
+      google_state: 'Your Google session expired. Please try again.',
+      google_token: 'Couldn’t complete Google sign-up. Please try again.',
+      google_verify: 'Couldn’t verify your Google account. Please try again.',
+      google_email: 'Your Google account didn’t share a verified email address.',
+      google_account: 'Something went wrong creating your account. Please try again.',
+      account_disabled: 'This account has been deactivated. Contact your administrator.',
+    }
+    addToast('error', messages[err] || 'Google sign-up failed. Please try again.')
+    // Clean the error out of the URL so it doesn't reappear on refresh
+    router.replace('/register')
+  }, [searchParams, addToast, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,5 +247,24 @@ export default function RegisterPage() {
         </Link>
       </p>
     </AuthSplitLayout>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/30 shadow-glow animate-spin-slow">
+              <Atom size={26} />
+            </div>
+            <p className="text-xs text-text-secondary">Loading ResearchTrack...</p>
+          </div>
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

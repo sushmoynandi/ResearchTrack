@@ -19,36 +19,42 @@ function safeRedirect(target: string | undefined): string {
   return target
 }
 
-/** Send the user back to the login screen with a code the UI turns into a toast. */
-function fail(request: NextRequest, code: string) {
-  return NextResponse.redirect(new URL(`/login?error=${code}`, request.url))
+/**
+ * Send the user back to the page they started from (login or register) with a
+ * code the UI turns into a toast.
+ */
+function fail(request: NextRequest, code: string, mode: string = 'login') {
+  const page = mode === 'register' ? '/register' : '/login'
+  return NextResponse.redirect(new URL(`${page}?error=${code}`, request.url))
 }
 
 // GET /api/auth/google/callback  → Google redirects here after the user approves
 export async function GET(request: NextRequest) {
   const url = request.nextUrl
 
+  const cookieStore = await cookies()
+  const savedState = cookieStore.get('g_oauth_state')?.value
+  const redirectTarget = safeRedirect(cookieStore.get('g_oauth_redirect')?.value)
+  // Which button they pressed: "Sign up with Google" or "Continue with Google"
+  const mode = cookieStore.get('g_oauth_mode')?.value === 'register' ? 'register' : 'login'
+
   // The user cancelled or Google returned an error
   if (url.searchParams.get('error')) {
-    return fail(request, 'google_denied')
+    return fail(request, 'google_denied', mode)
   }
 
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
 
-  const cookieStore = await cookies()
-  const savedState = cookieStore.get('g_oauth_state')?.value
-  const redirectTarget = safeRedirect(cookieStore.get('g_oauth_redirect')?.value)
-
   // CSRF protection: the state we sent must come back untouched
   if (!code || !state || !savedState || state !== savedState) {
-    return fail(request, 'google_state')
+    return fail(request, 'google_state', mode)
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
   if (!clientId || !clientSecret) {
-    return fail(request, 'google_not_configured')
+    return fail(request, 'google_not_configured', mode)
   }
 
   // ── 1. Exchange the one-time code for tokens (server-to-server) ──
@@ -68,15 +74,15 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       console.error('Google token exchange failed:', await tokenRes.text())
-      return fail(request, 'google_token')
+      return fail(request, 'google_token', mode)
     }
 
     const tokenData = await tokenRes.json()
     idToken = tokenData.id_token
-    if (!idToken) return fail(request, 'google_token')
+    if (!idToken) return fail(request, 'google_token', mode)
   } catch (err) {
     console.error('Google token exchange error:', err)
-    return fail(request, 'google_token')
+    return fail(request, 'google_token', mode)
   }
 
   // ── 2. Verify the ID token signature, issuer and audience ──
@@ -89,7 +95,7 @@ export async function GET(request: NextRequest) {
     payload = verified.payload as Record<string, unknown>
   } catch (err) {
     console.error('Google ID token verification failed:', err)
-    return fail(request, 'google_verify')
+    return fail(request, 'google_verify', mode)
   }
 
   const email = (payload.email as string | undefined)?.trim().toLowerCase()
@@ -99,13 +105,25 @@ export async function GET(request: NextRequest) {
   const picture = (payload.picture as string | undefined) || null
 
   if (!email || !emailVerified || !sub) {
-    return fail(request, 'google_email')
+    return fail(request, 'google_email', mode)
   }
 
   // ── 3. Find or create the researcher account ──
+  //
+  // "Continue with Google" on the LOGIN page only signs people in — it never
+  // creates an account. Signing up is a deliberate act, so an unknown email is
+  // sent back to the login page with a nudge to register first.
+  //
+  // If the email already belongs to an account — including one registered
+  // manually with a password — the Google identity is linked to it and they
+  // are signed straight in, from either page.
   let user
   try {
     user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user && mode !== 'register') {
+      return fail(request, 'google_no_account', 'login')
+    }
 
     if (!user) {
       user = await prisma.user.create({
@@ -167,11 +185,11 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error('Google user upsert error:', err)
-    return fail(request, 'google_account')
+    return fail(request, 'google_account', mode)
   }
 
   if (user.isActive === false) {
-    return fail(request, 'account_disabled')
+    return fail(request, 'account_disabled', mode)
   }
 
   // ── 4. Issue the same session cookie the password flow uses ──

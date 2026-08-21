@@ -10,7 +10,10 @@
 ## Authentication & User Accounts
 - **Login Options** (both available on `/login` and `/register`):
   - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter, admin 2-step verification
-  - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up. New Google users get an account created automatically; existing email accounts get Google linked to them so they can use either method.
+  - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up, with a clear split between the two buttons:
+    - **"Sign up with Google" on the Register page** creates the account.
+    - **"Continue with Google" on the Login page only signs you in.** If no account uses that Google address yet, nothing is created — you're sent back to the Login page with a notice explaining you need to register first (with a link straight to the Register page).
+    - **Registered manually first?** If you created your account with an email and password, signing in with Google using that same address links the two and logs you in. From then on either method works — your password keeps working too.
   - **Required profile step after sign-up** (`/welcome`): Both sign-up paths behave identically — finish the Register form or tap "Continue with Google" and you land on a one-time screen asking three things: *I am a…* (Student or Supervisor), *Institution / University*, and *Department*. All three are required and there is no way to skip. Until they are saved, every other page bounces back to this screen, so nobody can use the app with a half-empty profile. Once saved, the person goes to the page they were originally headed for. Details can be edited later on the Profile page.
 - **How Google Sign-In works** (for the curious):
   - `GET /api/auth/google` sends the user to Google's account chooser (with an anti-CSRF `state`)
@@ -64,6 +67,7 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: Split what the two Google buttons do. "Continue with Google" on the Login page no longer creates accounts — an unknown Google address now gets a clear notice on the Login page pointing to Register instead of quietly making an account. "Sign up with Google" on the Register page still creates one. And if you registered manually with an email and password, signing in with Google on that same address links the two, so both ways of signing in work from then on. Google errors now also send you back to whichever page you started from, instead of always the Login page.
 - 2026-08-21: Added **Delete Account** at the bottom of the Profile page, in a red "Danger Zone" box. Clicking it opens a confirmation window that lists what will be removed and asks you to type **DELETE** before the button turns on — so it can't happen by accident. Deleting clears your papers, notes, tags, collections, assignments and lab memberships, then signs you out. If you're the lead of a lab, it stops and asks you to hand the lab over first, so nobody else's work disappears with you.
 - 2026-08-21: Fixed the profile step showing the app's sidebar and header around it — `/welcome` now renders on its own like the Login and Register pages, so there's nothing to click away to before it's filled in.
 - 2026-08-21: Added `suppressHydrationWarning` to the page `<body>`. Browser extensions (password managers, grammar checkers, dark-mode tools) add their own attributes to the page before it loads, which made the dev server report a false error in `app/layout.tsx`.

@@ -19,6 +19,7 @@ import {
   RefreshCw,
   ArrowLeft,
   KeyRound,
+  AlertCircle,
 } from 'lucide-react'
 
 function maskEmail(email: string) {
@@ -39,6 +40,8 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Stays on screen (unlike the toast) when Google sign-in found no account
+  const [noGoogleAccount, setNoGoogleAccount] = useState(false)
 
   // 2-Step Verification State
   const [is2FA, setIs2FA] = useState(false)
@@ -71,8 +74,11 @@ function LoginForm() {
       google_verify: 'Couldn’t verify your Google account. Please try again.',
       google_email: 'Your Google account didn’t share a verified email address.',
       google_account: 'Something went wrong creating your account. Please try again.',
+      google_no_account:
+        'No ResearchTrack account uses that Google address yet. Create an account first, then you can sign in with Google.',
       account_disabled: 'This account has been deactivated. Contact your administrator.',
     }
+    if (err === 'google_no_account') setNoGoogleAccount(true)
     addToast('error', messages[err] || 'Google sign-in failed. Please try again.')
     // Clean the error out of the URL so it doesn't reappear on refresh
     router.replace('/login')
@@ -267,6 +273,29 @@ function LoginForm() {
           : 'Welcome back — enter your details to continue.'
       }
     >
+          {/* Google sign-in found no account for that address */}
+          {noGoogleAccount && !is2FA && (
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-amber-200">
+                  No account for that Google address
+                </p>
+                <p className="text-[11px] text-text-secondary leading-relaxed">
+                  Signing in with Google only works once you have an account.{' '}
+                  <Link
+                    href="/register"
+                    className="text-accent hover:text-accent-hover font-semibold"
+                  >
+                    Create one first
+                  </Link>{' '}
+                  — you can use the same Google address, then Google sign-in will
+                  work every time after that.
+                </p>
+              </div>
+            </div>
+          )}
+
           {!is2FA ? (
             /* ─── Standard Email / Password Form ─── */
             <form onSubmit={(e) => handleCredentialsSubmit(e)} className="space-y-3.5">
