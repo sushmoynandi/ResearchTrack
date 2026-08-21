@@ -67,6 +67,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           },
           orderBy: { createdAt: 'desc' },
         },
+        shares: {
+          include: {
+            sharedBy: { select: { id: true, name: true, email: true } },
+            sharedWith: { select: { id: true, name: true, email: true, department: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
         feedback: {
           include: {
             author: { select: { id: true, name: true, image: true, systemRole: true } },
@@ -80,28 +87,41 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
     }
 
-    // Access check: Owner, Admin, Supervisor, or Assigned Student
+    // Access check: Owner, Admin, Supervisor, Assigned Student, or Shared Peer
     const isOwner = paper.userId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
     const isAssigned = paper.assignments?.some((a) => a.studentId === user.id)
+    const isSharedWith = paper.shares?.some((s) => s.sharedWithId === user.id)
 
-    // Supervisor access: Owner or assigned by supervisor
+    // Supervisor access: Owner, supervised student, or assigned by supervisor
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner || paper.assignments?.some((a) => a.assignedById === user.id))
+      (isOwner ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments?.some((a) => a.assignedById === user.id))
 
-    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isSharedWith) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // For assigned student researchers, default literatureReview payload to their personal assignment synthesis
+    // For assigned student researchers, strictly isolate their own assignment, notes, and synthesis
     if (user.systemRole === 'STUDENT') {
       const studentAssignment = paper.assignments.find((a) => a.studentId === user.id)
-      if (studentAssignment?.literatureReview) {
-        paper.literatureReview = studentAssignment.literatureReview
-      } else {
-        paper.literatureReview = null
-      }
+      paper.literatureReview = studentAssignment?.literatureReview || (paper.userId === user.id ? paper.literatureReview : null)
+      paper.assignments = studentAssignment ? [studentAssignment] : []
+      const sharedByUserIds = (paper.shares || [])
+        .filter((s) => s.sharedWithId === user.id)
+        .map((s) => s.sharedById)
+
+      paper.notes = paper.notes.filter(
+        (n) =>
+          n.userId === user.id ||
+          (n.user?.systemRole !== 'STUDENT' && !n.isPrivate) ||
+          (sharedByUserIds.includes(n.userId) && !n.isPrivate)
+      )
+      paper.feedback = paper.feedback.filter(
+        (f) => f.targetUserId === user.id || f.authorId === user.id || f.author?.systemRole !== 'STUDENT'
+      )
     }
 
     return NextResponse.json(paper)
@@ -145,6 +165,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           },
         },
         assignments: true,
+        shares: true,
         tags: true,
       },
     })
@@ -157,11 +178,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner || existing.assignments?.some((a) => a.assignedById === user.id))
+      (isOwner ||
+        existing.user?.supervisorId === user.id ||
+        existing.assignments?.some((a) => a.assignedById === user.id))
     const activeAssignment = existing.assignments?.find((a) => a.studentId === user.id)
     const isAssigned = Boolean(activeAssignment)
+    const isSharedWith = existing.shares?.some((s) => s.sharedWithId === user.id)
 
-    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isSharedWith) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -85,6 +85,8 @@ model User {
   pushSubscriptions      PushSubscription[]
   assignedLabTasks       LabTask[]         @relation("AssignedLabTasks")
   createdLabTasks        LabTask[]         @relation("CreatedLabTasks")
+  sharedPapersSent       PaperShare[]      @relation("SharedPapersBy")
+  sharedPapersReceived   PaperShare[]      @relation("SharedPapersWith")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -140,8 +142,25 @@ model Paper {
   rubrics             ReviewRubric[]
   starterPackItems    StarterPackItem[]
   journalClubSessions JournalClubSession[]
+  shares              PaperShare[]
 
   @@unique([userId, doi])
+}
+
+// ─── PaperShare (Peer Student / Colleague Sharing) ───────────
+model PaperShare {
+  id           String   @id @default(cuid())
+  paperId      String
+  paper        Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  sharedById   String
+  sharedBy     User     @relation("SharedPapersBy", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWithId String
+  sharedWith   User     @relation("SharedPapersWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
+  permission   String   @default("VIEW") // "VIEW" | "COMMENT"
+  note         String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@unique([paperId, sharedWithId])
 }
 
 // ─── Assignment (Supervisor → Student) ──────────────────────

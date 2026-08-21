@@ -20,16 +20,25 @@ import {
   Globe,
   ShieldCheck,
   EyeOff,
+  GraduationCap,
+  Users,
 } from 'lucide-react'
 import type { Note } from '@/lib/types'
 
 interface NotesSectionProps {
   paperId: string
   initialNotes?: Note[]
+  selectedStudentId?: string
+  students?: { id: string; name: string }[]
 }
 
-export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) {
-  const { user } = useAuth()
+export function NotesSection({
+  paperId,
+  initialNotes = [],
+  selectedStudentId,
+  students = [],
+}: NotesSectionProps) {
+  const { user, isSupervisor, isAdmin } = useAuth()
   const { addToast } = useToast()
   const [notes, setNotes] = useState<Note[]>(() =>
     (initialNotes || []).filter((n) => !n.isPrivate || n.userId === user?.id)
@@ -38,7 +47,7 @@ export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) 
   const [newIsPrivate, setNewIsPrivate] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [filterMode, setFilterMode] = useState<'ALL' | 'PUBLIC' | 'PRIVATE'>('ALL')
+  const [filterMode, setFilterMode] = useState<'ALL' | 'PUBLIC' | 'PRIVATE' | 'STUDENT'>('ALL')
 
   React.useEffect(() => {
     const visible = (initialNotes || []).filter(
@@ -163,9 +172,18 @@ export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) 
   const publicNotesCount = notes.filter((n) => !n.isPrivate).length
   const myPrivateNotesCount = notes.filter((n) => n.isPrivate && n.userId === user?.id).length
 
+  const selectedStudentObj = selectedStudentId ? students.find((s) => s.id === selectedStudentId) : null
+  const selectedStudentName = selectedStudentObj?.name || 'Selected Student'
+  const selectedStudentNotesCount = selectedStudentId
+    ? notes.filter((n) => n.userId === selectedStudentId).length
+    : 0
+
   const filteredNotes = notes.filter((n) => {
     if (filterMode === 'PUBLIC') return !n.isPrivate
     if (filterMode === 'PRIVATE') return n.isPrivate && n.userId === user?.id
+    if (filterMode === 'STUDENT' && selectedStudentId) {
+      return n.userId === selectedStudentId || n.userId === user?.id || (n.user?.systemRole === 'SUPERVISOR' && !n.isPrivate)
+    }
     return true
   })
 
@@ -204,7 +222,7 @@ export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) 
 
       {/* Filter Tabs */}
       {notes.length > 0 && (
-        <div className="flex items-center gap-1.5 border-b border-border-default pb-3 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border-default pb-3 text-xs">
           <button
             type="button"
             onClick={() => setFilterMode('ALL')}
@@ -216,6 +234,19 @@ export function NotesSection({ paperId, initialNotes = [] }: NotesSectionProps) 
           >
             All Notes ({notes.length})
           </button>
+          {selectedStudentId && selectedStudentId !== user?.id && selectedStudentNotesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterMode('STUDENT')}
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                filterMode === 'STUDENT'
+                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+              }`}
+            >
+              <GraduationCap size={12} /> {selectedStudentName}&apos;s Notes ({selectedStudentNotesCount})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setFilterMode('PUBLIC')}

@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Clock,
   UserCheck,
+  Share2,
 } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -64,9 +65,24 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
             />
           </div>
 
-          {/* Assigned Person / Supervisor / Student Owner Badge */}
+          {/* Assigned Person / Supervisor / Student Owner / Shared Badge */}
           <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-            {paper.user && paper.userId !== user?.id && paper.user.systemRole === 'STUDENT' && (
+            {paper.shares &&
+              paper.shares.length > 0 &&
+              paper.shares.some((s) => s.sharedWithId === user?.id) && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  title="Shared by peer student researcher"
+                >
+                  <Share2 size={11} />
+                  <span>
+                    Shared by{' '}
+                    {paper.shares.find((s) => s.sharedWithId === user?.id)?.sharedBy?.name ||
+                      'Peer'}
+                  </span>
+                </span>
+              )}
+            {paper.user && paper.userId !== user?.id && paper.user.systemRole === 'STUDENT' && !paper.shares?.some((s) => s.sharedWithId === user?.id) && (
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30"
                 title={`Added by Student: ${paper.user.name}`}

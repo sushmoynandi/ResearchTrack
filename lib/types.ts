@@ -83,7 +83,22 @@ export interface Paper {
   notes?: Note[]
   user?: { id: string; name: string; systemRole: SystemRole; email?: string }
   assignments?: Assignment[]
+  shares?: PaperShare[]
   _count?: { notes?: number; feedback?: number }
+}
+
+// ─── PaperShare (Peer Student / Colleague Sharing) ───────────
+export interface PaperShare {
+  id: string
+  paperId: string
+  paper?: Paper
+  sharedById: string
+  sharedBy?: User
+  sharedWithId: string
+  sharedWith?: User
+  permission: 'VIEW' | 'COMMENT'
+  note?: string | null
+  createdAt: string
 }
 
 // ─── Assignment ─────────────────────────────────────────────

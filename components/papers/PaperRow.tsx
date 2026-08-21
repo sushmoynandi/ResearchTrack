@@ -5,7 +5,7 @@ import { StatusBadge } from './StatusBadge'
 import { PriorityIndicator } from './PriorityIndicator'
 import { StarButton } from './StarButton'
 import { Badge } from '@/components/ui/Badge'
-import { MessageSquare, Cpu, Trophy, UserCheck } from 'lucide-react'
+import { MessageSquare, Cpu, Trophy, UserCheck, Share2 } from 'lucide-react'
 import { GithubIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/components/auth/AuthProvider'
 import type { Paper } from '@/lib/types'
@@ -21,6 +21,7 @@ export function PaperRow({ paper, onUpdate }: PaperRowProps) {
   const firstAssignment = paper.assignments?.[0]
   const isAssignedToCurrentUser = user?.id === firstAssignment?.studentId
   const isStudentView = user?.systemRole === 'STUDENT' && isAssignedToCurrentUser
+  const sharedWithMe = paper.shares?.find((s) => s.sharedWithId === user?.id)
 
   return (
     <Link
@@ -57,8 +58,21 @@ export function PaperRow({ paper, onUpdate }: PaperRowProps) {
         </p>
       </div>
 
+      {/* Shared by peer badge */}
+      {sharedWithMe && (
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+            title={`Shared by ${sharedWithMe.sharedBy?.name || 'Peer'}`}
+          >
+            <Share2 size={11} />
+            <span>Shared by {sharedWithMe.sharedBy?.name || 'Peer'}</span>
+          </span>
+        </div>
+      )}
+
       {/* Assigned Person badge */}
-      {firstAssignment && (
+      {firstAssignment && !sharedWithMe && (
         <div className="hidden sm:flex items-center gap-1 shrink-0">
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30"

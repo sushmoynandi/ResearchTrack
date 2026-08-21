@@ -16,6 +16,7 @@ import { LiteratureReviewView, LiteratureReviewEditor } from '@/components/paper
 import { CitationGraph } from '@/components/papers/CitationGraph'
 import { ConnectedLiteratureExplorer } from '@/components/papers/ConnectedLiteratureExplorer'
 import { PaperChatAssistant } from '@/components/papers/PaperChatAssistant'
+import { SharePaperModal } from '@/components/papers/SharePaperModal'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -80,6 +81,7 @@ export default function PaperDetailPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false)
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>('')
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   // Student Literature Review Editor Modal State
   const [isEditReviewModalOpen, setIsEditReviewModalOpen] = useState(false)
@@ -385,7 +387,7 @@ export default function PaperDetailPage() {
   }
 
   const handleOpenEditReviewModal = () => {
-    setEditReviewData(parsedLiteratureReview)
+    setEditReviewData(rawLitReview)
     setIsEditReviewModalOpen(true)
   }
 
@@ -529,6 +531,21 @@ export default function PaperDetailPage() {
             </Button>
           </Link>
 
+          {/* Peer Student Sharing Action */}
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Share2 size={14} className="text-purple-400" />}
+            onClick={() => setIsShareModalOpen(true)}
+          >
+            Share
+            {Boolean(paper.shares && paper.shares.length > 0) && (
+              <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-purple-500/20 text-purple-400 rounded-md font-mono font-bold">
+                {paper.shares?.length}
+              </span>
+            )}
+          </Button>
+
           {/* 1-Click Supervisor Assignment Action */}
           {(isSupervisor || isAdmin) && (
             <Button
@@ -546,6 +563,13 @@ export default function PaperDetailPage() {
               More actions
             </summary>
             <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-border-default bg-bg-secondary p-1.5 shadow-xl space-y-1">
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+              >
+                <Share2 size={13} className="text-purple-400" /> Share with peers
+              </button>
               <Link
                 href={`/papers/${paper.slug || paper.id}/present`}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
@@ -570,7 +594,7 @@ export default function PaperDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowDeleteModal(true)}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-danger hover:bg-danger-subtle/30 cursor-pointer"
+                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
                   >
                     <Trash2 size={13} /> Delete paper
                   </button>
@@ -580,6 +604,29 @@ export default function PaperDetailPage() {
           </details>
         </div>
       </div>
+
+      {/* Peer Student Shared Banner */}
+      {isStudent && paper.shares && paper.shares.some((s) => s.sharedWithId === user?.id) && (
+        <div className="glass-card p-4 md:p-5 border-emerald-500/30 bg-emerald-500/5 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+              <Share2 size={20} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5">
+                Collaborative Paper Shared with You 🤝
+              </p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Shared by{' '}
+                <strong className="text-emerald-400 font-semibold">
+                  {paper.shares.find((s) => s.sharedWithId === user?.id)?.sharedBy?.name || 'Fellow Researcher'}
+                </strong>{' '}
+                for joint literature exploration.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assigned Person / Supervisor Details Banner */}
       {isStudent && visibleAssignment && (
@@ -1296,7 +1343,15 @@ export default function PaperDetailPage() {
       )}
 
       {/* Interactive Notes Section */}
-      <NotesSection paperId={paper.id} initialNotes={paper.notes} />
+      <NotesSection
+        paperId={paper.id}
+        initialNotes={paper.notes}
+        selectedStudentId={selectedReviewerId}
+        students={paper.assignments?.map((a) => ({
+          id: a.studentId,
+          name: a.student?.name || 'Student',
+        }))}
+      />
 
       {/* Faculty Review Rubric & Conference Scorecard */}
       <FacultyRubricCard paperId={paper.id} paperTitle={paper.title} />
@@ -1580,6 +1635,17 @@ export default function PaperDetailPage() {
           </div>
         </Modal>
       )}
+
+      {/* Peer Student Paper Sharing Modal */}
+      <SharePaperModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        paperId={paper.id}
+        paperTitle={paper.title}
+        paperSlug={paper.slug}
+        currentShares={paper.shares}
+        onSharesUpdated={fetchPaper}
+      />
     </div>
   )
 }

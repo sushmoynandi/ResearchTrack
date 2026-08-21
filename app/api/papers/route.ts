@@ -58,11 +58,12 @@ export async function GET(request: NextRequest) {
         }
       }
     } else {
-      // STUDENT role: own papers AND assigned papers
+      // STUDENT role: own papers, assigned papers, AND shared papers
       userFilter = {
         OR: [
           { userId: user.id },
           { assignments: { some: { studentId: user.id } } },
+          { shares: { some: { sharedWithId: user.id } } },
         ],
       }
     }
@@ -112,10 +113,25 @@ export async function GET(request: NextRequest) {
             student: { select: { id: true, name: true, email: true } },
           },
         },
+        shares: {
+          include: {
+            sharedBy: { select: { id: true, name: true, email: true } },
+            sharedWith: { select: { id: true, name: true, email: true } },
+          },
+        },
         _count: { select: { notes: true, feedback: true } },
       },
       orderBy: { [sort]: order },
     })
+
+    // For students: strictly isolate assignments to only their own (never expose other students assigned to the same paper)
+    if (user.systemRole === 'STUDENT') {
+      const sanitized = papers.map((p) => ({
+        ...p,
+        assignments: (p.assignments || []).filter((a) => a.studentId === user.id),
+      }))
+      return NextResponse.json(sanitized)
+    }
 
     return NextResponse.json(papers)
   } catch (error) {

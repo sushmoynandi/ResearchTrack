@@ -33,21 +33,63 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const isAdmin = user.systemRole === 'ADMIN'
     const isSupervisor =
       user.systemRole === 'SUPERVISOR' &&
-      (isOwner || paper.assignments.some((a) => a.assignedById === user.id))
+      (isOwner ||
+        paper.userId === user.id ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments.some((a) => a.assignedById === user.id))
     const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
 
     if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const notes = await prisma.note.findMany({
-      where: {
+    const { searchParams } = new URL(_request.url)
+    const targetStudentId = searchParams.get('studentId')
+
+    let notesWhere: Record<string, unknown> = {}
+
+    if (user.systemRole === 'STUDENT') {
+      // Student only sees their own notes + public notes from faculty / paper owner
+      notesWhere = {
         paperId: paper.id,
         OR: [
-          { userId: user.id }, // Author sees their own private and public notes
-          { isPrivate: false }, // Others (supervisors / peers) only see public notes
+          { userId: user.id },
+          {
+            isPrivate: false,
+            user: {
+              NOT: {
+                AND: [
+                  { systemRole: 'STUDENT' as const },
+                  { id: { not: user.id } },
+                ],
+              },
+            },
+          },
         ],
-      },
+      }
+    } else if (targetStudentId) {
+      // Supervisor inspecting a specific student's workspace
+      notesWhere = {
+        paperId: paper.id,
+        OR: [
+          { userId: user.id }, // Supervisor's own notes
+          { userId: targetStudentId, isPrivate: false }, // Target student's public notes
+          { user: { systemRole: { in: ['SUPERVISOR' as const, 'ADMIN' as const] } }, isPrivate: false },
+        ],
+      }
+    } else {
+      // Supervisor general view
+      notesWhere = {
+        paperId: paper.id,
+        OR: [
+          { userId: user.id }, // Own notes
+          { isPrivate: false }, // Public notes from students & faculty
+        ],
+      }
+    }
+
+    const notes = await prisma.note.findMany({
+      where: notesWhere,
       include: {
         user: { select: { id: true, name: true, systemRole: true } },
       },
@@ -93,7 +135,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               { userId: user.id },
               { assignments: { some: { studentId: user.id } } },
               ...(user.systemRole === 'SUPERVISOR'
-                ? [{ assignments: { some: { assignedById: user.id } } }]
+                ? [
+                    { assignments: { some: { assignedById: user.id } } },
+                    { user: { supervisorId: user.id } },
+                  ]
                 : []),
               ...(user.systemRole === 'ADMIN' ? [{}] : []),
             ],
