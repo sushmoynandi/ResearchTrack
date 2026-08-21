@@ -17,6 +17,8 @@ import {
   Building,
   Mail,
   Inbox,
+  TriangleAlert,
+  RefreshCw,
 } from 'lucide-react'
 
 interface RoleRequestRecord {
@@ -51,6 +53,9 @@ export default function AdminRoleRequestsPage() {
 
   const [requests, setRequests] = useState<RoleRequestRecord[]>([])
   const [loading, setLoading] = useState(true)
+  // Telling an admin "nothing waiting" when the request actually failed hides a
+  // real problem behind a normal-looking screen.
+  const [loadError, setLoadError] = useState('')
 
   // Decision modal
   const [deciding, setDeciding] = useState<{
@@ -61,15 +66,25 @@ export default function AdminRoleRequestsPage() {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const res = await fetch('/api/admin/role-requests')
+
       if (res.ok) {
         setRequests(await res.json())
-      } else {
-        addToast('error', 'Could not load role requests')
+        return
       }
+
+      const message =
+        res.status === 403
+          ? 'This account is not an administrator, so the queue can’t be loaded.'
+          : 'Couldn’t load role requests.'
+      setLoadError(message)
+      addToast('error', message)
     } catch {
-      addToast('error', 'Network error loading role requests')
+      const message = 'Network error loading role requests.'
+      setLoadError(message)
+      addToast('error', message)
     } finally {
       setLoading(false)
     }
@@ -147,8 +162,26 @@ export default function AdminRoleRequestsPage() {
         </Badge>
       </div>
 
+      {/* Something went wrong fetching the queue */}
+      {loadError && (
+        <div className="glass-card p-5 border-danger/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <TriangleAlert size={16} className="text-danger shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-text-primary">
+                Couldn&apos;t load the queue
+              </p>
+              <p className="text-xs text-text-secondary">{loadError}</p>
+            </div>
+          </div>
+          <Button size="sm" variant="secondary" onClick={load} icon={<RefreshCw size={14} />}>
+            Try again
+          </Button>
+        </div>
+      )}
+
       {/* Pending */}
-      {pending.length === 0 ? (
+      {loadError ? null : pending.length === 0 ? (
         <EmptyState
           icon={<Inbox size={28} />}
           title="Nothing waiting"

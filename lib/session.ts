@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers'
 import { AUTH_COOKIE_NAME, verifySessionToken, SessionUser } from './auth'
+import { prisma } from './prisma'
 import type { SystemRole } from './types'
 
 export async function getCurrentUser(request?: Request): Promise<SessionUser | null> {
@@ -59,15 +60,32 @@ export async function requireUser(request?: Request): Promise<SessionUser> {
 /**
  * Require the current user to have one of the specified system roles.
  * Throws if not authenticated or role doesn't match.
+ *
+ * The role is read from the database rather than the session cookie. A cookie
+ * carries whatever the role was when it was issued and lives for 30 days, so
+ * trusting it means a promotion doesn't take effect until the person signs out
+ * and back in — and, worse, someone demoted keeps their old powers for a month.
  */
 export async function requireRole(
   ...roles: SystemRole[]
 ): Promise<SessionUser> {
   const user = await requireUser()
-  if (!roles.includes(user.systemRole)) {
+
+  const account = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { systemRole: true, isActive: true },
+  })
+
+  if (!account || account.isActive === false) {
+    throw new Error('Unauthorized')
+  }
+
+  if (!roles.includes(account.systemRole)) {
     throw new Error(`Forbidden: requires ${roles.join(' or ')} role`)
   }
-  return user
+
+  // Hand back the role the database actually holds
+  return { ...user, systemRole: account.systemRole }
 }
 
 /**

@@ -52,6 +52,13 @@
   so every deploy applies whatever `schema.prisma` says. Before this, adding a table
   locally meant the live site kept crashing on it until someone remembered to run the
   command by hand. A change that would destroy data fails the build instead of running.
+- **Making someone an administrator**: `npm run make-admin someone@example.com`
+  (add `STUDENT` or `SUPERVISOR` at the end to set a different role). Use this
+  rather than editing the database by hand — an account's role lives in
+  `systemRole`, and there's an older `role` column beside it that looks like the
+  one to change but isn't. The script sets both, so there's no half-updated
+  state. For the live site, put the deployed database URL in front:
+  `DATABASE_URL="postgres://..." npm run make-admin you@example.com`
 - **Demo accounts** (created by `npm run seed`, password `password123` for all of them):
   - `student@researchtrack.edu` — Sophia Chen, a student researcher (starts with one sample paper)
   - `supervisor@researchtrack.edu` — Dr. Elena Rostova, a supervisor (Sophia's advisor)
@@ -105,6 +112,8 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-22: Fixed role change requests never reaching the admin queue. Permission checks were reading the role out of the sign-in cookie, which only holds whatever the role was when that cookie was issued — so someone promoted to Administrator in the database still counted as a Student on the server. The sidebar showed the admin menu (that reads the database) while the page behind it was refused, and the queue rendered "Nothing waiting" as if there genuinely were none. Permission checks now read the role from the database, and a failed load says so with a Try again button instead of pretending the queue is empty. The same fix closes a hole in the other direction: someone demoted used to keep their old powers for up to 30 days, until their cookie expired.
+- 2026-08-22: Added `npm run make-admin <email>` for promoting someone to Administrator. Role change requests looked broken because there was nobody who could approve one — the only admin accounts were the demo ones with made-up email addresses, and admin sign-in emails a 2-step code to that address, so nobody could get in. Editing the database by hand is easy to get wrong too: permissions come from `systemRole`, while an older `role` column sits next to it looking like the field to change. The script sets both.
 - 2026-08-22: Fixed "Could not start the reset" on the live site. The `PasswordResetOtp` table only ever existed on local machines — the deployed database was never told about it, so the first query for a real account failed. Deploys now run `prisma db push` as part of the build, so the live database picks up new tables on its own and this can't happen again with the next one.
 - 2026-08-22: Signing in no longer flashes past the login page on the way to the dashboard. The app shell was deciding "nobody is signed in" before the server had answered — the same fault already fixed on the welcome step, but this one affected every page in the app, which is why it showed up right after signing in. Sign-in and 2-step verification also dropped their artificial 100ms pause and full page reload; they now move straight to the destination with the session already in hand, and the button stays busy until the next screen appears instead of blinking back to normal first.
 - 2026-08-22: Fixed the login page flashing past on the way from sign-up to the profile step. Two separate causes: the app decided "nobody is signed in" before the server had answered — which hit Google sign-ups hardest, since they arrive with a cookie and nothing saved in the browser — and the Register form was doing a full page reload, restarting the whole app just to move one screen across. Signing up now slides straight to the welcome step with the session already in hand. Also removed a duplicated error handler on the Register page that a merge had left behind, which would have shown the same Google error message twice.
