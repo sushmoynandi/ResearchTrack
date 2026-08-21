@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Input } from '@/components/ui/Input'
@@ -30,6 +30,8 @@ import {
   Send,
   RefreshCw,
   Trash2,
+  Camera,
+  X,
 } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -43,6 +45,15 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray
 }
 
+const roleBadges: Record<
+  string,
+  { label: string; variant: 'info' | 'success' | 'danger' }
+> = {
+  STUDENT: { label: 'Student Researcher', variant: 'info' },
+  SUPERVISOR: { label: 'Supervisor', variant: 'success' },
+  ADMIN: { label: 'Administrator', variant: 'danger' },
+}
+
 export default function ProfilePage() {
   const { user, refreshUser, loading } = useAuth()
   const { addToast } = useToast()
@@ -51,6 +62,10 @@ export default function ProfilePage() {
   const [institution, setInstitution] = useState('')
   const [department, setDepartment] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Profile photo
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [savingPhoto, setSavingPhoto] = useState(false)
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -247,8 +262,101 @@ export default function ProfilePage() {
     }
   }
 
+  /**
+   * Shrink whatever they picked to a 256px square before it ever leaves the
+   * browser — a phone photo would otherwise be several megabytes.
+   */
+  const squareThumbnail = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Could not read that file'))
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = () => reject(new Error('That file is not an image'))
+        img.onload = () => {
+          const size = 256
+          const canvas = document.createElement('canvas')
+          canvas.width = size
+          canvas.height = size
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return reject(new Error('Could not process that image'))
+
+          // Cover-crop: fill the square from the middle of the picture
+          const side = Math.min(img.width, img.height)
+          ctx.drawImage(
+            img,
+            (img.width - side) / 2,
+            (img.height - side) / 2,
+            side,
+            side,
+            0,
+            0,
+            size,
+            size
+          )
+          resolve(canvas.toDataURL('image/jpeg', 0.85))
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
+  const savePhoto = async (image: string | null) => {
+    setSavingPhoto(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+      })
+
+      if (res.ok) {
+        await refreshUser()
+        addToast('success', image ? 'Profile photo updated' : 'Profile photo removed')
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Could not save your photo')
+      }
+    } catch {
+      addToast('error', 'Network error saving your photo')
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
+  const handlePhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // Let them pick the same file again later
+    e.target.value = ''
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      addToast('error', 'Please choose an image file')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('error', 'Please choose an image under 10MB')
+      return
+    }
+
+    setSavingPhoto(true)
+    try {
+      const thumbnail = await squareThumbnail(file)
+      await savePhoto(thumbnail)
+    } catch (err) {
+      setSavingPhoto(false)
+      addToast('error', err instanceof Error ? err.message : 'Could not process that image')
+    }
+  }
+
   // Google accounts that never set a password get "Add Password" instead
   const hasPassword = user?.hasPassword !== false
+
+  // What this person *is* reads better than how they signed up
+  const roleBadge = roleBadges[user?.systemRole ?? ''] ?? {
+    label: 'Researcher',
+    variant: 'info' as const,
+  }
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
@@ -381,17 +489,63 @@ export default function ProfilePage() {
       {/* Profile Header Hero */}
       <div className="glass-card p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-          {/* Avatar */}
-          <div className="w-20 h-20 rounded-2xl bg-accent-subtle border-2 border-accent/40 text-accent font-bold text-2xl flex items-center justify-center shadow-glow shrink-0">
-            {user.image ? (
-              <img
-                src={user.image}
-                alt={user.name}
-                className="w-full h-full rounded-2xl object-cover"
-              />
-            ) : (
-              <span>{initials}</span>
+          {/* Avatar — click to change, with a small remove button once set */}
+          <div className="relative shrink-0 group">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={savingPhoto}
+              aria-label={user.image ? 'Change profile photo' : 'Add a profile photo'}
+              className="relative w-20 h-20 rounded-2xl bg-accent-subtle border-2 border-accent/40 text-accent font-bold text-2xl flex items-center justify-center shadow-glow overflow-hidden cursor-pointer transition-all duration-200 hover:border-accent disabled:cursor-wait"
+            >
+              {user.image ? (
+                <img
+                  src={user.image}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+
+              {/* Hover / busy overlay */}
+              <span
+                className={`absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/65 text-white transition-opacity duration-200 ${
+                  savingPhoto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {savingPhoto ? (
+                  <RefreshCw size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <Camera size={17} />
+                    <span className="text-[9px] font-semibold tracking-wide">
+                      {user.image ? 'Change' : 'Add photo'}
+                    </span>
+                  </>
+                )}
+              </span>
+            </button>
+
+            {user.image && !savingPhoto && (
+              <button
+                type="button"
+                onClick={() => savePhoto(null)}
+                aria-label="Remove profile photo"
+                title="Remove photo"
+                className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-bg-secondary border border-border-default text-text-tertiary flex items-center justify-center opacity-0 group-hover:opacity-100 hover:text-danger hover:border-danger/50 transition-all duration-200 cursor-pointer"
+              >
+                <X size={13} />
+              </button>
             )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoPicked}
+              className="hidden"
+            />
           </div>
 
           <div className="flex-1 space-y-1.5">
@@ -399,8 +553,8 @@ export default function ProfilePage() {
               <h2 className="text-2xl font-bold text-text-primary font-display">
                 {user.name}
               </h2>
-              <Badge variant="info" size="sm">
-                {user.provider}
+              <Badge variant={roleBadge.variant} size="sm">
+                {roleBadge.label}
               </Badge>
               {user.isGuest && (
                 <Badge variant="warning" size="sm">

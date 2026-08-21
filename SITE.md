@@ -30,7 +30,7 @@
 - **Login** (`/login`) — Multi-type authentication hub with tabs for Email, OAuth, and 1-Click Guest Demo
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
-- **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, avatar, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
+- **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, profile photo, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
 - **Add New Paper** (`/papers/new`) — 1-click ArXiv/Semantic Scholar auto-importer, model architecture specs, benchmark matrix builder, and code/weight hub
 - **Paper Detail** (`/papers/[id]`) — Full research overview, code/weights hub, benchmark scores, 3-minute digest, PDF viewer, citation generator, and notes timeline
@@ -67,6 +67,8 @@
 5. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-21: You can now set a profile photo. Hover the picture at the top of the Profile page and click it to pick one; the small × in the corner removes it. The photo is shrunk to a neat 256px square in your browser before it's saved, so even a big phone photo stays small.
+- 2026-08-21: The badge next to your name on the Profile page now says what you are — **Student Researcher**, **Supervisor** or **Administrator** — instead of how you signed up ("CREDENTIALS" / "GOOGLE"), which meant nothing to anyone reading it.
 - 2026-08-21: Gave the password boxes on the Profile page the same treatment as the sign-up form — an eye button inside each box to reveal what you typed, a weak → strong strength bar under the new password, and a live "Passwords don't match" check that keeps the button switched off until they agree. The strength bar is now one shared piece used by both the Profile page and the Register form, so it looks and scores identically in both places.
 - 2026-08-21: The Profile page now says **Add Password** instead of Change Password when you signed up with Google and have no password yet. It skips the "Current Password" box (there's nothing to confirm) and explains that adding one lets you sign in either way — with Google, or with your email and password. Once saved it flips back to the normal Change Password form, which asks for the current one.
 - 2026-08-21: Split what the two Google buttons do. "Continue with Google" on the Login page no longer creates accounts — an unknown Google address now gets a clear notice on the Login page pointing to Register instead of quietly making an account. "Sign up with Google" on the Register page still creates one. And if you registered manually with an email and password, signing in with Google on that same address links the two, so both ways of signing in work from then on. Google errors now also send you back to whichever page you started from, instead of always the Login page.

@@ -12,7 +12,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, institution, department, currentPassword, newPassword } = body
+    const { name, institution, department, image, currentPassword, newPassword } = body
 
     const user = await prisma.user.findUnique({
       where: { id: sessionUser.id },
@@ -26,6 +26,30 @@ export async function PUT(request: NextRequest) {
     if (name && name.trim()) updateData.name = name.trim()
     if (institution !== undefined) updateData.institution = institution?.trim() || null
     if (department !== undefined) updateData.department = department?.trim() || null
+
+    // Profile photo. The browser shrinks it to a small square before sending,
+    // so it arrives as a compact data: URL — anything else is rejected.
+    if (image !== undefined) {
+      if (image === null || image === '') {
+        updateData.image = null
+      } else if (typeof image !== 'string') {
+        return NextResponse.json({ error: 'Invalid profile photo' }, { status: 400 })
+      } else if (image.startsWith('data:image/')) {
+        // ~1MB ceiling — a 256px JPEG lands far below this
+        if (image.length > 1_500_000) {
+          return NextResponse.json(
+            { error: 'That photo is too large. Please pick a smaller one.' },
+            { status: 400 }
+          )
+        }
+        updateData.image = image
+      } else if (image.startsWith('https://')) {
+        // Keep working with the picture Google hands us at sign-in
+        updateData.image = image
+      } else {
+        return NextResponse.json({ error: 'Invalid profile photo' }, { status: 400 })
+      }
+    }
 
     // If changing password
     if (newPassword) {
