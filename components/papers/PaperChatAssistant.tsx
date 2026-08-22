@@ -16,9 +16,12 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Settings,
+  Save,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
+import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from '@/components/reader/AiConfigModal'
 
 interface Message {
   id: string
@@ -74,7 +77,17 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
   const [loading, setLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [isAiConfigOpen, setIsAiConfigOpen] = useState(false)
+  const [aiConfig, setAiConfig] = useState<StoredAiConfig>(() => getStoredAiConfig())
   const chatBottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setAiConfig(getStoredAiConfig())
+    }
+    window.addEventListener('ai-config-changed', handleConfigChange)
+    return () => window.removeEventListener('ai-config-changed', handleConfigChange)
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -98,10 +111,17 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
     setLoading(true)
 
     try {
+      const config = getStoredAiConfig()
       const res = await fetch(`/api/papers/${paperId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+          provider: config.provider,
+          apiKey: config.apiKey,
+          model: config.model,
+        }),
       })
 
       if (res.ok) {
@@ -114,12 +134,34 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
         }
         setMessages((prev) => [...prev, botMsg])
       } else {
-        addToast('error', 'Failed to generate answer')
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err?.error || 'Failed to generate answer')
       }
     } catch {
       addToast('error', 'Network error during chat')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveAsNote = async (content: string) => {
+    try {
+      const noteContent = `🤖 **AI Research Synthesis**:\n\n${content}`
+      const res = await fetch(`/api/papers/${paperId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: noteContent, isPrivate: false }),
+      })
+      if (res.ok) {
+        addToast('success', 'AI synthesis saved to research notes!')
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+        }
+      } else {
+        addToast('error', 'Failed to save note')
+      }
+    } catch {
+      addToast('error', 'Network error saving note')
     }
   }
 
@@ -148,13 +190,30 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
-        >
-          {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAiConfigOpen(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border-default text-xs text-text-secondary hover:text-accent font-mono transition-colors cursor-pointer"
+            title="Configure AI model & API key"
+          >
+            <Settings size={13} />
+            <span className="capitalize">{aiConfig.provider}</span>
+            {aiConfig.apiKey ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+          >
+            {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
       </div>
 
       {isOpen && (
@@ -204,16 +263,28 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
                     <span className="text-[10px] font-mono opacity-70">
                       {msg.role === 'user' ? 'You' : 'ResearchTrack AI'} • {msg.timestamp}
                     </span>
-                    {msg.role === 'assistant' && (
-                      <button
-                        type="button"
-                        onClick={() => copyMessage(msg.id, msg.content)}
-                        className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                        title="Copy Markdown"
-                      >
-                        {copiedId === msg.id ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {msg.role === 'assistant' && msg.id !== 'welcome' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveAsNote(msg.content)}
+                          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated text-accent hover:bg-accent hover:text-white transition-colors cursor-pointer"
+                          title="Save this answer directly to research notes"
+                        >
+                          <Save size={11} /> Save Note
+                        </button>
+                      )}
+                      {msg.role === 'assistant' && (
+                        <button
+                          type="button"
+                          onClick={() => copyMessage(msg.id, msg.content)}
+                          className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+                          title="Copy Markdown"
+                        >
+                          {copiedId === msg.id ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="whitespace-pre-wrap leading-relaxed">
@@ -271,6 +342,9 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
           </div>
         </div>
       )}
+
+      {/* AI Key & Provider Config Modal */}
+      <AiConfigModal isOpen={isAiConfigOpen} onClose={() => setIsAiConfigOpen(false)} />
     </div>
   )
 }

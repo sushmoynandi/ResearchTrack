@@ -41,12 +41,15 @@ import {
   GraduationCap,
   User,
   X,
+  Settings,
+  Key,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 import type { Paper, Note, LiteratureReviewData, QuestionAnswer } from '@/lib/types'
+import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from './AiConfigModal'
 
 interface PdfReaderWorkspaceProps {
   paper: Paper
@@ -302,6 +305,8 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   }
 
   // AI Assistant state
+  const [isAiConfigOpen, setIsAiConfigOpen] = useState(false)
+  const [aiConfig, setAiConfig] = useState<StoredAiConfig>(() => getStoredAiConfig())
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiMessages, setAiMessages] = useState<AiMessage[]>([
@@ -311,6 +316,14 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       content: `I am your AI Reading Assistant for **"${paper.title}"**.\n\nPaste any text snippet, equation, or paragraph from the PDF or Full-Text Article to get an instant breakdown, or click a quick prompt below.`,
     },
   ])
+
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setAiConfig(getStoredAiConfig())
+    }
+    window.addEventListener('ai-config-changed', handleConfigChange)
+    return () => window.removeEventListener('ai-config-changed', handleConfigChange)
+  }, [])
 
   // Notes & Co-Reading state
   const [notes, setNotes] = useState<Note[]>(paper.notes || [])
@@ -475,10 +488,18 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
     setAiLoading(true)
 
     try {
+      const config = getStoredAiConfig()
       const res = await fetch(`/api/papers/${paper.id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query }),
+        body: JSON.stringify({
+          message: query,
+          history: aiMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+          provider: config.provider,
+          apiKey: config.apiKey,
+          model: config.model,
+          activeSection: activeSectionId,
+        }),
       })
 
       if (res.ok) {
@@ -490,12 +511,33 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         }
         setAiMessages((prev) => [...prev, botMsg])
       } else {
-        addToast('error', 'Failed to generate AI response')
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err?.error || 'Failed to generate AI response')
       }
     } catch {
       addToast('error', 'Network error during AI consultation')
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  const handleSaveAiResponseAsNote = async (content: string) => {
+    try {
+      const noteContent = `🤖 **AI Research Insight**:\n\n${content}`
+      const res = await fetch(`/api/papers/${paper.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: noteContent, isPrivate: false }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setNotes((prev) => [created, ...prev])
+        addToast('success', 'AI response saved to research notes!')
+      } else {
+        addToast('error', 'Failed to save note')
+      }
+    } catch {
+      addToast('error', 'Network error saving note')
     }
   }
 
@@ -973,6 +1015,34 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             {/* TAB 1: AI Reading Assistant */}
             {activeTab === 'ai' && (
               <div className="flex-1 flex flex-col p-4 space-y-3 min-h-0 overflow-hidden">
+                {/* AI Engine Status & Settings Header */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-bg-tertiary border border-border-default shrink-0 text-[11px]">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <Sparkles size={13} className="text-accent shrink-0" />
+                    <span className="font-mono font-medium text-text-primary truncate">
+                      {aiConfig.provider.toUpperCase()} ({aiConfig.model})
+                    </span>
+                    {aiConfig.apiKey ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono shrink-0">
+                        ✓ Connected
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono shrink-0">
+                        Free Tier
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiConfigOpen(true)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary hover:text-accent hover:bg-bg-elevated transition-colors cursor-pointer font-mono shrink-0"
+                    title="Change AI provider or API key"
+                  >
+                    <Settings size={12} />
+                    <span>AI Settings</span>
+                  </button>
+                </div>
+
                 {/* Prompt Snippet Pills */}
                 <div className="flex flex-wrap gap-1.5 shrink-0">
                   {AI_SNIPPETS.map((s) => (
@@ -1005,12 +1075,36 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                       <div className="whitespace-pre-wrap leading-relaxed">
                         {msg.content}
                       </div>
+
+                      {/* Actions for Assistant Messages */}
+                      {msg.role === 'assistant' && msg.id !== 'welcome' && (
+                        <div className="pt-2 mt-2 border-t border-border-default/50 flex items-center justify-between text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveAiResponseAsNote(msg.content)}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-elevated text-accent hover:bg-accent hover:text-white transition-all cursor-pointer font-medium"
+                          >
+                            <Save size={12} /> Save to Notes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(msg.content)
+                              addToast('success', 'AI response copied to clipboard!')
+                            }}
+                            className="text-text-tertiary hover:text-text-primary p-1 cursor-pointer"
+                            title="Copy response"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {aiLoading && (
                     <div className="p-3 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-secondary flex items-center gap-2 animate-pulse">
                       <div className="w-2 h-2 rounded-full bg-accent animate-bounce" />
-                      <span>Analyzing PDF text...</span>
+                      <span>Analyzing research paper &amp; generating synthesis...</span>
                     </div>
                   )}
                 </div>
@@ -1522,6 +1616,8 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           </button>
         </div>
       )}
+      {/* AI Key & Provider Configuration Modal */}
+      <AiConfigModal isOpen={isAiConfigOpen} onClose={() => setIsAiConfigOpen(false)} />
     </div>
   )
 }
