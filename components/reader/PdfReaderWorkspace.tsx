@@ -468,6 +468,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
   // Quick prompt templates
   const AI_SNIPPETS = [
+    { label: '🎯 Consensus Meter', prompt: 'What is the scientific consensus and peer-reviewed evidence agreement regarding this paper core hypothesis and findings?' },
     { label: '🔍 Explain Highlight', prompt: 'Explain this concept and its mathematical intuition in simple terms: ' },
     { label: '🔬 Method Pipeline', prompt: 'What are the key mathematical mechanisms and algorithmic pipeline steps used here?' },
     { label: '⚠️ Critique / Gap', prompt: 'What are the potential weaknesses, unstated assumptions, or limitations of this approach?' },

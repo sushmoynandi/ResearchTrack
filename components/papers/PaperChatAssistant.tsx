@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Settings,
   Save,
+  Target,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -36,6 +37,11 @@ interface PaperChatAssistantProps {
 }
 
 const PROMPT_PRESETS = [
+  {
+    label: '🎯 Scientific Consensus',
+    prompt: 'What is the scientific consensus and peer-reviewed evidence agreement regarding this paper core hypothesis and findings?',
+    icon: Target,
+  },
   {
     label: '🔬 Explain Architecture',
     prompt: 'Explain the core architecture, model pipeline, and novel algorithmic mechanism in detail.',

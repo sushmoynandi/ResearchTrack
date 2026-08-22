@@ -146,6 +146,11 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   }
 
   const providerLinks: Record<AiProvider, { name: string; url: string; note: string }> = {
+    consensus: {
+      name: 'Consensus.app',
+      url: 'https://consensus.app',
+      note: '🎯 Scientific Consensus & Evidence-Backed claim analysis from peer-reviewed papers.',
+    },
     google: {
       name: 'Google AI Studio',
       url: 'https://aistudio.google.com/app/apikey',
@@ -184,7 +189,7 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
           <div className="space-y-1">
             <h4 className="font-semibold text-text-primary">Configure Your AI Reading Engine</h4>
             <p className="text-xs text-text-secondary leading-relaxed">
-              Connect your preferred LLM provider to ask in-depth questions, explain complex formulas, and synthesize research papers right in the PDF Reader.
+              Connect your preferred LLM provider or Consensus AI to ask in-depth questions, compute consensus meters, and synthesize research papers.
               <span className="font-medium text-emerald-400 block mt-1">
                 🔒 Your API key is stored securely in your browser and never saved on our database.
               </span>
@@ -197,9 +202,10 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
           <label className="text-xs font-bold font-mono uppercase tracking-wider text-text-secondary">
             Select Provider
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {(
               [
+                { id: 'consensus', name: 'Consensus AI', badge: 'Scientific', color: 'text-indigo-400 border-indigo-500/40' },
                 { id: 'google', name: 'Google Gemini', badge: 'Free Tier', color: 'text-cyan-400 border-cyan-500/40' },
                 { id: 'openai', name: 'OpenAI (GPT)', badge: 'GPT-4o', color: 'text-emerald-400 border-emerald-500/40' },
                 { id: 'anthropic', name: 'Anthropic', badge: 'Claude 3.5', color: 'text-purple-400 border-purple-500/40' },
