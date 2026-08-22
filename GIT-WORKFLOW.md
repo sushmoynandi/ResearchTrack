@@ -73,11 +73,11 @@ After the first push, `git push` on its own is enough.
 
 ### Write commit messages someone else can read
 
-| Good | Not so good |
-|---|---|
-| `Add forgot password page` | `update` |
-| `Fix Google login on live site` | `fix bug` |
-| `Make profile photo croppable` | `changes` |
+| Good                            | Not so good |
+| ------------------------------- | ----------- |
+| `Add forgot password page`      | `update`    |
+| `Fix Google login on live site` | `fix bug`   |
+| `Make profile photo croppable`  | `changes`   |
 
 Say **what changed**, not "changes".
 
@@ -122,10 +122,10 @@ record of why every change happened.
 
 ```bash
 git checkout master
-git pull origin master        # important — don't skip
-git merge your-branch
+git pull origin master
+git merge nazmul
 git push origin master
-git checkout your-branch      # back to where you were
+git checkout nazmul      # back to where you were
 ```
 
 ### Delete the branch once it's merged
@@ -202,15 +202,15 @@ git merge --abort
 
 ## When something goes wrong
 
-| Situation | Command |
-|---|---|
-| Undo changes to one file (not committed yet) | `git checkout -- path/to/file` |
-| Undo **all** uncommitted changes | `git reset --hard` ⚠️ can't be undone |
-| Committed but not pushed — fix the message | `git commit --amend -m "Better message"` |
-| Committed but not pushed — undo, keep the changes | `git reset --soft HEAD~1` |
-| Working on the wrong branch (not committed) | `git stash` → `git checkout right-branch` → `git stash pop` |
-| See what happened recently | `git log --oneline -10` |
-| See who wrote a line and why | `git log -p path/to/file` |
+| Situation                                         | Command                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------- |
+| Undo changes to one file (not committed yet)      | `git checkout -- path/to/file`                              |
+| Undo **all** uncommitted changes                  | `git reset --hard` ⚠️ can't be undone                       |
+| Committed but not pushed — fix the message        | `git commit --amend -m "Better message"`                    |
+| Committed but not pushed — undo, keep the changes | `git reset --soft HEAD~1`                                   |
+| Working on the wrong branch (not committed)       | `git stash` → `git checkout right-branch` → `git stash pop` |
+| See what happened recently                        | `git log --oneline -10`                                     |
+| See who wrote a line and why                      | `git log -p path/to/file`                                   |
 
 ---
 
