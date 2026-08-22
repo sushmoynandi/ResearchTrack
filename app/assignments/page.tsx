@@ -225,6 +225,10 @@ export default function AssignmentsPage() {
       if (res.ok) {
         addToast('success', `Status updated to ${newStatus}`)
         loadAssignments()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+          window.dispatchEvent(new Event('assignment-status-changed'))
+        }
       } else {
         addToast('error', 'Failed to update assignment status')
       }
