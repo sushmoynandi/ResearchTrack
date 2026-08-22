@@ -33,7 +33,7 @@ export const AI_CONFIG_STORAGE_KEY = 'papertrack_ai_config'
 
 export function getStoredAiConfig(): StoredAiConfig {
   if (typeof window === 'undefined') {
-    return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '', consensusApiKey: '' }
+    return { provider: 'google', model: 'gemini-3.6-flash', apiKey: '', consensusApiKey: '' }
   }
   try {
     const raw = localStorage.getItem(AI_CONFIG_STORAGE_KEY)
@@ -42,7 +42,7 @@ export function getStoredAiConfig(): StoredAiConfig {
       const isKeyConsensus = parsed.apiKey?.startsWith('ak_')
       return {
         provider: parsed.provider || (isKeyConsensus ? 'consensus' : 'google'),
-        model: parsed.model || SUPPORTED_MODELS[parsed.provider as AiProvider]?.[0]?.id || 'gemini-1.5-flash',
+        model: parsed.model || SUPPORTED_MODELS[parsed.provider as AiProvider]?.[0]?.id || 'gemini-3.6-flash',
         apiKey: parsed.apiKey || '',
         consensusApiKey: parsed.consensusApiKey || (isKeyConsensus ? parsed.apiKey : ''),
       }
@@ -50,7 +50,7 @@ export function getStoredAiConfig(): StoredAiConfig {
   } catch {
     // ignore
   }
-  return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '', consensusApiKey: '' }
+  return { provider: 'google', model: 'gemini-3.6-flash', apiKey: '', consensusApiKey: '' }
 }
 
 export function saveStoredAiConfig(config: StoredAiConfig) {
@@ -71,7 +71,7 @@ interface AiConfigModalProps {
 export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   const { addToast } = useToast()
   const [provider, setProvider] = useState<AiProvider>('google')
-  const [model, setModel] = useState<string>('gemini-1.5-flash')
+  const [model, setModel] = useState<string>('gemini-3.6-flash')
   const [apiKey, setApiKey] = useState<string>('')
   const [consensusApiKey, setConsensusApiKey] = useState<string>('')
   const [showKey, setShowKey] = useState<boolean>(false)

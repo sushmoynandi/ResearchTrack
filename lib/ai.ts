@@ -34,24 +34,31 @@ export const SUPPORTED_MODELS: Record<AiProvider, AiModelOption[]> = {
   ],
   google: [
     {
+      id: 'gemini-3.6-flash',
+      name: 'Gemini 3.6 Flash (Recommended & Fast)',
+      provider: 'google',
+      description: 'Latest Google generation with high reasoning and fast responses.',
+      isFreeTier: true,
+    },
+    {
+      id: 'gemini-3.6-pro',
+      name: 'Gemini 3.6 Pro (Deep Academic Reasoning)',
+      provider: 'google',
+      description: 'Complex math breakdown, algorithmic synthesis, and peer review.',
+      isFreeTier: true,
+    },
+    {
+      id: 'gemini-2.5-flash',
+      name: 'Gemini 2.5 Flash',
+      provider: 'google',
+      description: 'Multimodal comprehension and paper analysis.',
+      isFreeTier: true,
+    },
+    {
       id: 'gemini-1.5-flash',
-      name: 'Gemini 1.5 Flash (Fast & Stable Free Tier)',
+      name: 'Gemini 1.5 Flash',
       provider: 'google',
-      description: 'High speed, 1M token context, officially supported on free tier.',
-      isFreeTier: true,
-    },
-    {
-      id: 'gemini-1.5-pro',
-      name: 'Gemini 1.5 Pro (Deep Reasoning)',
-      provider: 'google',
-      description: 'Complex reasoning, deep synthesis and math breakdown.',
-      isFreeTier: true,
-    },
-    {
-      id: 'gemini-2.0-flash',
-      name: 'Gemini 2.0 Flash',
-      provider: 'google',
-      description: 'Next-generation Gemini with multimodal understanding.',
+      description: 'Standard fast free tier model.',
       isFreeTier: true,
     },
   ],
@@ -303,11 +310,11 @@ ${systemPrompt}`
     return output
   }
 
-  // 1. Google Gemini (With multi-candidate fallback)
+  // 1. Google Gemini (With stable candidate fallback)
   if (provider === 'google') {
     const requestedModel = model.replace(/^google\//i, '').replace(/^models\//i, '')
     const candidateModels = Array.from(
-      new Set([requestedModel, 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'])
+      new Set([requestedModel, 'gemini-3.6-flash', 'gemini-3.6-pro', 'gemini-2.5-flash', 'gemini-1.5-flash'])
     )
 
     const contents = messages
@@ -346,9 +353,17 @@ ${systemPrompt}`
           if (text) return text
         } else {
           const errJson = await res.json().catch(() => ({}))
-          lastError = errJson?.error?.message || `Google Gemini status ${res.status}`
+          const errMsg = errJson?.error?.message || `Google Gemini status ${res.status}`
+          lastError = errMsg
+          // If auth fails, throw immediately without useless model looping
+          if (res.status === 400 || res.status === 401 || res.status === 403) {
+            throw new Error(errMsg)
+          }
         }
       } catch (err: any) {
+        if (err?.message?.includes('API key not valid') || err?.message?.includes('API_KEY_INVALID') || err?.message?.includes('Quota exceeded')) {
+          throw err
+        }
         lastError = err?.message || 'Network error calling Gemini'
       }
     }
@@ -640,6 +655,20 @@ export async function testAiConnection(
       }
       const data = await res.json().catch(() => ({}))
       return { success: false, message: data?.detail || `Consensus API returned status ${res.status}` }
+    }
+
+    // 2. Google Gemini ModelService.ListModels Test
+    if (provider === 'google' || apiKey.trim().startsWith('AIza')) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`
+      const res = await fetch(url)
+      if (res.ok) {
+        return { success: true, message: 'Google Gemini API connection verified successfully! (Ready)' }
+      }
+      const errData = await res.json().catch(() => ({}))
+      return {
+        success: false,
+        message: errData?.error?.message || `Google Gemini API error (status ${res.status})`,
+      }
     }
 
     const res = await callAiModel({
