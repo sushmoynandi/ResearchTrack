@@ -191,6 +191,14 @@ export async function GET(request: NextRequest) {
           orderBy: { scheduledAt: 'desc' },
           take: 3,
         },
+        supervisionRequestsReceived: {
+          where: { supervisorId: user.id },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             papers: true,
@@ -204,42 +212,43 @@ export async function GET(request: NextRequest) {
     })
 
     // Compute comprehensive student progress metrics & supervision health status
-    const studentsWithMetrics = students.map((s) => {
+    const studentsWithMetrics = students.map((s: any) => {
+      const pendingRequest = s.supervisionRequestsReceived?.find((r: any) => r.status === 'PENDING')
       // Library Paper Reading Stats
       const totalLibrary = s.papers.length
-      const completedLibrary = s.papers.filter((p) => p.status === 'COMPLETED').length
-      const readingLibrary = s.papers.filter((p) => p.status === 'READING').length
-      const toReadLibrary = s.papers.filter((p) => p.status === 'TO_READ').length
+      const completedLibrary = s.papers.filter((p: any) => p.status === 'COMPLETED').length
+      const readingLibrary = s.papers.filter((p: any) => p.status === 'READING').length
+      const toReadLibrary = s.papers.filter((p: any) => p.status === 'TO_READ').length
       const libraryCompletionRate = totalLibrary > 0 ? Math.round((completedLibrary / totalLibrary) * 100) : 0
 
       // Assigned Paper Reading Stats (from supervisor)
       const totalAssigned = s.assignedPapers.length
       const completedAssigned = s.assignedPapers.filter(
-        (a) => a.status === 'COMPLETED' || a.paper?.status === 'COMPLETED'
+        (a: any) => a.status === 'COMPLETED' || a.paper?.status === 'COMPLETED'
       ).length
       const inProgressAssigned = s.assignedPapers.filter(
-        (a) => a.status === 'IN_PROGRESS' || (a.status !== 'COMPLETED' && a.paper?.status === 'READING')
+        (a: any) => a.status === 'IN_PROGRESS' || (a.status !== 'COMPLETED' && a.paper?.status === 'READING')
       ).length
       const pendingAssigned = s.assignedPapers.filter(
-        (a) => a.status === 'PENDING' && a.paper?.status !== 'READING' && a.paper?.status !== 'COMPLETED'
+        (a: any) => a.status === 'PENDING' && a.paper?.status !== 'READING' && a.paper?.status !== 'COMPLETED'
       ).length
       const assignedCompletionRate = totalAssigned > 0 ? Math.round((completedAssigned / totalAssigned) * 100) : 0
 
       // Lab Research Tasks Stats
       const totalTasks = s.assignedLabTasks.length
       const activeTasks = s.assignedLabTasks.filter(
-        (t) => t.status === 'TODO' || t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW'
+        (t: any) => t.status === 'TODO' || t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW'
       ).length
-      const completedTasks = s.assignedLabTasks.filter((t) => t.status === 'COMPLETED').length
-      const inReviewTasks = s.assignedLabTasks.filter((t) => t.status === 'IN_REVIEW').length
+      const completedTasks = s.assignedLabTasks.filter((t: any) => t.status === 'COMPLETED').length
+      const inReviewTasks = s.assignedLabTasks.filter((t: any) => t.status === 'IN_REVIEW').length
 
       // Thesis Milestones Stats
       const totalMilestones = s.milestonesAsStudent.length
-      const completedMilestones = s.milestonesAsStudent.filter((m) => m.status === 'APPROVED').length
+      const completedMilestones = s.milestonesAsStudent.filter((m: any) => m.status === 'APPROVED').length
 
       // Upcoming Meetings
       const upcomingMeetings = s.meetingsAsStudent.filter(
-        (m) => new Date(m.scheduledAt).getTime() > Date.now() && m.status === 'SCHEDULED'
+        (m: any) => new Date(m.scheduledAt).getTime() > Date.now() && m.status === 'SCHEDULED'
       )
 
       // Determine supervision health state
@@ -257,6 +266,7 @@ export async function GET(request: NextRequest) {
       return {
         ...s,
         isDirectlySupervised,
+        pendingSupervisionRequest: pendingRequest || null,
         metrics: {
           // Paper Reading (Assigned Papers)
           totalAssignedPapers: totalAssigned,
@@ -295,7 +305,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/students — Link / Assign student to supervisor
+// POST /api/students — Send supervision invitation to student
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser(request)
@@ -304,7 +314,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId } = body
+    const { studentId, message } = body
 
     if (!studentId) {
       return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
@@ -318,23 +328,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    const updated = await prisma.user.update({
-      where: { id: studentId },
-      data: { supervisorId: user.id },
+    if (student.supervisorId === user.id) {
+      return NextResponse.json({ error: 'Student is already on your supervision roster' }, { status: 400 })
+    }
+
+    // Create or re-open supervision invitation request
+    const supervisionRequest = await prisma.supervisionRequest.upsert({
+      where: {
+        supervisorId_studentId: {
+          supervisorId: user.id,
+          studentId: studentId,
+        },
+      },
+      update: {
+        status: 'PENDING',
+        message: message || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        supervisorId: user.id,
+        studentId: studentId,
+        status: 'PENDING',
+        message: message || null,
+      },
     })
 
+    // Send high-priority in-app notification to the student
     await createNotification({
       userId: studentId,
-      title: 'Advisor Supervision Connected 🎓',
-      message: `${user.name} added you to their active research supervision roster.`,
+      title: 'Advisor Supervision Invitation 🎓',
+      message: `${user.name} (${user.department || user.institution || 'Faculty Advisor'}) has invited you to join their direct research supervision roster.`,
       type: 'SYSTEM',
       link: '/',
     })
 
-    return NextResponse.json({ success: true, student: updated })
+    return NextResponse.json({
+      success: true,
+      pendingApproval: true,
+      message: `Supervision invitation sent to ${student.name}`,
+      request: supervisionRequest,
+    })
   } catch (error: any) {
-    console.error('Error linking student:', error)
-    return NextResponse.json({ error: error.message || 'Failed to link student' }, { status: 500 })
+    console.error('Error sending supervision invitation:', error)
+    return NextResponse.json({ error: error.message || 'Failed to send invitation' }, { status: 500 })
   }
 }
 

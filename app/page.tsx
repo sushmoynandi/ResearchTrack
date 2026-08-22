@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { LabReadingVelocityWidget } from '@/components/analytics/LabReadingVelocityWidget'
 import { StudentContributionHeatmap } from '@/components/analytics/StudentContributionHeatmap'
+import { SupervisionRequestBanner } from '@/components/dashboard/SupervisionRequestBanner'
 import { useAuth } from '@/components/auth/AuthProvider'
 import type { Paper } from '@/lib/types'
 
@@ -283,6 +284,9 @@ export default function DashboardPage() {
       {/* 2. Student advisor context, performance scorecard, pending work, and recent feedback */}
       {isStudent && (
         <div className="space-y-6">
+          {/* Supervision Request Invitation Banner (Accept / Reject) */}
+          <SupervisionRequestBanner onRequestResolved={() => window.location.reload()} />
+
           {/* Synchronized Performance Scorecard for Student Researcher */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">

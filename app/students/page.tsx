@@ -49,6 +49,7 @@ interface StudentData {
   createdAt: string
   supervisorId: string | null
   isDirectlySupervised: boolean
+  pendingSupervisionRequest?: { id: string; status: string; createdAt: string } | null
   supervisor?: { id: string; name: string; email: string } | null
   labMemberships: {
     role: string
@@ -200,22 +201,40 @@ export default function StudentsPage() {
     }
   }, [viewMode, user, isSupervisor, isAdmin])
 
-  // Direct Link / Claim Student
+  // Send Supervision Claim Invitation
   const handleLinkStudent = async (studentId: string, studentName: string) => {
     try {
-      const res = await fetch('/api/students', {
+      const res = await fetch('/api/students/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId }),
       })
       if (res.ok) {
-        addToast('success', `${studentName} added to your supervision roster!`)
+        addToast('success', `Supervision invitation sent to ${studentName}! 🎓`)
         fetchStudents()
       } else {
-        addToast('error', 'Failed to link student')
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err.error || 'Failed to send invitation')
       }
     } catch {
-      addToast('error', 'Network error linking student')
+      addToast('error', 'Network error sending invitation')
+    }
+  }
+
+  // Cancel Pending Supervision Invitation
+  const handleCancelRequest = async (requestId: string, studentName: string) => {
+    try {
+      const res = await fetch(`/api/students/requests/${requestId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        addToast('info', `Invitation to ${studentName} canceled`)
+        fetchStudents()
+      } else {
+        addToast('error', 'Failed to cancel invitation')
+      }
+    } catch {
+      addToast('error', 'Network error canceling invitation')
     }
   }
 
@@ -913,14 +932,33 @@ export default function StudentsPage() {
                     </button>
 
                     {isDirect ? (
-                      <button
-                        type="button"
-                        onClick={() => handleUnlinkStudent(student.id, student.name)}
-                        className="text-[10px] text-text-tertiary hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Unlink from direct supervision"
-                      >
-                        <UserX size={11} /> Unlink
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1 font-mono">
+                          <UserCheck size={11} /> Supervised
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleUnlinkStudent(student.id, student.name)}
+                          className="text-[10px] text-text-tertiary hover:text-rose-400 transition-colors flex items-center gap-0.5 cursor-pointer"
+                          title="Unlink from direct supervision"
+                        >
+                          <UserX size={10} /> Unlink
+                        </button>
+                      </div>
+                    ) : student.pendingSupervisionRequest ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                          <Clock size={10} /> Invite Pending
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelRequest(student.pendingSupervisionRequest!.id, student.name)}
+                          className="text-[10px] text-text-tertiary hover:text-danger transition-colors cursor-pointer underline"
+                          title="Cancel invitation"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"

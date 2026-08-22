@@ -108,6 +108,10 @@ model User {
   // Role change requests (student ↔ supervisor), decided by an admin
   roleRequests         RoleChangeRequest[] @relation("RoleRequester")
   roleRequestsReviewed RoleChangeRequest[] @relation("RoleReviewer")
+
+  // Supervision requests (Supervisor claims student, student accepts/rejects)
+  supervisionRequestsSent     SupervisionRequest[] @relation("SupervisorRequestsSent")
+  supervisionRequestsReceived SupervisionRequest[] @relation("StudentRequestsReceived")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -512,6 +516,23 @@ model RoleChangeRequest {
 
   @@index([status, createdAt])
   @@index([userId])
+}
+
+// ─── Supervision Request (Supervisor → Student Claim/Invite) ───
+model SupervisionRequest {
+  id           String        @id @default(cuid())
+  supervisorId String
+  supervisor   User          @relation("SupervisorRequestsSent", fields: [supervisorId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User          @relation("StudentRequestsReceived", fields: [studentId], references: [id], onDelete: Cascade)
+  status       RequestStatus @default(PENDING) // PENDING, APPROVED, REJECTED
+  message      String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([supervisorId, studentId])
+  @@index([studentId, status])
+  @@index([supervisorId, status])
 }
 
 // ─── Lab Broadcast / Announcement ───────────────────────────
