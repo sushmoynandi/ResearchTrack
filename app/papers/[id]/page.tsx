@@ -240,6 +240,10 @@ export default function PaperDetailPage() {
       if (res.ok) {
         addToast('success', `Assignment status updated to ${newStatus}`)
         fetchPaper()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+          window.dispatchEvent(new Event('assignment-status-changed'))
+        }
       } else {
         const err = await res.json()
         addToast('error', err.error || 'Failed to update assignment status')
@@ -453,6 +457,9 @@ export default function PaperDetailPage() {
           })
           addToast('success', 'Literature review saved successfully!')
           setIsEditReviewModalOpen(false)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('paper-status-changed'))
+          }
         } else {
           addToast('error', 'Failed to save review')
         }
@@ -468,6 +475,9 @@ export default function PaperDetailPage() {
           setPaper((prev) => (prev ? { ...prev, literatureReview: JSON.stringify(editReviewData) } : prev))
           addToast('success', 'Literature review saved successfully!')
           setIsEditReviewModalOpen(false)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('paper-status-changed'))
+          }
         } else {
           addToast('error', 'Failed to save review')
         }

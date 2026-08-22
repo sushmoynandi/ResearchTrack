@@ -34,6 +34,7 @@ import { PaperRow } from '@/components/papers/PaperRow'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { LabReadingVelocityWidget } from '@/components/analytics/LabReadingVelocityWidget'
+import { StudentContributionHeatmap } from '@/components/analytics/StudentContributionHeatmap'
 import { useAuth } from '@/components/auth/AuthProvider'
 import type { Paper } from '@/lib/types'
 
@@ -489,6 +490,9 @@ export default function DashboardPage() {
               <span>No recent supervisor feedback or updates yet.</span>
             </div>
           )}
+
+          {/* 🌟 Student Research Contribution Heatmap & Activity (GitHub Style) */}
+          <StudentContributionHeatmap />
         </div>
       )}
 
