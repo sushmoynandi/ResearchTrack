@@ -273,6 +273,9 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
         if (selectedNode?.id === node.id) {
           setSelectedNode((prev) => (prev ? { ...prev, inLibrary: true, libraryId: created.id } : null))
         }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+        }
       } else {
         const err = await createRes.json()
         addToast('error', err.error || 'Failed to save paper')
@@ -386,7 +389,7 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
           {loading ? (
             <div className="h-full flex flex-col items-center justify-center gap-3 text-text-tertiary">
               <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-              <p className="text-xs">Mapping citation network from Semantic Scholar...</p>
+              <p className="text-xs font-mono">Mapping citation network across OpenAlex &amp; Semantic Scholar...</p>
             </div>
           ) : nodes.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center p-6 text-center text-text-tertiary">

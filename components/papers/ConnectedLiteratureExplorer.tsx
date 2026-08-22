@@ -90,6 +90,9 @@ export function ConnectedLiteratureExplorer({
       if (res.ok) {
         setAddedIds((prev) => [...prev, rec.id])
         addToast('success', `Added "${rec.title.slice(0, 40)}..." to library!`)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+        }
       } else {
         const err = await res.json()
         addToast('error', err.error || 'Failed to add paper')
