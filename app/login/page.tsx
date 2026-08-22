@@ -50,7 +50,8 @@ function LoginForm() {
   // 2-Step Verification State
   const [is2FA, setIs2FA] = useState(false)
   const [tempToken, setTempToken] = useState('')
-  const [adminEmail, setAdminEmail] = useState('')
+  const [challengeEmail, setChallengeEmail] = useState('')
+  const [challengeMethod, setChallengeMethod] = useState<'APP' | 'EMAIL'>('APP')
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [verifying, setVerifying] = useState(false)
 
@@ -116,13 +117,20 @@ function LoginForm() {
       const data = await res.json()
 
       if (res.ok) {
-        // If 2-Step Verification is required for Admin
+        // Two-step verification, if this account has switched it on
         if (data.requires2FA) {
+          const via = data.method === 'EMAIL' ? 'EMAIL' : 'APP'
           setIs2FA(true)
           setTempToken(data.tempToken)
-          setAdminEmail(data.email || targetEmail)
+          setChallengeEmail(data.email || targetEmail)
+          setChallengeMethod(via)
           setOtpDigits(['', '', '', '', '', ''])
-          addToast('info', '🛡️ Enter the code from your authenticator app')
+          addToast(
+            'info',
+            via === 'EMAIL'
+              ? '🛡️ We’ve emailed you a 6-digit code'
+              : '🛡️ Enter the code from your authenticator app'
+          )
           return
         }
 
@@ -212,8 +220,10 @@ function LoginForm() {
         if (data.user && data.token) {
           setAuthSession(data.user, data.token)
         }
-        addToast('success', '✅ 2-Step Verification passed! Accessing Admin Console.')
-        const targetRedirect = searchParams.get('redirect') || '/admin/users'
+        addToast('success', '✅ Two-step verification passed!')
+        const targetRedirect =
+          searchParams.get('redirect') ||
+          (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/')
         router.replace(targetRedirect)
         return
       }
@@ -325,17 +335,19 @@ function LoginForm() {
               />
             </form>
           ) : (
-            /* ─── Admin 2-Step Verification Form ─── */
+            /* ─── Two-Step Verification Form ─── */
             <form onSubmit={(e) => handleVerify2FASubmit(e)} className="space-y-5 animate-slide-up">
               <div className="text-center space-y-1.5 pb-1">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-[11px] font-bold">
                   <KeyRound size={12} /> Two-Factor Protection
                 </div>
                 <p className="text-xs text-text-secondary leading-relaxed pt-1">
-                  Open your authenticator app and enter the 6-digit code for
+                  {challengeMethod === 'EMAIL'
+                    ? 'Enter the 6-digit code we emailed to'
+                    : 'Open your authenticator app and enter the 6-digit code for'}
                 </p>
                 <p className="text-xs font-mono font-bold text-text-primary bg-bg-tertiary py-1 px-2.5 rounded-lg inline-block border border-border-default">
-                  {maskEmail(adminEmail)}
+                  {maskEmail(challengeEmail)}
                 </p>
               </div>
 
@@ -368,7 +380,7 @@ function LoginForm() {
                 className="w-full"
                 icon={<ShieldCheck size={16} />}
               >
-                Verify &amp; Access Admin
+                Verify &amp; Sign In
               </Button>
 
               {/* Back control */}

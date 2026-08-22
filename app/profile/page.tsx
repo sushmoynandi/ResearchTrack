@@ -886,8 +886,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Two-factor — the card looks after itself and hides for non-admins */}
-      {user.systemRole === 'ADMIN' && <TwoFactorCard />}
+      {/* Two-factor — open to every account; the card looks after itself */}
+      <TwoFactorCard />
 
       {/* Password — "Change" for password accounts, "Add" for Google-only ones */}
       {!user.isGuest && (

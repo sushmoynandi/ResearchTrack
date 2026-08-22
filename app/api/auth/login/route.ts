@@ -43,15 +43,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ─── ADMIN 2-STEP VERIFICATION ──────────────────────────
-    // Only when the administrator has switched it on. Whichever way they chose
-    // to receive the code, the challenge screen is the same.
-    if (user.systemRole === 'ADMIN' && user.twoFactorEnabled && user.twoFactorMethod) {
+    // ─── 2-STEP VERIFICATION ────────────────────────────────
+    // Any account can switch this on, whatever its role. Whichever way they
+    // chose to receive the code, the challenge screen is the same.
+    if (user.twoFactorEnabled && user.twoFactorMethod) {
       const { create2FAToken } = await import('@/lib/auth')
 
       // Email codes have to be sent now; app codes are already on their phone.
       if (user.twoFactorMethod === 'EMAIL') {
-        const { generate6DigitCode, sendAdmin2FACode } = await import('@/lib/appscript2fa')
+        const { generate6DigitCode, sendTwoFactorCode } = await import('@/lib/appscript2fa')
         const { hashPassword } = await import('@/lib/auth')
 
         await prisma.twoFactorOtp.deleteMany({ where: { userId: user.id } }).catch(() => {})
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        await sendAdmin2FACode({
+        await sendTwoFactorCode({
           email: user.email,
           name: user.name,
           code,

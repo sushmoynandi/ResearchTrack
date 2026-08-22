@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requireUser } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, verifyPassword } from '@/lib/auth'
-import { generate6DigitCode, sendAdmin2FACode } from '@/lib/appscript2fa'
+import { generate6DigitCode, sendTwoFactorCode } from '@/lib/appscript2fa'
 import {
   createTwoFactorSecret,
   buildAuthenticatorSetup,
@@ -10,20 +10,21 @@ import {
 } from '@/lib/totp'
 
 /**
- * Two-factor for administrators. They choose how the code reaches them:
+ * Two-factor verification, open to every signed-in account. Each person picks
+ * how the code reaches them:
  *
  *   APP   — an authenticator app, from a QR code
  *   EMAIL — a 6-digit code sent to their address
  *
- * Administrators are the accounts worth protecting: they hand out roles and can
- * read everyone's work.
+ * A password on its own is one leak away from someone else reading — or
+ * changing — this person's work, so everyone gets the second step.
  */
 
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000
 
-async function adminOrNull() {
+async function signedInOrNull() {
   try {
-    return await requireAdmin()
+    return await requireUser()
   } catch {
     return null
   }
@@ -31,13 +32,13 @@ async function adminOrNull() {
 
 /** GET — what's set up right now. */
 export async function GET() {
-  const admin = await adminOrNull()
-  if (!admin) {
-    return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
+  const me = await signedInOrNull()
+  if (!me) {
+    return NextResponse.json({ error: 'Sign in first' }, { status: 403 })
   }
 
   const account = await prisma.user.findUnique({
-    where: { id: admin.id },
+    where: { id: me.id },
     select: { twoFactorEnabled: true, twoFactorMethod: true, twoFactorSetupDone: true, email: true },
   })
 
@@ -57,9 +58,9 @@ export async function GET() {
  *   disable      → check the code, switch it off
  */
 export async function POST(request: NextRequest) {
-  const admin = await adminOrNull()
-  if (!admin) {
-    return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
+  const me = await signedInOrNull()
+  if (!me) {
+    return NextResponse.json({ error: 'Sign in first' }, { status: 403 })
   }
 
   try {
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     const method = body.method === 'EMAIL' ? 'EMAIL' : 'APP'
     const secretFromClient = typeof body.secret === 'string' ? body.secret : ''
 
-    const account = await prisma.user.findUnique({ where: { id: admin.id } })
+    const account = await prisma.user.findUnique({ where: { id: me.id } })
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 })
     }
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      await sendAdmin2FACode({
+      await sendTwoFactorCode({
         email: account.email,
         name: account.name,
         code: freshCode,
