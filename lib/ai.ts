@@ -11,24 +11,24 @@ export interface AiModelOption {
 export const SUPPORTED_MODELS: Record<AiProvider, AiModelOption[]> = {
   google: [
     {
-      id: 'gemini-2.0-flash',
-      name: 'Gemini 2.0 Flash (Recommended)',
-      provider: 'google',
-      description: 'Ultra-fast, 1M token context, high reasoning capability.',
-      isFreeTier: true,
-    },
-    {
       id: 'gemini-1.5-flash',
-      name: 'Gemini 1.5 Flash',
+      name: 'Gemini 1.5 Flash (Fast & Stable Free Tier)',
       provider: 'google',
-      description: 'Fast multimodal model with free tier available.',
+      description: 'High speed, 1M token context, officially supported on free tier.',
       isFreeTier: true,
     },
     {
       id: 'gemini-1.5-pro',
-      name: 'Gemini 1.5 Pro',
+      name: 'Gemini 1.5 Pro (Deep Reasoning)',
       provider: 'google',
       description: 'Complex reasoning, deep synthesis and math breakdown.',
+      isFreeTier: true,
+    },
+    {
+      id: 'gemini-2.0-flash',
+      name: 'Gemini 2.0 Flash',
+      provider: 'google',
+      description: 'Next-generation Gemini with multimodal understanding.',
       isFreeTier: true,
     },
   ],
@@ -119,7 +119,7 @@ export interface CallAiOptions {
 export async function callAiModel(options: CallAiOptions): Promise<string> {
   const {
     provider,
-    model = SUPPORTED_MODELS[provider]?.[0]?.id || 'gemini-2.0-flash',
+    model = SUPPORTED_MODELS[provider]?.[0]?.id || 'gemini-1.5-flash',
     apiKey,
     systemPrompt,
     messages,
@@ -142,12 +142,12 @@ export async function callAiModel(options: CallAiOptions): Promise<string> {
     )
   }
 
-  // 1. Google Gemini
+  // 1. Google Gemini (With multi-candidate fallback)
   if (provider === 'google') {
-    const cleanModel = model.replace(/^google\//i, '')
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      cleanModel
-    )}:generateContent?key=${encodeURIComponent(resolvedKey)}`
+    const requestedModel = model.replace(/^google\//i, '').replace(/^models\//i, '')
+    const candidateModels = Array.from(
+      new Set([requestedModel, 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'])
+    )
 
     const contents = messages
       .filter((m) => m.role !== 'system')
@@ -156,34 +156,43 @@ export async function callAiModel(options: CallAiOptions): Promise<string> {
         parts: [{ text: m.content }],
       }))
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents,
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      }),
-    })
+    let lastError: string | null = null
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}))
-      throw new Error(
-        errJson?.error?.message || `Google Gemini API error (status ${res.status})`
-      )
+    for (const targetModel of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+          targetModel
+        )}:generateContent?key=${encodeURIComponent(resolvedKey)}`
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            contents,
+            generationConfig: {
+              temperature,
+              maxOutputTokens: maxTokens,
+            },
+          }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+          if (text) return text
+        } else {
+          const errJson = await res.json().catch(() => ({}))
+          lastError = errJson?.error?.message || `Google Gemini status ${res.status}`
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Network error calling Gemini'
+      }
     }
 
-    const data = await res.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!text) {
-      throw new Error('Google Gemini returned an empty response.')
-    }
-    return text
+    throw new Error(lastError || 'Failed to generate response from Google Gemini.')
   }
 
   // 2. OpenAI
