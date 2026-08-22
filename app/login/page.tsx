@@ -18,8 +18,9 @@ import {
   ShieldCheck,
   RefreshCw,
   ArrowLeft,
-  KeyRound,
   AlertCircle,
+  Smartphone,
+  Send,
 } from 'lucide-react'
 
 function maskEmail(email: string) {
@@ -54,6 +55,11 @@ function LoginForm() {
   const [challengeMethod, setChallengeMethod] = useState<'APP' | 'EMAIL'>('APP')
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [verifying, setVerifying] = useState(false)
+  // Shown under the boxes rather than only as a toast, which disappears
+  // before someone has finished reading it
+  const [codeError, setCodeError] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resendIn, setResendIn] = useState(0)
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -125,6 +131,10 @@ function LoginForm() {
           setChallengeEmail(data.email || targetEmail)
           setChallengeMethod(via)
           setOtpDigits(['', '', '', '', '', ''])
+          setCodeError('')
+          // The password step has just mailed one, so start the clock rather
+          // than offering a resend that the server would only refuse
+          setResendIn(via === 'EMAIL' ? 60 : 0)
           addToast(
             'info',
             via === 'EMAIL'
@@ -158,6 +168,7 @@ function LoginForm() {
 
   // Handle OTP digit changes
   const handleOtpChange = (index: number, val: string) => {
+    setCodeError('')
     const clean = val.replace(/\D/g, '')
     if (!clean) {
       const newDigits = [...otpDigits]
@@ -196,6 +207,42 @@ function LoginForm() {
     }
   }
 
+  // Count the resend cooldown down to zero
+  useEffect(() => {
+    if (resendIn <= 0) return
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendIn])
+
+  // Post another emailed code
+  const resendCode = async () => {
+    if (resending || resendIn > 0) return
+    setResending(true)
+    try {
+      const res = await fetch('/api/auth/2fa/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        setResendIn(60)
+        setCodeError('')
+        setOtpDigits(['', '', '', '', '', ''])
+        otpInputRefs.current[0]?.focus()
+        addToast('success', 'A new code is on its way')
+      } else {
+        if (typeof data.retryInSeconds === 'number') setResendIn(data.retryInSeconds)
+        addToast('error', data.error || 'Could not send another code')
+      }
+    } catch {
+      addToast('error', 'Network error sending the code')
+    } finally {
+      setResending(false)
+    }
+  }
+
   // Submit 2FA Verification Code
   const handleVerify2FASubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -228,10 +275,12 @@ function LoginForm() {
         return
       }
 
-      addToast('error', data.error || 'Invalid or expired verification code')
+      setCodeError(data.error || 'That code didn’t match. Try the next one.')
+      setOtpDigits(['', '', '', '', '', ''])
+      otpInputRefs.current[0]?.focus()
       setVerifying(false)
     } catch {
-      addToast('error', 'Network error verifying security code')
+      setCodeError('Network error. Check your connection and try again.')
       setVerifying(false)
     }
   }
@@ -241,10 +290,12 @@ function LoginForm() {
     <AuthSplitLayout
       headline="Welcome back to your research desk."
       subheadline="Sign in to pick up where you left off — your papers, notes, and reading pipeline in one place."
-      title={is2FA ? 'Security verification' : 'Sign in'}
+      title={is2FA ? 'Two-step verification' : 'Sign in'}
       subtitle={
         is2FA
-          ? 'Enter the code from your authenticator app'
+          ? challengeMethod === 'EMAIL'
+            ? 'One more step — we sent a code to your inbox.'
+            : 'One more step — open your authenticator app.'
           : 'Welcome back, enter your details to continue.'
       }
     >
@@ -336,41 +387,78 @@ function LoginForm() {
             </form>
           ) : (
             /* ─── Two-Step Verification Form ─── */
-            <form onSubmit={(e) => handleVerify2FASubmit(e)} className="space-y-5 animate-slide-up">
-              <div className="text-center space-y-1.5 pb-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-[11px] font-bold">
-                  <KeyRound size={12} /> Two-Factor Protection
+            <form
+              onSubmit={(e) => handleVerify2FASubmit(e)}
+              className="space-y-5 animate-slide-up"
+            >
+              {/* Which method, and where the code went — one row, not three
+                  stacked centred lines */}
+              <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/60 p-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent-subtle text-accent">
+                  {challengeMethod === 'EMAIL' ? <Mail size={16} /> : <Smartphone size={16} />}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-text-primary">
+                    {challengeMethod === 'EMAIL' ? 'Code sent by email' : 'Authenticator app'}
+                  </p>
+                  <p className="truncate font-mono text-[11px] text-text-tertiary">
+                    {maskEmail(challengeEmail)}
+                  </p>
                 </div>
-                <p className="text-xs text-text-secondary leading-relaxed pt-1">
-                  {challengeMethod === 'EMAIL'
-                    ? 'Enter the 6-digit code we emailed to'
-                    : 'Open your authenticator app and enter the 6-digit code for'}
-                </p>
-                <p className="text-xs font-mono font-bold text-text-primary bg-bg-tertiary py-1 px-2.5 rounded-lg inline-block border border-border-default">
-                  {maskEmail(challengeEmail)}
-                </p>
               </div>
 
-              {/* 6 Digit Input Boxes */}
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5 py-2">
-                {otpDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => {
-                      otpInputRefs.current[idx] = el
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                    className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold font-mono bg-bg-secondary border-2 border-border-default focus:border-accent focus:bg-bg-tertiary focus:shadow-glow rounded-xl outline-none transition-all text-text-primary"
-                    required
-                  />
-                ))}
+              {/* Six boxes, grouped 3 + 3 so the code is readable at a glance */}
+              <div className="space-y-2">
+                <label className="block text-center text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                  Enter your 6-digit code
+                </label>
+
+                <div className="flex items-center justify-center gap-2">
+                  {otpDigits.map((digit, idx) => (
+                    <React.Fragment key={idx}>
+                      {idx === 3 && (
+                        <span className="mx-0.5 h-px w-3 shrink-0 bg-border-default" aria-hidden />
+                      )}
+                      <input
+                        ref={(el) => {
+                          otpInputRefs.current[idx] = el
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                        aria-label={`Digit ${idx + 1}`}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        disabled={verifying}
+                        className={`h-13 w-11 rounded-xl border-2 bg-bg-secondary text-center font-mono text-xl font-bold text-text-primary outline-none transition-all duration-150 disabled:opacity-60 sm:h-14 sm:w-12 sm:text-2xl ${
+                          codeError
+                            ? 'border-danger/70 bg-danger-subtle/30'
+                            : digit
+                              ? 'border-accent/50 bg-bg-tertiary'
+                              : 'border-border-default focus:border-accent focus:bg-bg-tertiary focus:shadow-glow'
+                        }`}
+                        required
+                      />
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                {/* Reserve the line so the boxes don't jump when an error lands */}
+                <p
+                  className={`min-h-[1rem] text-center text-[11px] leading-4 ${
+                    codeError ? 'text-danger' : 'text-text-tertiary'
+                  }`}
+                  role={codeError ? 'alert' : undefined}
+                >
+                  {codeError ||
+                    (challengeMethod === 'EMAIL'
+                      ? 'The code expires in 10 minutes.'
+                      : 'A new code appears in your app every 30 seconds.')}
+                </p>
               </div>
 
               <Button
@@ -383,24 +471,45 @@ function LoginForm() {
                 Verify &amp; Sign In
               </Button>
 
-              {/* Back control */}
-              <div className="flex items-center justify-between pt-2 text-xs">
+              {/* Get out, or get another code */}
+              <div className="flex items-center justify-between gap-3 border-t border-border-default pt-3.5 text-xs">
                 <button
                   type="button"
-                  onClick={() => setIs2FA(false)}
-                  className="text-text-tertiary hover:text-text-primary flex items-center gap-1 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setIs2FA(false)
+                    setCodeError('')
+                    setOtpDigits(['', '', '', '', '', ''])
+                  }}
+                  className="flex cursor-pointer items-center gap-1 text-text-tertiary transition-colors hover:text-text-primary"
                 >
-                  <ArrowLeft size={13} /> Back to Sign In
+                  <ArrowLeft size={13} /> Back to sign in
                 </button>
 
-                <span className="flex items-center gap-1.5 text-text-tertiary">
-                  <RefreshCw size={12} /> A new code appears every 30 seconds
-                </span>
+                {challengeMethod === 'EMAIL' ? (
+                  <button
+                    type="button"
+                    onClick={resendCode}
+                    disabled={resending || resendIn > 0}
+                    className="flex cursor-pointer items-center gap-1.5 font-medium text-accent transition-colors hover:text-accent-hover disabled:cursor-not-allowed disabled:text-text-tertiary"
+                  >
+                    <Send size={12} />
+                    {resending
+                      ? 'Sending…'
+                      : resendIn > 0
+                        ? `Resend in ${resendIn}s`
+                        : 'Send a new code'}
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-text-tertiary">
+                    <RefreshCw size={12} /> Refreshes every 30s
+                  </span>
+                )}
               </div>
             </form>
           )}
 
-          {/* Bottom link */}
+          {/* Bottom link — not while a sign-in is half-finished */}
+          {!is2FA && (
           <p className="text-center text-[13px] text-text-secondary border-t border-border-default pt-4">
             Don&apos;t have an account?{' '}
             <Link
@@ -410,6 +519,7 @@ function LoginForm() {
               Create account
             </Link>
           </p>
+          )}
     </AuthSplitLayout>
   )
 }
