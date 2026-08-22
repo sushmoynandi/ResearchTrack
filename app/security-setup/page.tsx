@@ -43,9 +43,9 @@ function SetupLoading() {
 }
 
 /**
- * The one-time security step an administrator sees on their first sign-in.
- * They must pick how they want their sign-in codes delivered before the rest of
- * the app opens up — the same shape as the profile step new users go through.
+ * The step an administrator is held at whenever their account has no second
+ * sign-in step configured — on a first sign-in, and again if they ever remove
+ * the last one. Nothing else in the app opens up until one is in place.
  */
 function SecuritySetupForm() {
   const router = useRouter()
@@ -172,8 +172,8 @@ function SecuritySetupForm() {
             className="auth-rise text-xs text-text-secondary mt-1 max-w-sm mx-auto leading-relaxed"
           >
             You&apos;re an administrator — this account can change people&apos;s roles
-            and read everyone&apos;s work. Pick how you&apos;d like to receive a code
-            when you sign in.
+            and read everyone&apos;s work, so a password on its own isn&apos;t enough.
+            Pick how you&apos;d like to receive a code when you sign in.
           </p>
         </div>
 
@@ -352,8 +352,9 @@ function SecuritySetupForm() {
           )}
 
           <p className="pt-4 border-t border-border-default text-center text-[11px] text-text-tertiary leading-relaxed">
-            This is asked once. You can change it later, or switch it off, from your
-            Profile page.
+            Set up the other one too, or swap between them, from your Profile page.
+            Administrator accounts keep two-factor on, so this screen comes back if
+            it is ever removed.
           </p>
         </div>
       </div>

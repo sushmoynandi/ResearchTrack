@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       image: user.image,
       isGuest: user.isGuest,
       provider: user.provider,
-      twoFactorSetupDone: user.twoFactorSetupDone,
+      twoFactorEnabled: user.twoFactorEnabled,
     })
 
     const isProd = process.env.NODE_ENV === 'production'

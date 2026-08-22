@@ -49,9 +49,11 @@ export default async function proxy(request: NextRequest) {
     const institution = typeof payload.institution === 'string' ? payload.institution.trim() : ''
     const department = typeof payload.department === 'string' ? payload.department.trim() : ''
 
-    // An administrator picks how they'll receive sign-in codes before anything
-    // else opens up. Asked once — the session carries a flag once it's answered.
-    if (payload.systemRole === 'ADMIN' && payload.twoFactorSetupDone !== true) {
+    // An administrator cannot use the app without a second sign-in step. This
+    // checks that two-factor is *on*, not merely that it was once set up, so
+    // switching it off sends them straight back here rather than quietly
+    // leaving the account on a password alone.
+    if (payload.systemRole === 'ADMIN' && payload.twoFactorEnabled !== true) {
       const url = request.nextUrl.clone()
       url.pathname = '/security-setup'
       url.search = pathname === '/' ? '' : `?redirect=${encodeURIComponent(pathname)}`

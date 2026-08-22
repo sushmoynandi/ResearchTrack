@@ -27,7 +27,9 @@ export async function GET() {
         supervisorId: true,
         createdAt: true,
         passwordHash: true,
-        twoFactorSetupDone: true,
+        twoFactorEnabled: true,
+        twoFactorMethod: true,
+        twoFactorEmailReady: true,
         _count: {
           select: {
             papers: true,
@@ -54,11 +56,14 @@ export async function GET() {
     })
 
     // An admin may have changed this person's role since the session cookie was
-    // issued (e.g. approving a role change request). Re-issue it here so the new
-    // role takes effect on the next page load instead of after a sign-out.
+    // issued (e.g. approving a role change request), and two-factor may have
+    // been switched on or off in another tab. Re-issue the cookie here so the
+    // gate in proxy.ts sees the truth on the next page load rather than after a
+    // sign-out — otherwise an administrator who turns two-factor off keeps
+    // browsing on a stale "it's on" flag.
     if (
       user.systemRole !== sessionUser.systemRole ||
-      Boolean(user.twoFactorSetupDone) !== Boolean(sessionUser.twoFactorSetupDone)
+      Boolean(user.twoFactorEnabled) !== Boolean(sessionUser.twoFactorEnabled)
     ) {
       const freshToken = await createSessionToken({
         id: user.id,
@@ -70,7 +75,7 @@ export async function GET() {
         image: user.image,
         isGuest: user.isGuest,
         provider: user.provider,
-        twoFactorSetupDone: user.twoFactorSetupDone,
+        twoFactorEnabled: user.twoFactorEnabled,
       })
       const cookieOptions = getSessionCookieOptions(30)
       response.cookies.set({ ...cookieOptions, value: freshToken })

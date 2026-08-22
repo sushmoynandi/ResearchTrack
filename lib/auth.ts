@@ -17,9 +17,9 @@ export interface SessionUser {
   image?: string | null
   isGuest?: boolean
   provider?: string
-  /** Whether two-factor has been set up. Only administrators are held at the
-   *  security step until it's true; for everyone else it's just a record. */
-  twoFactorSetupDone?: boolean
+  /** True while at least one second step is configured. Administrators are
+   *  held at /security-setup whenever it isn't. */
+  twoFactorEnabled?: boolean
 }
 
 export function getSessionCookieOptions(maxAgeDays = 30) {

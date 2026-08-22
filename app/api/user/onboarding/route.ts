@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         image: true,
         isGuest: true,
         provider: true,
-        twoFactorSetupDone: true,
+        twoFactorEnabled: true,
       },
     })
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       image: updatedUser.image,
       isGuest: updatedUser.isGuest,
       provider: updatedUser.provider,
-      twoFactorSetupDone: updatedUser.twoFactorSetupDone,
+      twoFactorEnabled: updatedUser.twoFactorEnabled,
     })
 
     const cookieConfig = {

@@ -38,14 +38,16 @@ model User {
   isGuest      Boolean      @default(false)
   isActive     Boolean      @default(true)
 
-  // Two-factor, administrators only. They pick how they want to receive the
-  // code — an authenticator app or their email. `twoFactorSetupDone` records
-  // that they've been through the one-time setup step, so it's asked for once
-  // and never again, whichever way they answered.
-  twoFactorEnabled   Boolean          @default(false)
-  twoFactorMethod    TwoFactorMethod?
-  twoFactorSecret    String?
-  twoFactorSetupDone Boolean          @default(false)
+  // Two-factor, open to any account. Both ways of receiving a code can be set
+  // up side by side — `twoFactorSecret` holds the authenticator app's key and
+  // `twoFactorEmailReady` records that emailed codes have been proven to
+  // arrive. `twoFactorMethod` names the one actually used at sign-in, and
+  // `twoFactorEnabled` is true while at least one of them is configured.
+  // Administrators are held at /security-setup until it is.
+  twoFactorEnabled    Boolean          @default(false)
+  twoFactorMethod     TwoFactorMethod?
+  twoFactorSecret     String?
+  twoFactorEmailReady Boolean          @default(false)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
