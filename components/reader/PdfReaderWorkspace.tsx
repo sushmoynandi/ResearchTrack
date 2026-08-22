@@ -50,6 +50,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 import type { Paper, Note, LiteratureReviewData, QuestionAnswer } from '@/lib/types'
 import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from './AiConfigModal'
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 
 interface PdfReaderWorkspaceProps {
   paper: Paper
@@ -1074,9 +1075,13 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                       <div className="flex items-center justify-between text-[10px] opacity-70 font-mono">
                         <span>{msg.role === 'user' ? 'You' : 'AI Assistant'}</span>
                       </div>
-                      <div className="whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </div>
+                      {msg.role === 'user' ? (
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <MarkdownRenderer content={msg.content} />
+                      )}
 
                       {/* Actions for Assistant Messages */}
                       {msg.role === 'assistant' && msg.id !== 'welcome' && (

@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from '@/components/reader/AiConfigModal'
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 
 interface Message {
   id: string
@@ -294,9 +295,13 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
                     </div>
                   </div>
 
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {msg.content}
-                  </div>
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap leading-relaxed">
+                      {msg.content}
+                    </div>
+                  ) : (
+                    <MarkdownRenderer content={msg.content} />
+                  )}
                 </div>
 
                 {msg.role === 'user' && (
