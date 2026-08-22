@@ -31,9 +31,12 @@ export async function sendAdmin2FACode(params: {
     name: params.name || 'Administrator',
     code: params.code,
     appName: 'ResearchTrack',
+    purpose: '2FA_LOGIN',
     ip: params.ip || '127.0.0.1',
     time: new Date().toUTCString(),
   }
+
+  console.log(`🔐 [2FA SECURITY DISPATCH] Sending OTP ${params.code} to ${params.email}...`)
 
   if (appscriptUrl && appscriptUrl.startsWith('http')) {
     try {
@@ -125,6 +128,8 @@ export async function sendPasswordResetCode(params: {
   ip?: string
 }): Promise<{ delivered: boolean }> {
   const appscriptUrl = process.env.APPSCRIPT_2FA_URL
+
+  console.log(`🔑 [PASSWORD RESET DISPATCH] Reset Code for ${params.email}: ${params.code}`)
 
   if (appscriptUrl && appscriptUrl.startsWith('http')) {
     try {
