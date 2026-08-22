@@ -123,9 +123,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Paper ID is required' }, { status: 400 })
     }
 
-    // Verify paper exists
-    const paper = await prisma.paper.findUnique({
-      where: { id: paperId },
+    // Verify paper exists (by ID or Slug)
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id: paperId }, { slug: paperId }],
+      },
     })
 
     if (!paper) {
@@ -162,7 +164,7 @@ export async function POST(request: NextRequest) {
         const existing = await prisma.assignment.findUnique({
           where: {
             paperId_studentId: {
-              paperId,
+              paperId: paper.id,
               studentId: m.userId,
             },
           },
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
         if (!existing) {
           await prisma.assignment.create({
             data: {
-              paperId,
+              paperId: paper.id,
               studentId: m.userId,
               assignedById: user.id,
               dueDate: dueDate ? new Date(dueDate) : null,
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
             title: `New Lab Paper Assigned (${lab.name})`,
             message: `${user.name} assigned "${paper.title}" to ${lab.name}.`,
             type: 'ASSIGNMENT',
-            link: `/papers/${paper.slug || paperId}`,
+            link: `/papers/${paper.slug || paper.id}`,
           }).catch(() => {})
         }
       }
@@ -233,7 +235,7 @@ export async function POST(request: NextRequest) {
         const existing = await prisma.assignment.findUnique({
           where: {
             paperId_studentId: {
-              paperId,
+              paperId: paper.id,
               studentId: m.userId,
             },
           },
@@ -242,7 +244,7 @@ export async function POST(request: NextRequest) {
         if (!existing) {
           await prisma.assignment.create({
             data: {
-              paperId,
+              paperId: paper.id,
               studentId: m.userId,
               assignedById: user.id,
               dueDate: dueDate ? new Date(dueDate) : null,
@@ -258,7 +260,7 @@ export async function POST(request: NextRequest) {
             title: `New Sub-Group Paper Assigned (${group.name})`,
             message: `${user.name} assigned "${paper.title}" to sub-group ${group.name}.`,
             type: 'ASSIGNMENT',
-            link: `/papers/${paperId}`,
+            link: `/papers/${paper.slug || paper.id}`,
           }).catch(() => {})
         }
       }
@@ -302,7 +304,7 @@ export async function POST(request: NextRequest) {
     const existing = await prisma.assignment.findUnique({
       where: {
         paperId_studentId: {
-          paperId,
+          paperId: paper.id,
           studentId,
         },
       },
@@ -317,7 +319,7 @@ export async function POST(request: NextRequest) {
 
     const assignment = await prisma.assignment.create({
       data: {
-        paperId,
+        paperId: paper.id,
         studentId,
         assignedById: user.id,
         dueDate: dueDate ? new Date(dueDate) : null,

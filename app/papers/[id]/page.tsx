@@ -118,7 +118,10 @@ export default function PaperDetailPage() {
   const [assignScope, setAssignScope] = useState<'STUDENT' | 'LAB' | 'GROUP'>('STUDENT')
   const [studentList, setStudentList] = useState<{ id: string; name: string; email: string; department?: string }[]>([])
   const [labList, setLabList] = useState<{ id: string; name: string; members: any[]; groups: { id: string; name: string }[] }[]>([])
+  const [availablePapers, setAvailablePapers] = useState<{ id: string; title: string; authors: string; slug?: string | null }[]>([])
+  const [selectedAssignPaperId, setSelectedAssignPaperId] = useState('')
   const [loadingStudents, setLoadingStudents] = useState(false)
+  const [loadingPapersList, setLoadingPapersList] = useState(false)
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [selectedLabId, setSelectedLabId] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState('')
@@ -132,9 +135,25 @@ export default function PaperDetailPage() {
 
   const paperId = params.id as string
 
-  // Fetch students and labs for supervisor assignment modal
+  // Fetch students, labs, and papers for supervisor assignment modal
   useEffect(() => {
     if (isAssignModalOpen && (isSupervisor || isAdmin)) {
+      if (paper && !selectedAssignPaperId) {
+        setSelectedAssignPaperId(paper.id)
+      }
+
+      if (availablePapers.length === 0) {
+        setLoadingPapersList(true)
+        fetch('/api/papers')
+          .then((res) => (res.ok ? res.json() : []))
+          .then((data) => {
+            const list = Array.isArray(data) ? data : data.papers || []
+            setAvailablePapers(list)
+          })
+          .catch(() => {})
+          .finally(() => setLoadingPapersList(false))
+      }
+
       if (studentList.length === 0) {
         setLoadingStudents(true)
         fetch('/api/students')
@@ -164,17 +183,18 @@ export default function PaperDetailPage() {
           .catch(() => {})
       }
     }
-  }, [isAssignModalOpen, isSupervisor, isAdmin, studentList.length, labList.length])
+  }, [isAssignModalOpen, isSupervisor, isAdmin, studentList.length, labList.length, availablePapers.length, paper, selectedAssignPaperId])
 
   const handleAssignPaper = async (e: React.FormEvent) => {
     e.preventDefault()
     setAssigning(true)
+    const targetPaperId = selectedAssignPaperId || paper?.id || paperId
     try {
       const res = await fetch('/api/assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          paperId,
+          paperId: targetPaperId,
           targetType: assignScope,
           studentId: assignScope === 'STUDENT' ? selectedStudentId : undefined,
           labId: assignScope === 'LAB' ? selectedLabId : undefined,
@@ -190,6 +210,10 @@ export default function PaperDetailPage() {
         setAssignNote('')
         setAssignDueDate('')
         fetchPaper()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+          window.dispatchEvent(new Event('assignment-status-changed'))
+        }
       } else {
         addToast('error', data.error || 'Failed to assign paper')
       }
@@ -1552,6 +1576,39 @@ export default function PaperDetailPage() {
         size="md"
       >
         <form onSubmit={handleAssignPaper} className="space-y-4 pt-2">
+          {/* Select Research Paper Field */}
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-1.5">
+              Select Research Paper <span className="text-danger">*</span>
+            </label>
+            {loadingPapersList && availablePapers.length === 0 ? (
+              <div className="text-xs text-text-tertiary">Loading research library papers...</div>
+            ) : availablePapers.length > 0 ? (
+              <select
+                value={selectedAssignPaperId || paper.id}
+                onChange={(e) => setSelectedAssignPaperId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs focus:outline-none focus:border-accent"
+                required
+              >
+                {!availablePapers.some((p) => p.id === paper.id) && (
+                  <option value={paper.id}>
+                    {paper.title} ({paper.authors}) · Current Workspace Paper
+                  </option>
+                )}
+                {availablePapers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} {p.id === paper.id ? '· (Current Workspace Paper)' : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary font-medium flex items-center gap-2">
+                <BookOpen size={14} className="text-accent shrink-0" />
+                <span className="truncate">{paper.title}</span>
+              </div>
+            )}
+          </div>
+
           {/* Target Scope Selection */}
           <div>
             <label className="block text-xs font-semibold text-text-primary mb-1.5">

@@ -22,8 +22,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Paper ID and Research Group ID are required' }, { status: 400 })
     }
 
-    const paper = await prisma.paper.findUnique({
-      where: { id: paperId },
+    const paper = await prisma.paper.findFirst({
+      where: {
+        OR: [{ id: paperId }, { slug: paperId }],
+      },
     })
 
     if (!paper) {
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
       const existing = await prisma.assignment.findUnique({
         where: {
           paperId_studentId: {
-            paperId,
+            paperId: paper.id,
             studentId: member.userId,
           },
         },
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       if (!existing) {
         await prisma.assignment.create({
           data: {
-            paperId,
+            paperId: paper.id,
             studentId: member.userId,
             assignedById: user.id,
             dueDate: dueDate ? new Date(dueDate) : null,
@@ -84,8 +86,8 @@ export async function POST(request: NextRequest) {
           title: `Group Literature Assigned: ${group.name} 🔬`,
           message: `${user.name} assigned your research cluster "${group.name}": "${paper.title}"`,
           type: 'ASSIGNMENT',
-          link: `/papers/${paper.slug || paperId}`,
-        })
+          link: `/papers/${paper.slug || paper.id}`,
+        }).catch(() => {})
       }
     }
 
