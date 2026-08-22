@@ -17,6 +17,8 @@ export interface SessionUser {
   image?: string | null
   isGuest?: boolean
   provider?: string
+  /** Administrators only: whether they've been through the security step. */
+  twoFactorSetupDone?: boolean
 }
 
 export function getSessionCookieOptions(maxAgeDays = 30) {

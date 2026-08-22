@@ -44,54 +44,50 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── ADMIN 2-STEP VERIFICATION ──────────────────────────
-    if (user.systemRole === 'ADMIN') {
-      const { generate6DigitCode, sendAdmin2FACode } = await import('@/lib/appscript2fa')
-      const { create2FAToken, hashPassword } = await import('@/lib/auth')
+    // Only when the administrator has switched it on. Whichever way they chose
+    // to receive the code, the challenge screen is the same.
+    if (user.systemRole === 'ADMIN' && user.twoFactorEnabled && user.twoFactorMethod) {
+      const { create2FAToken } = await import('@/lib/auth')
 
-      // Clear any pending verification codes for this admin
-      await prisma.twoFactorOtp.deleteMany({
-        where: { userId: user.id },
-      }).catch(() => {})
+      // Email codes have to be sent now; app codes are already on their phone.
+      if (user.twoFactorMethod === 'EMAIL') {
+        const { generate6DigitCode, sendAdmin2FACode } = await import('@/lib/appscript2fa')
+        const { hashPassword } = await import('@/lib/auth')
 
-      // Generate fresh 6-digit OTP
-      const code = generate6DigitCode()
-      const codeHash = await hashPassword(code)
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        await prisma.twoFactorOtp.deleteMany({ where: { userId: user.id } }).catch(() => {})
 
-      // Store in database
-      await prisma.twoFactorOtp.create({
-        data: {
-          userId: user.id,
+        const code = generate6DigitCode()
+        await prisma.twoFactorOtp.create({
+          data: {
+            userId: user.id,
+            email: user.email,
+            codeHash: await hashPassword(code),
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          },
+        })
+
+        await sendAdmin2FACode({
           email: user.email,
-          codeHash,
-          expiresAt,
-        },
-      })
+          name: user.name,
+          code,
+          ip:
+            request.headers.get('x-forwarded-for') ||
+            request.headers.get('x-real-ip') ||
+            '127.0.0.1',
+        })
+      }
 
-      // Generate signed temporary 2FA token
-      const tempToken = await create2FAToken({
-        userId: user.id,
-        email: user.email,
-      })
-
-      // Send OTP via Google Apps Script (or development logger)
-      const clientIp =
-        request.headers.get('x-forwarded-for') ||
-        request.headers.get('x-real-ip') ||
-        '127.0.0.1'
-
-      await sendAdmin2FACode({
-        email: user.email,
-        name: user.name,
-        code,
-        ip: clientIp,
-      })
+      const tempToken = await create2FAToken({ userId: user.id, email: user.email })
 
       return NextResponse.json({
         requires2FA: true,
+        method: user.twoFactorMethod,
         tempToken,
         email: user.email,
-        message: 'A 6-digit verification code has been dispatched to your administrator email.',
+        message:
+          user.twoFactorMethod === 'APP'
+            ? 'Enter the 6-digit code from your authenticator app.'
+            : 'We’ve emailed you a 6-digit code.',
       })
     }
 
@@ -105,6 +101,7 @@ export async function POST(request: NextRequest) {
       image: user.image,
       isGuest: user.isGuest,
       provider: user.provider,
+      twoFactorSetupDone: user.twoFactorSetupDone,
     })
 
     const isProd = process.env.NODE_ENV === 'production'

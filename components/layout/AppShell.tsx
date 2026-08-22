@@ -38,7 +38,8 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     pathname?.startsWith('/login') ||
       pathname?.startsWith('/register') ||
       pathname?.startsWith('/welcome') ||
-      pathname?.startsWith('/forgot-password')
+      pathname?.startsWith('/forgot-password') ||
+      pathname?.startsWith('/security-setup')
   )
 
   // Wait for the server to say who this is before sending anyone to /login.

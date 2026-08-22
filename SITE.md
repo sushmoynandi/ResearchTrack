@@ -9,7 +9,11 @@
 
 ## Authentication & User Accounts
 - **Login Options** (both available on `/login` and `/register`):
-  - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter, admin 2-step verification
+  - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter
+  - **Two-factor for administrators**: An administrator's first sign-in stops at a one-time security step (`/security-setup`) — the same shape as the profile step new users go through — where they choose how sign-in codes reach them:
+    - **Authenticator app** — scan a QR code with Google Authenticator, Microsoft Authenticator, Authy or 1Password. Works with no signal.
+    - **Email** — a 6-digit code sent to their address each time they sign in.
+    They can change methods or switch it off later from `Profile → Two-Factor Authentication`. Turning it off needs a current code, so someone at an unlocked screen can't quietly remove it, and while it's off the card explains what an admin account can do and why a password on its own is thin cover. The setup step is asked once and never again, whichever way they answered. Only administrators are offered any of this.
   - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up, with a clear split between the two buttons:
     - **"Sign up with Google" on the Register page** creates the account.
     - **"Continue with Google" on the Login page only signs you in.** If no account uses that Google address yet, nothing is created — you're sent back to the Login page with a notice explaining you need to register first (with a link straight to the Register page).
@@ -31,6 +35,7 @@
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Forgot password** (`/forgot-password`) — Emails a 6-digit code, then lets you set a new password
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
+- **Secure your account** (`/security-setup`) — The required one-time step on an administrator's first sign-in: pick an authenticator app or email for two-factor codes
 - **Role Requests** (`/admin/role-requests`) — Admin-only queue for approving or declining role change requests
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, profile photo, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
@@ -45,7 +50,7 @@
 - **Research Radar** (`/radar`) — Real-time discovery feed from ArXiv and Hugging Face Daily Papers
 
 ## Database
-- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total).
+- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total). Two-factor lives on the `User` row (`twoFactorEnabled`, `twoFactorSecret`).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
 - **The deployed database keeps itself in sync**: `npm run build` runs `prisma db push`,
@@ -112,6 +117,8 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-22: Two-factor for administrators now offers both ways of receiving a code — an authenticator app or email — and an administrator's first sign-in stops at a one-time step to pick one, the way new users are asked for their institution. Nothing is switched on by default; the choice is theirs, and it's asked once. They can change methods or turn it off afterwards from the Profile page.
+- 2026-08-22: Replaced admin 2-step verification with proper authenticator-app two-factor. It used to be forced on every administrator and mailed a code out — which meant an admin whose address didn't receive mail could never sign in at all, and the demo admin accounts were unusable for exactly that reason. Now an admin turns it on themselves from the Profile page by scanning a QR code, and signing in asks for the code their app shows. With it off, the card spells out what that account can do and why a password alone is thin cover. Turning it off requires a current code. Both switches are written to the Audit Trail.
 - 2026-08-22: Fixed role change requests never reaching the admin queue. Permission checks were reading the role out of the sign-in cookie, which only holds whatever the role was when that cookie was issued — so someone promoted to Administrator in the database still counted as a Student on the server. The sidebar showed the admin menu (that reads the database) while the page behind it was refused, and the queue rendered "Nothing waiting" as if there genuinely were none. Permission checks now read the role from the database, and a failed load says so with a Try again button instead of pretending the queue is empty. The same fix closes a hole in the other direction: someone demoted used to keep their old powers for up to 30 days, until their cookie expired.
 - 2026-08-22: Added `npm run make-admin <email>` for promoting someone to Administrator. Role change requests looked broken because there was nobody who could approve one — the only admin accounts were the demo ones with made-up email addresses, and admin sign-in emails a 2-step code to that address, so nobody could get in. Editing the database by hand is easy to get wrong too: permissions come from `systemRole`, while an older `role` column sits next to it looking like the field to change. The script sets both.
 - 2026-08-22: Fixed "Could not start the reset" on the live site. The `PasswordResetOtp` table only ever existed on local machines — the deployed database was never told about it, so the first query for a real account failed. Deploys now run `prisma db push` as part of the build, so the live database picks up new tables on its own and this can't happen again with the next one.
