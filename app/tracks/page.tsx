@@ -94,6 +94,17 @@ export default function ReadingTracksPage() {
     fetchPapers()
   }, [fetchPapers])
 
+  // Real-time synchronization across app tabs & components
+  useEffect(() => {
+    const handleSync = () => fetchPapers()
+    window.addEventListener('paper-status-changed', handleSync)
+    window.addEventListener('assignment-status-changed', handleSync)
+    return () => {
+      window.removeEventListener('paper-status-changed', handleSync)
+      window.removeEventListener('assignment-status-changed', handleSync)
+    }
+  }, [fetchPapers])
+
   // 3. Status Transition Handler (1-Click Real-Time Sync)
   const handleUpdateStatus = async (paperId: string, newStatus: Status) => {
     setUpdatingId(paperId)
@@ -116,6 +127,10 @@ export default function ReadingTracksPage() {
             ? '🎓 Paper marked as Finished! Supervisor notified.'
             : 'Moved back to Reading Queue'
         )
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('paper-status-changed'))
+          window.dispatchEvent(new Event('assignment-status-changed'))
+        }
       } else {
         addToast('error', 'Failed to update reading status')
       }

@@ -193,16 +193,55 @@ export async function GET() {
     // Student performance metrics calculation
     const totalAssignedPapers = myAssignments.length
     const completedAssignedPapers = myAssignments.filter(
-      (a) => a.status === 'COMPLETED' || a.paper?.status === 'COMPLETED'
+      (a) => a.status === 'COMPLETED'
     ).length
     const readingAssignedPapers = myAssignments.filter(
-      (a) => a.status === 'IN_PROGRESS' || (a.status !== 'COMPLETED' && a.paper?.status === 'READING')
+      (a) => a.status === 'IN_PROGRESS'
     ).length
     const pendingAssignedPapers = myAssignments.filter(
-      (a) => a.status === 'PENDING' && a.paper?.status !== 'READING' && a.paper?.status !== 'COMPLETED'
+      (a) => a.status === 'PENDING'
     ).length
     const assignedCompletionRate =
       totalAssignedPapers > 0 ? Math.round((completedAssignedPapers / totalAssignedPapers) * 100) : 0
+
+    let finalTotalPapers = totalPapers
+    let finalToRead = toRead
+    let finalReading = reading
+    let finalCompleted = completed
+
+    if (user.systemRole === 'STUDENT') {
+      const allStudentPapers = await prisma.paper.findMany({
+        where: paperWhere,
+        select: {
+          id: true,
+          status: true,
+          userId: true,
+          assignments: {
+            where: { studentId: user.id },
+            select: { status: true },
+          },
+        },
+      })
+
+      finalTotalPapers = allStudentPapers.length
+      finalToRead = 0
+      finalReading = 0
+      finalCompleted = 0
+
+      for (const p of allStudentPapers) {
+        const a = p.assignments[0]
+        let effStatus = p.status
+        if (a) {
+          if (a.status === 'COMPLETED') effStatus = 'COMPLETED'
+          else if (a.status === 'IN_PROGRESS') effStatus = 'READING'
+          else if (a.status === 'PENDING') effStatus = 'TO_READ'
+        }
+
+        if (effStatus === 'COMPLETED') finalCompleted++
+        else if (effStatus === 'READING') finalReading++
+        else if (effStatus === 'TO_READ') finalToRead++
+      }
+    }
 
     const tasksList = (studentLabTasks || []) as any[]
     const activeLabTasks = tasksList.filter(
@@ -216,10 +255,10 @@ export async function GET() {
 
     const stats = {
       systemRole: user.systemRole,
-      totalPapers,
-      toRead,
-      reading,
-      completed,
+      totalPapers: finalTotalPapers,
+      toRead: finalToRead,
+      reading: finalReading,
+      completed: finalCompleted,
       archived,
       favorites,
       totalNotes,
@@ -237,7 +276,7 @@ export async function GET() {
         color: c.color,
         count: c._count.papers,
       })),
-      completionRate: totalPapers > 0 ? Math.round((completed / totalPapers) * 100) : 0,
+      completionRate: finalTotalPapers > 0 ? Math.round((finalCompleted / finalTotalPapers) * 100) : 0,
 
       // Synced Assigned Paper Reading Stats
       totalAssignedPapers,
@@ -255,7 +294,7 @@ export async function GET() {
       completedMilestones,
 
       myAssignments: myAssignments.slice(0, 5),
-      pendingAssignments: myAssignments.filter((a) => a.paper.status !== 'COMPLETED'),
+      pendingAssignments: myAssignments.filter((a) => a.status !== 'COMPLETED'),
       recentNotifications,
       supervisedStudents,
       issuedAssignments,

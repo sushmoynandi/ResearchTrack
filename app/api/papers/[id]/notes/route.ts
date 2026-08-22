@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
+import { createNotification } from '@/lib/notifications'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ],
       },
       include: {
-        user: { select: { supervisorId: true } },
+        user: { select: { supervisorId: true, systemRole: true } },
         assignments: { select: { studentId: true, assignedById: true } },
         shares: { select: { sharedWithId: true, permission: true } },
       },
@@ -180,6 +181,63 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         user: { select: { id: true, name: true, systemRole: true } },
       },
     })
+
+    // ─── Dispatch Real-time In-App Notifications for Public Notes ───
+    if (!isPrivate) {
+      const noteSnippet =
+        content.trim().length > 70 ? `${content.trim().slice(0, 70)}...` : content.trim()
+
+      if (user.systemRole === 'STUDENT') {
+        // When a student posts a public note, notify their direct supervisor and assigners
+        const studentUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { supervisorId: true },
+        })
+
+        const supervisorIds = new Set<string>()
+        if (studentUser?.supervisorId) supervisorIds.add(studentUser.supervisorId)
+        if (paper.user?.supervisorId) supervisorIds.add(paper.user.supervisorId)
+        if (paper.user?.systemRole === 'SUPERVISOR' && paper.userId) supervisorIds.add(paper.userId)
+        paper.assignments?.forEach((a: any) => {
+          if (a.studentId === user.id && a.assignedById) {
+            supervisorIds.add(a.assignedById)
+          }
+        })
+        supervisorIds.delete(user.id)
+
+        for (const supervisorId of supervisorIds) {
+          await createNotification({
+            userId: supervisorId,
+            title: 'New Student Research Note 📝',
+            message: `${user.name} added a public note on "${paper.title}": "${noteSnippet}"`,
+            type: 'FEEDBACK',
+            link: `/papers/${paper.slug || paper.id}`,
+          }).catch(() => {})
+        }
+      } else if (user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN') {
+        // When a supervisor posts a public note, notify assigned students
+        const studentIds = new Set<string>()
+        paper.assignments?.forEach((a: any) => {
+          if (a.studentId && a.studentId !== user.id) {
+            studentIds.add(a.studentId)
+          }
+        })
+        if (paper.userId && paper.userId !== user.id && paper.user?.systemRole === 'STUDENT') {
+          studentIds.add(paper.userId)
+        }
+        studentIds.delete(user.id)
+
+        for (const studentId of studentIds) {
+          await createNotification({
+            userId: studentId,
+            title: 'Advisor Research Note Added 📝',
+            message: `${user.name} posted a note on "${paper.title}": "${noteSnippet}"`,
+            type: 'FEEDBACK',
+            link: `/papers/${paper.slug || paper.id}`,
+          }).catch(() => {})
+        }
+      }
+    }
 
     return NextResponse.json(note, { status: 201 })
   } catch (error) {

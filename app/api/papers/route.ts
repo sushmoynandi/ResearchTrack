@@ -105,7 +105,11 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    if (status) where.status = status
+    // Only apply direct status filter on prisma if not a student and not targeting a student
+    const isStudentUser = user.systemRole === 'STUDENT'
+    if (status && !isStudentUser && !targetUserId) {
+      where.status = status
+    }
     if (priority) where.priority = priority
     if (replicationStatus) where.replicationStatus = replicationStatus
     if (architecture) where.architecture = architecture
@@ -142,13 +146,61 @@ export async function GET(request: NextRequest) {
       orderBy: { [sort]: order },
     })
 
-    // For students: strictly isolate assignments to only their own (never expose other students assigned to the same paper)
+    // For students: strictly map effective reading status and literature review from their assignment
     if (user.systemRole === 'STUDENT') {
-      const sanitized = papers.map((p) => ({
-        ...p,
-        assignments: (p.assignments || []).filter((a) => a.studentId === user.id),
-      }))
-      return NextResponse.json(sanitized)
+      const sanitized = papers.map((p) => {
+        const myAssignment = (p.assignments || []).find((a) => a.studentId === user.id)
+        let effectiveStatus = p.status
+        let effectiveLiteratureReview = p.literatureReview
+
+        if (myAssignment) {
+          if (myAssignment.status === 'COMPLETED') effectiveStatus = 'COMPLETED'
+          else if (myAssignment.status === 'IN_PROGRESS') effectiveStatus = 'READING'
+          else if (myAssignment.status === 'PENDING') effectiveStatus = 'TO_READ'
+
+          if (myAssignment.literatureReview) {
+            effectiveLiteratureReview = myAssignment.literatureReview
+          }
+        }
+
+        return {
+          ...p,
+          status: effectiveStatus,
+          literatureReview: effectiveLiteratureReview,
+          assignments: myAssignment ? [myAssignment] : [],
+        }
+      })
+
+      const result = status ? sanitized.filter((p) => p.status === status) : sanitized
+      return NextResponse.json(result)
+    }
+
+    // For supervisors/admins filtering by a specific student
+    if (targetUserId) {
+      const mapped = papers.map((p) => {
+        const studentAssignment = (p.assignments || []).find((a) => a.studentId === targetUserId)
+        let effectiveStatus = p.status
+        let effectiveLiteratureReview = p.literatureReview
+
+        if (studentAssignment) {
+          if (studentAssignment.status === 'COMPLETED') effectiveStatus = 'COMPLETED'
+          else if (studentAssignment.status === 'IN_PROGRESS') effectiveStatus = 'READING'
+          else if (studentAssignment.status === 'PENDING') effectiveStatus = 'TO_READ'
+
+          if (studentAssignment.literatureReview) {
+            effectiveLiteratureReview = studentAssignment.literatureReview
+          }
+        }
+
+        return {
+          ...p,
+          status: effectiveStatus,
+          literatureReview: effectiveLiteratureReview,
+        }
+      })
+
+      const result = status ? mapped.filter((p) => p.status === status) : mapped
+      return NextResponse.json(result)
     }
 
     return NextResponse.json(papers)

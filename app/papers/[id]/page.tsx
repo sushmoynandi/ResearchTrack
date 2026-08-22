@@ -254,6 +254,17 @@ export default function PaperDetailPage() {
     fetchPaper()
   }, [fetchPaper])
 
+  // Real-time synchronization across app tabs & components
+  useEffect(() => {
+    const handleSync = () => fetchPaper()
+    window.addEventListener('paper-status-changed', handleSync)
+    window.addEventListener('assignment-status-changed', handleSync)
+    return () => {
+      window.removeEventListener('paper-status-changed', handleSync)
+      window.removeEventListener('assignment-status-changed', handleSync)
+    }
+  }, [fetchPaper])
+
   const handleUpdateAssignmentStatus = async (assignmentId: string, newStatus: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED') => {
     try {
       const res = await fetch('/api/assignments', {

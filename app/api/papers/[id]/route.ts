@@ -141,6 +141,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         paper.literatureReview = null
       }
 
+      // Map student's effective reading status from assignment
+      if (studentAssignment) {
+        if (studentAssignment.status === 'COMPLETED') {
+          paper.status = 'COMPLETED'
+        } else if (studentAssignment.status === 'IN_PROGRESS') {
+          paper.status = 'READING'
+        } else if (studentAssignment.status === 'PENDING') {
+          paper.status = 'TO_READ'
+        }
+      }
+
       ;(paper as any).sharedReviews = sharedReviews
       paper.assignments = studentAssignment ? [studentAssignment] : []
 
@@ -331,12 +342,23 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       })
 
       if (freshPaper) {
+        if (status !== undefined) {
+          freshPaper.status = status
+        } else if (activeAssignment) {
+          const finalStatus = assignmentUpdateData.status || activeAssignment.status
+          if (finalStatus === 'COMPLETED') freshPaper.status = 'COMPLETED'
+          else if (finalStatus === 'IN_PROGRESS') freshPaper.status = 'READING'
+          else if (finalStatus === 'PENDING') freshPaper.status = 'TO_READ'
+        }
+
         // Return student's own literature review in the response
         if (literatureReview !== undefined) {
           freshPaper.literatureReview = typeof literatureReview === 'string' ? literatureReview : JSON.stringify(literatureReview)
         } else if (activeAssignment.literatureReview) {
           freshPaper.literatureReview = activeAssignment.literatureReview
         }
+
+        freshPaper.assignments = activeAssignment ? [{ ...activeAssignment, ...assignmentUpdateData } as any] : []
       }
 
       return NextResponse.json(freshPaper || existing)
