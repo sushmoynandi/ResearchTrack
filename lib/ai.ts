@@ -146,7 +146,7 @@ export async function callAiModel(options: CallAiOptions): Promise<string> {
   if (provider === 'google') {
     const requestedModel = model.replace(/^google\//i, '').replace(/^models\//i, '')
     const candidateModels = Array.from(
-      new Set([requestedModel, 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'])
+      new Set([requestedModel, 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'])
     )
 
     const contents = messages

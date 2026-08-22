@@ -30,7 +30,7 @@ export const AI_CONFIG_STORAGE_KEY = 'papertrack_ai_config'
 
 export function getStoredAiConfig(): StoredAiConfig {
   if (typeof window === 'undefined') {
-    return { provider: 'google', model: 'gemini-2.0-flash', apiKey: '' }
+    return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '' }
   }
   try {
     const raw = localStorage.getItem(AI_CONFIG_STORAGE_KEY)
@@ -38,14 +38,14 @@ export function getStoredAiConfig(): StoredAiConfig {
       const parsed = JSON.parse(raw)
       return {
         provider: parsed.provider || 'google',
-        model: parsed.model || SUPPORTED_MODELS[parsed.provider as AiProvider]?.[0]?.id || 'gemini-2.0-flash',
+        model: parsed.model || SUPPORTED_MODELS[parsed.provider as AiProvider]?.[0]?.id || 'gemini-1.5-flash',
         apiKey: parsed.apiKey || '',
       }
     }
   } catch {
     // ignore
   }
-  return { provider: 'google', model: 'gemini-2.0-flash', apiKey: '' }
+  return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '' }
 }
 
 export function saveStoredAiConfig(config: StoredAiConfig) {
@@ -66,7 +66,7 @@ interface AiConfigModalProps {
 export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   const { addToast } = useToast()
   const [provider, setProvider] = useState<AiProvider>('google')
-  const [model, setModel] = useState<string>('gemini-2.0-flash')
+  const [model, setModel] = useState<string>('gemini-1.5-flash')
   const [apiKey, setApiKey] = useState<string>('')
   const [showKey, setShowKey] = useState<boolean>(false)
   const [testing, setTesting] = useState<boolean>(false)
