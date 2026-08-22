@@ -18,6 +18,7 @@ import {
   Atom,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react'
 
 type Method = 'APP' | 'EMAIL'
@@ -56,6 +57,7 @@ function SecuritySetupForm() {
   const [setup, setSetup] = useState<SetupData | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<Method | null>(null)
   const [copied, setCopied] = useState(false)
   const [sentTo, setSentTo] = useState('')
 
@@ -67,7 +69,10 @@ function SecuritySetupForm() {
   }, [sessionChecked, user, router])
 
   const choose = async (picked: Method) => {
-    setBusy(true)
+    // Only the method that was pressed reacts — a shared flag used to light up
+    // both cards at once and made it look like two things had been clicked.
+    if (pending) return
+    setPending(picked)
     setCode('')
     try {
       if (picked === 'APP') {
@@ -93,7 +98,7 @@ function SecuritySetupForm() {
     } catch (err) {
       addToast('error', err instanceof Error ? err.message : 'Something went wrong')
     } finally {
-      setBusy(false)
+      setPending(null)
     }
   }
 
@@ -182,12 +187,23 @@ function SecuritySetupForm() {
               <button
                 type="button"
                 onClick={() => choose('APP')}
-                disabled={busy}
-                className="w-full text-left p-4 rounded-xl bg-bg-secondary/60 border border-border-default hover:border-accent hover:bg-bg-tertiary/60 transition-all duration-200 cursor-pointer disabled:opacity-60 group"
+                disabled={pending !== null}
+                aria-busy={pending === 'APP'}
+                className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group ${
+                  pending === 'APP'
+                    ? 'border-accent bg-accent-subtle/40'
+                    : 'border-border-default bg-bg-secondary/60 hover:border-accent hover:bg-bg-tertiary/60'
+                } ${pending === 'EMAIL' ? 'opacity-40' : ''} ${
+                  pending === null ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <span className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center shrink-0">
-                    <Smartphone size={18} />
+                    {pending === 'APP' ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Smartphone size={18} />
+                    )}
                   </span>
                   <div className="space-y-0.5">
                     <p className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
@@ -207,12 +223,23 @@ function SecuritySetupForm() {
               <button
                 type="button"
                 onClick={() => choose('EMAIL')}
-                disabled={busy}
-                className="w-full text-left p-4 rounded-xl bg-bg-secondary/60 border border-border-default hover:border-accent hover:bg-bg-tertiary/60 transition-all duration-200 cursor-pointer disabled:opacity-60 group"
+                disabled={pending !== null}
+                aria-busy={pending === 'EMAIL'}
+                className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group ${
+                  pending === 'EMAIL'
+                    ? 'border-accent bg-accent-subtle/40'
+                    : 'border-border-default bg-bg-secondary/60 hover:border-accent hover:bg-bg-tertiary/60'
+                } ${pending === 'APP' ? 'opacity-40' : ''} ${
+                  pending === null ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <span className="w-10 h-10 rounded-xl bg-bg-tertiary border border-border-default text-accent flex items-center justify-center shrink-0">
-                    <Mail size={18} />
+                    {pending === 'EMAIL' ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Mail size={18} />
+                    )}
                   </span>
                   <div className="space-y-0.5">
                     <p className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">

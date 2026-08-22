@@ -16,6 +16,7 @@ import {
   Check,
   X,
   Mail,
+  Loader2,
 } from 'lucide-react'
 
 interface SetupData {
@@ -25,6 +26,74 @@ interface SetupData {
 }
 
 type Method = 'APP' | 'EMAIL'
+
+/**
+ * One of the two ways to receive a code. `pending` names the method actually
+ * being fetched — passing a plain boolean here is what used to make both tiles
+ * spin at once when only one of them had been pressed.
+ */
+function MethodTile({
+  method,
+  pending,
+  onPick,
+  icon,
+  title,
+  recommended,
+  children,
+}: {
+  method: Method
+  pending: Method | null
+  onPick: (m: Method) => void
+  icon: React.ReactNode
+  title: string
+  recommended?: boolean
+  children: React.ReactNode
+}) {
+  const isPending = pending === method
+  const otherIsPending = pending !== null && !isPending
+
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(method)}
+      disabled={pending !== null}
+      aria-busy={isPending}
+      className={`group relative flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-200 ${
+        isPending
+          ? 'border-accent bg-accent-subtle/40'
+          : 'border-border-default bg-bg-secondary/50 hover:border-accent/60 hover:bg-bg-tertiary/50'
+      } ${otherIsPending ? 'opacity-40' : ''} ${
+        pending === null ? 'cursor-pointer' : 'cursor-not-allowed'
+      }`}
+    >
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+          isPending
+            ? 'border-accent/40 bg-accent-subtle text-accent'
+            : 'border-border-default bg-bg-tertiary text-text-secondary group-hover:border-accent/30 group-hover:text-accent'
+        }`}
+      >
+        {isPending ? <Loader2 size={16} className="animate-spin" /> : icon}
+      </span>
+
+      <span className="min-w-0 space-y-0.5">
+        <span className="flex items-center gap-1.5">
+          <span className="text-[13px] font-semibold text-text-primary group-hover:text-accent transition-colors">
+            {title}
+          </span>
+          {recommended && (
+            <span className="rounded-full bg-success-subtle px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-success">
+              Best
+            </span>
+          )}
+        </span>
+        <span className="block text-[11px] leading-relaxed text-text-secondary">
+          {children}
+        </span>
+      </span>
+    </button>
+  )
+}
 
 /**
  * Two-factor verification for any account. Shown on the Profile page.
@@ -45,6 +114,7 @@ export function TwoFactorCard() {
   const [setup, setSetup] = useState<SetupData | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<Method | null>(null)
   const [copied, setCopied] = useState(false)
   const [disarming, setDisarming] = useState(false)
 
@@ -67,7 +137,8 @@ export function TwoFactorCard() {
   }, [loadStatus])
 
   const choose = async (picked: Method) => {
-    setBusy(true)
+    if (pending) return
+    setPending(picked)
     setCode('')
     try {
       const res = await fetch('/api/user/2fa', {
@@ -85,7 +156,7 @@ export function TwoFactorCard() {
     } catch (err) {
       addToast('error', err instanceof Error ? err.message : 'Network error')
     } finally {
-      setBusy(false)
+      setPending(null)
     }
   }
 
@@ -170,39 +241,41 @@ export function TwoFactorCard() {
       {/* ── Off: say why that matters ── */}
       {!enabled && !choosing && (
         <>
-          <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-warning-subtle border border-warning/30">
-            <ShieldAlert size={15} className="text-warning shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-warning">
-                {isAdmin
-                  ? 'Your administrator account is protected by a password alone'
-                  : 'Your account is protected by a password alone'}
-              </p>
-              <p className="text-[11px] text-text-secondary leading-relaxed">
-                {isAdmin
-                  ? 'This account can change people’s roles, read every paper and note, and delete accounts. If the password ever leaks, that is all someone needs. With two-factor on, they would also need the phone in your pocket.'
-                  : 'Your papers, notes and everything you’ve written sit behind that one password. If it ever leaks, that is all someone needs. With two-factor on, they would also need the phone in your pocket.'}
-              </p>
-            </div>
+          <div className="flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning-subtle px-3.5 py-2.5">
+            <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warning" />
+            <p className="text-[11px] leading-relaxed text-text-secondary">
+              <span className="font-semibold text-warning">Password only. </span>
+              {isAdmin
+                ? 'This account hands out roles and reads everyone’s work. If the password leaks, that is all someone needs.'
+                : 'Your papers, notes and everything you’ve written sit behind that one password.'}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <Button
-              variant="secondary"
-              onClick={() => choose('APP')}
-              loading={busy}
-              icon={<Smartphone size={15} />}
-            >
-              Use an app
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => choose('EMAIL')}
-              loading={busy}
-              icon={<Mail size={15} />}
-            >
-              Email me codes
-            </Button>
+          <div className="space-y-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+              Add a second step
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <MethodTile
+                method="APP"
+                pending={pending}
+                onPick={choose}
+                icon={<Smartphone size={16} />}
+                title="Authenticator app"
+                recommended
+              >
+                Scan a QR code. Works with no signal.
+              </MethodTile>
+              <MethodTile
+                method="EMAIL"
+                pending={pending}
+                onPick={choose}
+                icon={<Mail size={16} />}
+                title="Email me codes"
+              >
+                A code goes to your inbox each sign-in.
+              </MethodTile>
+            </div>
           </div>
         </>
       )}
@@ -309,10 +382,10 @@ export function TwoFactorCard() {
                   <button
                     type="button"
                     onClick={() => choose('EMAIL')}
-                    disabled={busy}
+                    disabled={pending !== null || busy}
                     className="text-accent hover:text-accent-hover font-medium cursor-pointer disabled:opacity-60"
                   >
-                    {sentTo ? 'Send again' : 'Send code'}
+                    {pending === 'EMAIL' ? 'Sending…' : sentTo ? 'Send again' : 'Send code'}
                   </button>
                 </div>
               )}
