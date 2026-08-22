@@ -4,7 +4,8 @@ import { verify2FAToken, createSessionToken, verifyPassword } from '@/lib/auth'
 import { verifyTwoFactorCode } from '@/lib/totp'
 import { cookies } from 'next/headers'
 
-// POST /api/auth/verify-2fa — Verify Admin 6-digit OTP code and issue session
+// POST /api/auth/verify-2fa — Check the 6-digit code and issue the session.
+// Any account can have two-step verification on, not just administrators.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -41,12 +42,12 @@ export async function POST(request: NextRequest) {
 
     if (!user || user.isActive === false) {
       return NextResponse.json(
-        { error: 'Administrator account not found or deactivated' },
+        { error: 'Account not found or deactivated' },
         { status: 401 }
       )
     }
 
-    // 3. Check the code the way this admin chose to receive it
+    // 3. Check the code the way this person chose to receive it
     if (!user.twoFactorEnabled || !user.twoFactorMethod) {
       return NextResponse.json(
         { error: 'Two-factor is not set up on this account. Please sign in again.' },
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
         image: user.image,
         isGuest: user.isGuest,
       },
-      message: 'Two-factor verification successful! Welcome to the Admin Console.',
+      message: 'Two-step verification successful.',
     })
 
     response.cookies.set('researchtrack_session', sessionToken, cookieConfig)

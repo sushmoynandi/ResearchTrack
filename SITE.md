@@ -10,10 +10,11 @@
 ## Authentication & User Accounts
 - **Login Options** (both available on `/login` and `/register`):
   - **Email & Password**: Salted bcrypt hashing, registration validation, real-time password strength meter
-  - **Two-factor for administrators**: An administrator's first sign-in stops at a one-time security step (`/security-setup`) — the same shape as the profile step new users go through — where they choose how sign-in codes reach them:
+  - **Two-factor verification — open to everyone**: Any account, whatever its role, can add a second step at sign-in from `Profile → Two-Factor Authentication`. Two ways to receive the code:
     - **Authenticator app** — scan a QR code with Google Authenticator, Microsoft Authenticator, Authy or 1Password. Works with no signal.
     - **Email** — a 6-digit code sent to their address each time they sign in.
-    They can change methods or switch it off later from `Profile → Two-Factor Authentication`. Turning it off needs a current code, so someone at an unlocked screen can't quietly remove it, and while it's off the card explains what an admin account can do and why a password on its own is thin cover. The setup step is asked once and never again, whichever way they answered. Only administrators are offered any of this.
+    Nothing is switched on by default. Students and supervisors turn it on when they want to; while it's off, the card on their profile says plainly that their work sits behind one password. **Administrators are the exception** — their first sign-in stops at a one-time security step (`/security-setup`) and they must pick one of the two methods before anything else opens up, because an admin account can hand out roles and read everyone's work. That step is asked once and never again.
+    Anyone can change methods or switch it off later from the same profile card. Turning it off needs a current code, so someone at an unlocked screen can't quietly remove it. Both switches are written to the Audit Trail.
   - **Continue with Google**: Secure Google OAuth 2.0 sign-in / sign-up, with a clear split between the two buttons:
     - **"Sign up with Google" on the Register page** creates the account.
     - **"Continue with Google" on the Login page only signs you in.** If no account uses that Google address yet, nothing is created — you're sent back to the Login page with a notice explaining you need to register first (with a link straight to the Register page).
@@ -35,7 +36,7 @@
 - **Register** (`/register`) — Account creation with name, email, password + confirm password, and a live password strength indicator
 - **Forgot password** (`/forgot-password`) — Emails a 6-digit code, then lets you set a new password
 - **Complete your profile** (`/welcome`) — The required one-time step after sign-up: role, institution, and department
-- **Secure your account** (`/security-setup`) — The required one-time step on an administrator's first sign-in: pick an authenticator app or email for two-factor codes
+- **Secure your account** (`/security-setup`) — The required one-time step on an administrator's first sign-in: pick an authenticator app or email for two-factor codes. Administrators only — everyone else adds two-factor from their profile when they choose to
 - **Role Requests** (`/admin/role-requests`) — Admin-only queue for approving or declining role change requests
 - **Profile & Settings** (`/profile`) — Manage researcher name, institution, role, profile photo, and your password ("Add Password" for Google accounts that don't have one yet, "Change Password" once they do), plus a **Danger Zone** at the bottom for deleting the account
 - **Research Library** (`/papers`) — Dual grid/list paper tracker with search, filters (status, priority, tags, starred), and sorting
@@ -50,7 +51,7 @@
 - **Research Radar** (`/radar`) — Real-time discovery feed from ArXiv and Hugging Face Daily Papers
 
 ## Database
-- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total). Two-factor lives on the `User` row (`twoFactorEnabled`, `twoFactorSecret`).
+- Powered by Prisma ORM with models: `User`, `Paper`, `Tag`, `Collection`, `Note`, `RoleChangeRequest`, `PasswordResetOtp`, plus lab/collaboration models (29 tables total). Two-factor lives on the `User` row (`twoFactorEnabled`, `twoFactorMethod`, `twoFactorSecret`, `twoFactorSetupDone`).
 - **Local development database**: a local PostgreSQL 16 database named `researchtrack` (set via `DATABASE_URL` in `.env`). All tables are created straight from `prisma/schema.prisma` using `npx prisma db push`, so the database always matches the project exactly — login/User and every other table stay in sync.
 - **To rebuild/refresh the tables** after any schema change: `npx prisma db push`.
 - **The deployed database keeps itself in sync**: `npm run build` runs `prisma db push`,
@@ -117,6 +118,7 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-22: Two-factor verification is no longer an administrators-only feature — every account can now switch it on from `Profile → Two-Factor Authentication`, choosing an authenticator app or emailed codes. Nothing is on by default and nobody is forced into it, except administrators, who still have to pick a method on their first sign-in. The sign-in screen now says the right thing depending on which method you chose ("check your email" vs "open your app"), and after passing the check you land on your own home page rather than always being sent to the Admin Console.
 - 2026-08-22: Two-factor for administrators now offers both ways of receiving a code — an authenticator app or email — and an administrator's first sign-in stops at a one-time step to pick one, the way new users are asked for their institution. Nothing is switched on by default; the choice is theirs, and it's asked once. They can change methods or turn it off afterwards from the Profile page.
 - 2026-08-22: Replaced admin 2-step verification with proper authenticator-app two-factor. It used to be forced on every administrator and mailed a code out — which meant an admin whose address didn't receive mail could never sign in at all, and the demo admin accounts were unusable for exactly that reason. Now an admin turns it on themselves from the Profile page by scanning a QR code, and signing in asks for the code their app shows. With it off, the card spells out what that account can do and why a password alone is thin cover. Turning it off requires a current code. Both switches are written to the Audit Trail.
 - 2026-08-22: Fixed role change requests never reaching the admin queue. Permission checks were reading the role out of the sign-in cookie, which only holds whatever the role was when that cookie was issued — so someone promoted to Administrator in the database still counted as a Student on the server. The sidebar showed the admin menu (that reads the database) while the page behind it was refused, and the queue rendered "Nothing waiting" as if there genuinely were none. Permission checks now read the role from the database, and a failed load says so with a Try again button instead of pretending the queue is empty. The same fix closes a hole in the other direction: someone demoted used to keep their old powers for up to 30 days, until their cookie expired.

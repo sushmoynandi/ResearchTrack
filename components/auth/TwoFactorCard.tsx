@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/components/auth/AuthProvider'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -26,12 +27,15 @@ interface SetupData {
 type Method = 'APP' | 'EMAIL'
 
 /**
- * Authenticator-app two-factor, for administrators. Shown on the Profile page.
- * An admin account can hand out roles and read everyone's work, so when this is
- * off the card says so plainly rather than sitting there quietly.
+ * Two-factor verification for any account. Shown on the Profile page.
+ * When it's off the card says what that costs rather than sitting there
+ * quietly — and an administrator, who can hand out roles and read everyone's
+ * work, is told the sharper version of it.
  */
 export function TwoFactorCard() {
   const { addToast } = useToast()
+  const { user } = useAuth()
+  const isAdmin = user?.systemRole === 'ADMIN'
 
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [activeMethod, setActiveMethod] = useState<Method | null>(null)
@@ -142,7 +146,7 @@ export function TwoFactorCard() {
     }
   }
 
-  // Not an admin (the endpoint refuses), or still checking
+  // Not signed in (the endpoint refuses), or still checking
   if (enabled === null) return null
 
   return (
@@ -170,13 +174,14 @@ export function TwoFactorCard() {
             <ShieldAlert size={15} className="text-warning shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="text-xs font-semibold text-warning">
-                Your administrator account is protected by a password alone
+                {isAdmin
+                  ? 'Your administrator account is protected by a password alone'
+                  : 'Your account is protected by a password alone'}
               </p>
               <p className="text-[11px] text-text-secondary leading-relaxed">
-                This account can change people&apos;s roles, read every paper and note,
-                and delete accounts. If the password ever leaks, that is all someone
-                needs. With two-factor on, they would also need the phone in your
-                pocket.
+                {isAdmin
+                  ? 'This account can change people’s roles, read every paper and note, and delete accounts. If the password ever leaks, that is all someone needs. With two-factor on, they would also need the phone in your pocket.'
+                  : 'Your papers, notes and everything you’ve written sit behind that one password. If it ever leaks, that is all someone needs. With two-factor on, they would also need the phone in your pocket.'}
               </p>
             </div>
           </div>

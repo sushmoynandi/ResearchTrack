@@ -18,7 +18,7 @@ export function generate6DigitCode(): string {
 /**
  * Sends a 2FA verification email via Google Apps Script Web App URL.
  */
-export async function sendAdmin2FACode(params: {
+export async function sendTwoFactorCode(params: {
   email: string
   name: string
   code: string
@@ -28,7 +28,7 @@ export async function sendAdmin2FACode(params: {
 
   const payload = {
     email: params.email,
-    name: params.name || 'Administrator',
+    name: params.name || 'there',
     code: params.code,
     appName: 'ResearchTrack',
     purpose: '2FA_LOGIN',
