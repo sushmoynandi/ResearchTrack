@@ -326,7 +326,7 @@ export function StudentContributionHeatmap({ studentId, studentName }: StudentCo
                 </Link>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-8 max-h-[460px] overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-border-default/80 scrollbar-track-transparent rounded-xl">
                 {activityMonths.map((group) => (
                   <div key={group.monthKey} className="space-y-4">
                     {/* Month Divider with Line */}
