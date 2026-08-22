@@ -162,6 +162,29 @@ crashes with errors about a table that doesn't exist, and nobody knows why.
 Adding a new table or an optional column is safe. Renaming or deleting a column
 throws away real data — talk to the team before doing that.
 
+### ⚠️ Never delete a column and push
+
+The Vercel build runs `prisma db push` before it builds the site. If your schema
+deletes a column that still holds data, Prisma refuses:
+
+```
+⚠️ You are about to drop the column `xyz` on the `User` table,
+   which still contains 6 non-null values.
+Error: Use the --accept-data-loss flag ...
+```
+
+Prisma exits with an error, so **the whole deploy fails** — the site is never
+built and the live version stays on the old code.
+
+**What to do instead:** leave the old column in `schema.prisma` and stop using
+it. Mark it with a comment saying it's unused. `db push` then only *adds*
+things, and deploys keep working.
+
+Actually removing it is a separate, deliberate job — one person runs
+`npx prisma db push --accept-data-loss` by hand, once, when the team agrees.
+Don't put that flag in the build script: it would let any future deploy quietly
+destroy real data.
+
 ---
 
 ## Merge conflicts

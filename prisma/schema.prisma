@@ -48,6 +48,12 @@ model User {
   twoFactorMethod     TwoFactorMethod?
   twoFactorSecret     String?
   twoFactorEmailReady Boolean          @default(false)
+
+  /// Unused. Kept only so `prisma db push` in the build stays additive —
+  /// dropping a populated column makes Prisma refuse, which fails the whole
+  /// deploy. Remove it deliberately one day with a one-off
+  /// `prisma db push --accept-data-loss`, never as part of a build.
+  twoFactorSetupDone  Boolean          @default(false)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
