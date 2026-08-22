@@ -14,6 +14,8 @@ import {
   Bot,
   Settings,
   X,
+  Target,
+  Layers,
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -24,28 +26,31 @@ export interface StoredAiConfig {
   provider: AiProvider
   model: string
   apiKey: string
+  consensusApiKey?: string
 }
 
 export const AI_CONFIG_STORAGE_KEY = 'papertrack_ai_config'
 
 export function getStoredAiConfig(): StoredAiConfig {
   if (typeof window === 'undefined') {
-    return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '' }
+    return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '', consensusApiKey: '' }
   }
   try {
     const raw = localStorage.getItem(AI_CONFIG_STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
+      const isKeyConsensus = parsed.apiKey?.startsWith('ak_')
       return {
-        provider: parsed.provider || 'google',
+        provider: parsed.provider || (isKeyConsensus ? 'consensus' : 'google'),
         model: parsed.model || SUPPORTED_MODELS[parsed.provider as AiProvider]?.[0]?.id || 'gemini-1.5-flash',
         apiKey: parsed.apiKey || '',
+        consensusApiKey: parsed.consensusApiKey || (isKeyConsensus ? parsed.apiKey : ''),
       }
     }
   } catch {
     // ignore
   }
-  return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '' }
+  return { provider: 'google', model: 'gemini-1.5-flash', apiKey: '', consensusApiKey: '' }
 }
 
 export function saveStoredAiConfig(config: StoredAiConfig) {
@@ -68,7 +73,9 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   const [provider, setProvider] = useState<AiProvider>('google')
   const [model, setModel] = useState<string>('gemini-1.5-flash')
   const [apiKey, setApiKey] = useState<string>('')
+  const [consensusApiKey, setConsensusApiKey] = useState<string>('')
   const [showKey, setShowKey] = useState<boolean>(false)
+  const [showConsensusKey, setShowConsensusKey] = useState<boolean>(false)
   const [testing, setTesting] = useState<boolean>(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
@@ -78,6 +85,7 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
       setProvider(current.provider)
       setModel(current.model)
       setApiKey(current.apiKey)
+      setConsensusApiKey(current.consensusApiKey || '')
       setTestResult(null)
     }
   }, [isOpen])
@@ -90,7 +98,8 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   }
 
   const handleTestConnection = async () => {
-    if (!apiKey.trim()) {
+    const keyToTest = apiKey.trim() || (provider === 'consensus' ? consensusApiKey.trim() : '')
+    if (!keyToTest) {
       addToast('error', 'Please enter an API key to test connection.')
       return
     }
@@ -103,7 +112,7 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
-          apiKey: apiKey.trim(),
+          apiKey: keyToTest,
           model,
         }),
       })
@@ -125,10 +134,15 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
   }
 
   const handleSave = () => {
+    // If the user entered an ak_ key into the main field, also sync consensusApiKey
+    const trimmedKey = apiKey.trim()
+    const trimmedConsensusKey = consensusApiKey.trim() || (trimmedKey.startsWith('ak_') ? trimmedKey : '')
+
     saveStoredAiConfig({
       provider,
       model,
-      apiKey: apiKey.trim(),
+      apiKey: trimmedKey,
+      consensusApiKey: trimmedConsensusKey,
     })
     addToast('success', 'AI settings saved!')
     onClose()
@@ -136,13 +150,15 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
 
   const handleClear = () => {
     setApiKey('')
+    setConsensusApiKey('')
     saveStoredAiConfig({
       provider,
       model,
       apiKey: '',
+      consensusApiKey: '',
     })
     setTestResult(null)
-    addToast('info', 'API key cleared.')
+    addToast('info', 'API keys cleared.')
   }
 
   const providerLinks: Record<AiProvider, { name: string; url: string; note: string }> = {
@@ -254,7 +270,7 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
           </select>
         </div>
 
-        {/* API Key Input */}
+        {/* Primary API Key Input */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold font-mono uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
@@ -279,7 +295,7 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
                 setApiKey(e.target.value)
                 setTestResult(null)
               }}
-              placeholder={`Paste your ${provider.toUpperCase()} API key here...`}
+              placeholder={`Paste your ${provider.toUpperCase()} API key here (e.g. ${provider === 'consensus' ? 'ak_...' : provider === 'google' ? 'AIzaSy...' : 'sk-...'})`}
               className="w-full px-3 py-2.5 pr-20 rounded-xl bg-bg-tertiary border border-border-default text-text-primary text-xs outline-none focus:border-accent font-mono placeholder:text-text-tertiary"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -299,6 +315,38 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
             {providerLinks[provider].note}
           </p>
         </div>
+
+        {/* Dual-Engine Option: Optional Consensus Literature Key when using Gemini / OpenAI */}
+        {provider !== 'consensus' && (
+          <div className="p-3.5 rounded-xl bg-bg-tertiary/60 border border-border-default space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                <Target size={13} className="text-indigo-400" />
+                Consensus.app Key (Optional Dual-Engine Power)
+              </label>
+              <span className="text-[10px] text-text-tertiary font-mono">ak_...</span>
+            </div>
+            <p className="text-[11px] text-text-secondary">
+              Pair your LLM with Consensus search to automatically pull live peer-reviewed study citations and consensus meters into answers.
+            </p>
+            <div className="relative">
+              <input
+                type={showConsensusKey ? 'text' : 'password'}
+                value={consensusApiKey}
+                onChange={(e) => setConsensusApiKey(e.target.value)}
+                placeholder="ak_... (Consensus API Key)"
+                className="w-full px-3 py-2 pr-12 rounded-lg bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-indigo-400 font-mono placeholder:text-text-tertiary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConsensusKey(!showConsensusKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+              >
+                {showConsensusKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Test Result Alert */}
         {testResult && (
@@ -329,19 +377,19 @@ export function AiConfigModal({ isOpen, onClose }: AiConfigModalProps) {
               variant="secondary"
               size="sm"
               onClick={handleTestConnection}
-              disabled={testing || !apiKey.trim()}
+              disabled={testing || (!apiKey.trim() && !consensusApiKey.trim())}
               className="flex items-center gap-1.5 text-xs"
             >
               <RefreshCw size={14} className={testing ? 'animate-spin' : ''} />
               {testing ? 'Verifying...' : 'Test Connection'}
             </Button>
-            {apiKey && (
+            {(apiKey || consensusApiKey) && (
               <button
                 type="button"
                 onClick={handleClear}
                 className="text-xs text-rose-400 hover:underline px-2 cursor-pointer"
               >
-                Clear Key
+                Clear Keys
               </button>
             )}
           </div>

@@ -126,6 +126,7 @@ export function PaperChatAssistant({ paperId, paperTitle }: PaperChatAssistantPr
           history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
           provider: config.provider,
           apiKey: config.apiKey,
+          consensusApiKey: config.consensusApiKey,
           model: config.model,
         }),
       })

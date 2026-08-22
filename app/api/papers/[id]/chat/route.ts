@@ -29,6 +29,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       activeSection,
       provider = 'google',
       apiKey,
+      consensusApiKey,
       model,
     } = body as {
       message: string
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       activeSection?: string
       provider?: AiProvider
       apiKey?: string
+      consensusApiKey?: string
       model?: string
     }
 
@@ -169,6 +171,9 @@ ${paperContext}`
       const aiResponse = await callAiModel({
         provider,
         apiKey,
+        consensusApiKey,
+        paperTitle: paper.title,
+        paperContext,
         model,
         systemPrompt,
         messages: formattedMessages,
