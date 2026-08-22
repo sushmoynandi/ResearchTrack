@@ -43,19 +43,37 @@ export async function sendAdmin2FACode(params: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000),
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
       })
 
+      const rawText = await res.text().catch(() => '')
+      let resData: any = {}
+      try {
+        resData = rawText ? JSON.parse(rawText) : {}
+      } catch {
+        resData = { text: rawText }
+      }
+
       if (!res.ok) {
-        console.warn(`[2FA AppsScript Error] HTTP ${res.status}: ${await res.text().catch(() => '')}`)
+        console.warn(`[2FA AppsScript Error] HTTP ${res.status}: ${rawText}`)
         return {
           success: true,
           deliveredVia: 'DEV_FALLBACK',
-          error: `Apps Script returned HTTP ${res.status}`,
+          error: `Apps Script returned HTTP ${res.status}: ${rawText.slice(0, 100)}`,
         }
       }
 
-      const resData = await res.json().catch(() => ({}))
+      if (resData.status === 'error' || resData.error || resData.success === false) {
+        const errorMsg = resData.error || resData.message || resData.text || 'Unknown script error'
+        console.warn(`[2FA AppsScript Execution Error]: ${errorMsg}`)
+        return {
+          success: true,
+          deliveredVia: 'DEV_FALLBACK',
+          error: errorMsg,
+        }
+      }
+
       return {
         success: true,
         deliveredVia: 'APPSCRIPT',
@@ -123,10 +141,24 @@ export async function sendPasswordResetCode(params: {
           ip: params.ip || '127.0.0.1',
           time: new Date().toUTCString(),
         }),
-        signal: AbortSignal.timeout(10000),
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
       })
 
-      if (res.ok) return { delivered: true }
+      if (res.ok) {
+        const rawText = await res.text().catch(() => '')
+        let resData: any = {}
+        try {
+          resData = rawText ? JSON.parse(rawText) : {}
+        } catch {
+          resData = {}
+        }
+        if (resData.status === 'error' || resData.error || resData.success === false) {
+          console.warn('[Password reset mail] AppsScript error payload:', resData)
+          return { delivered: false }
+        }
+        return { delivered: true }
+      }
       console.warn(`[Password reset mail] HTTP ${res.status} — code not sent`)
     } catch (err) {
       console.error('[Password reset mail] dispatch failed — code not sent:', err)
