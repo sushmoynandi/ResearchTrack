@@ -474,6 +474,42 @@ export async function GET(request: NextRequest) {
           // Non-blocking
         }
       }
+
+      // 5. OpenAlex Global Scholarly Works lookup
+      if (!pdfUrl) {
+        try {
+          const openAlexRes = await fetch(
+            `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`,
+            {
+              headers: { 'User-Agent': 'ResearchTrack/1.0 (mailto:support@researchtrack.io)' },
+            }
+          )
+          if (openAlexRes.ok) {
+            const oaData = await openAlexRes.json()
+            if (!title && oaData.title) title = cleanText(oaData.title)
+            if (!pdfUrl) {
+              if (oaData.best_oa_location?.pdf_url) {
+                pdfUrl = oaData.best_oa_location.pdf_url
+              } else if (oaData.primary_location?.pdf_url) {
+                pdfUrl = oaData.primary_location.pdf_url
+              } else if (oaData.best_oa_location?.landing_page_url?.endsWith('.pdf')) {
+                pdfUrl = oaData.best_oa_location.landing_page_url
+              }
+            }
+            if (!publishedYear && oaData.publication_year) {
+              publishedYear = oaData.publication_year
+            }
+            if (!journal && oaData.primary_location?.source?.display_name) {
+              journal = oaData.primary_location.source.display_name
+            }
+            if (!citationCount && oaData.cited_by_count) {
+              citationCount = oaData.cited_by_count
+            }
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
     }
 
     // ----------------------------------------------------

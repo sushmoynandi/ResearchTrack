@@ -43,6 +43,7 @@ import {
   X,
   Settings,
   Key,
+  Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
@@ -923,7 +924,159 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                 </div>
               )}
 
-              {pdfUrl ? (
+              {activeSource?.id === 'publisher-article' ? (
+                /* Dedicated Publisher Article Portal View (Bypasses X-Frame-Options blocking) */
+                <div
+                  className="w-full h-full bg-bg-primary overflow-y-auto p-6 md:p-10 flex flex-col justify-start max-w-4xl mx-auto space-y-6 select-text"
+                  onMouseUp={handleSelectionMouseUp}
+                >
+                  {/* Publisher Portal Header Card */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-bg-secondary via-bg-tertiary/60 to-bg-secondary border border-border-default shadow-xl space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-accent/20 text-accent flex items-center justify-center font-bold">
+                          <Globe size={19} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider font-mono text-accent">
+                              Publisher Publication Portal
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              Official Publisher Article
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-text-tertiary">
+                            {paper.journal || 'Peer-Reviewed Journal / Conference'} {paper.publicationYear ? `· ${paper.publicationYear}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* DOI Copy / Link Badge */}
+                      {paper.doi && (
+                        <div className="flex items-center gap-1.5 bg-bg-primary px-3 py-1.5 rounded-lg border border-border-default text-xs font-mono">
+                          <span className="text-text-tertiary">DOI:</span>
+                          <span className="text-text-primary font-medium">{paper.doi.replace(/^https?:\/\/doi\.org\//i, '')}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://doi.org/${paper.doi?.replace(/^https?:\/\/doi\.org\//i, '')}`)
+                              addToast('success', 'DOI URL copied to clipboard!')
+                            }}
+                            className="text-text-tertiary hover:text-accent ml-1 p-0.5 cursor-pointer"
+                            title="Copy DOI URL"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <h1 className="text-lg md:text-xl font-bold text-text-primary font-display leading-snug">
+                        {paper.title}
+                      </h1>
+                      <p className="text-xs text-text-secondary">
+                        {paper.authors}
+                      </p>
+                    </div>
+
+                    {/* Main Action CTAs */}
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <a
+                        href={activeSource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover shadow-lg hover:shadow-accent/25 transition-all cursor-pointer"
+                      >
+                        <ExternalLink size={15} /> Open in Official Publisher Portal ↗
+                      </a>
+
+                      {fullTextSections.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('article')}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-bg-elevated hover:bg-bg-tertiary text-text-primary border border-border-default font-semibold text-xs transition-colors cursor-pointer"
+                        >
+                          <BookOpen size={15} className="text-accent" /> Read Structured Article ({fullTextSections.length} Sections)
+                        </button>
+                      )}
+
+                      {dynamicSources.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSourceId(dynamicSources[0].id)}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-semibold text-xs transition-colors cursor-pointer"
+                        >
+                          <FileText size={15} /> Open Direct Open Access PDF
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Abstract Section with Highlight-to-Ask and Notes */}
+                  {paper.abstract && (
+                    <div className="p-6 rounded-2xl bg-bg-secondary border border-border-default space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-accent flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-accent" />
+                          Executive Abstract
+                        </h3>
+                        <span className="text-[10px] text-text-tertiary">Select any text to highlight or Ask AI</span>
+                      </div>
+                      <p className="text-xs md:text-sm text-text-primary leading-relaxed hover:bg-accent/5 p-2 rounded transition-colors cursor-text font-sans">
+                        {paper.abstract}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Key Contributions & Problem Solved */}
+                  {(paper.problemSolved || paper.keyContribution) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {paper.problemSolved && (
+                        <div className="p-5 rounded-xl bg-bg-secondary border border-border-default space-y-2">
+                          <h4 className="text-xs font-bold text-accent uppercase font-mono tracking-wider">
+                            Research Problem & Formulation
+                          </h4>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            {paper.problemSolved}
+                          </p>
+                        </div>
+                      )}
+                      {paper.keyContribution && (
+                        <div className="p-5 rounded-xl bg-bg-secondary border border-border-default space-y-2">
+                          <h4 className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">
+                            Key Findings & Benchmark Results
+                          </h4>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            {paper.keyContribution}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Metadata Details Grid */}
+                  <div className="p-5 rounded-xl bg-bg-secondary/60 border border-border-default grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono text-text-tertiary block">Publisher / Journal</span>
+                      <span className="font-semibold text-text-primary truncate block">{paper.journal || 'Official Journal'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-mono text-text-tertiary block">Publication Year</span>
+                      <span className="font-semibold text-text-primary">{paper.publicationYear || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-mono text-text-tertiary block">Total Citations</span>
+                      <span className="font-semibold text-text-primary">{paper.citationCount || 0}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-mono text-text-tertiary block">Open Access</span>
+                      <span className="font-semibold text-emerald-400">Indexed</span>
+                    </div>
+                  </div>
+                </div>
+              ) : pdfUrl ? (
                 <iframe
                   src={finalIframeSrc}
                   className={`w-full h-full border-none ${activeSource?.isHtml ? 'bg-white' : ''}`}
