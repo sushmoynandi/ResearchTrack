@@ -44,6 +44,8 @@ import {
   Settings,
   Key,
   Globe,
+  FolderOpen,
+  HardDrive,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
@@ -52,6 +54,7 @@ import { useToast } from '@/components/ui/Toast'
 import type { Paper, Note, LiteratureReviewData, QuestionAnswer } from '@/lib/types'
 import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from './AiConfigModal'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
+import { saveClientPdf, getClientPdf, removeClientPdf } from '@/lib/clientPdfStorage'
 
 interface PdfReaderWorkspaceProps {
   paper: Paper
@@ -222,6 +225,66 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
   const [fullTextSections, setFullTextSections] = useState<{ id: string; title: string; sectionType: string; paragraphs: string[] }[]>([])
   const [loadingFullText, setLoadingFullText] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState<string>('')
+
+  // ─── Local Client-Side Browser Storage (Zero DB, Zero Server Upload) ───
+  const clientFileInputRef = useRef<HTMLInputElement>(null)
+  const [clientPdfName, setClientPdfName] = useState<string | null>(null)
+
+  // Load client-side browser PDF on mount if previously stored in IndexedDB
+  useEffect(() => {
+    getClientPdf(paper.id).then((saved) => {
+      if (saved) {
+        setClientPdfName(saved.name)
+        setDynamicSources((prev) => [
+          {
+            id: 'client-local-pdf',
+            label: `Local PDF (${saved.name.slice(0, 18)})`,
+            url: saved.blobUrl,
+          },
+          ...prev.filter((s) => s.id !== 'client-local-pdf'),
+        ])
+        setSelectedSourceId('client-local-pdf')
+      }
+    })
+  }, [paper.id])
+
+  const handleClientFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      addToast('error', 'Please select a valid PDF file (.pdf).')
+      return
+    }
+
+    try {
+      const { blobUrl, name } = await saveClientPdf(paper.id, file)
+      setClientPdfName(name)
+      setDynamicSources((prev) => [
+        {
+          id: 'client-local-pdf',
+          label: `Local PDF (${name.slice(0, 18)})`,
+          url: blobUrl,
+        },
+        ...prev.filter((s) => s.id !== 'client-local-pdf'),
+      ])
+      setSelectedSourceId('client-local-pdf')
+      setViewMode('pdf')
+      addToast('success', `Opened "${name}" in browser (0 bytes saved to server/database)`)
+    } catch {
+      addToast('error', 'Failed to load local PDF in browser storage')
+    }
+  }
+
+  const handleRemoveClientPdf = async () => {
+    await removeClientPdf(paper.id)
+    setClientPdfName(null)
+    setDynamicSources((prev) => prev.filter((s) => s.id !== 'client-local-pdf'))
+    if (selectedSourceId === 'client-local-pdf') {
+      setSelectedSourceId(availableSources.find((s) => s.id !== 'client-local-pdf')?.id || '')
+    }
+    addToast('info', 'Removed local browser PDF.')
+  }
 
   // Load structured full-text sections for DOI / PMC / Crossref papers
   useEffect(() => {
@@ -715,6 +778,39 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             </div>
           )}
 
+          {/* Client-Side Local PDF File Picker (Zero Server & DB Storage) */}
+          <input
+            type="file"
+            ref={clientFileInputRef}
+            onChange={handleClientFileChange}
+            accept="application/pdf"
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => clientFileInputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default hover:border-accent/40 transition-all cursor-pointer"
+            title="Open any local PDF file from your device (100% Browser Client Storage, 0 KB Database / Server)"
+          >
+            <FolderOpen size={13} className="text-accent" />
+            <span className="hidden sm:inline">Open Local PDF</span>
+          </button>
+
+          {clientPdfName && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/30 text-[10px] font-mono text-accent">
+              <HardDrive size={11} />
+              <span>Browser Storage Only</span>
+              <button
+                type="button"
+                onClick={handleRemoveClientPdf}
+                className="hover:text-rose-400 p-0.5 ml-0.5 cursor-pointer"
+                title="Remove client browser PDF"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          )}
+
           {pdfUrl && (
             <>
               <a
@@ -1012,6 +1108,15 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                         </button>
                       )}
 
+                      <button
+                        type="button"
+                        onClick={() => clientFileInputRef.current?.click()}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-bg-elevated hover:bg-bg-tertiary text-text-primary border border-border-default font-semibold text-xs transition-colors cursor-pointer"
+                        title="Open any local PDF from your device without saving it to the server database"
+                      >
+                        <FolderOpen size={15} className="text-accent" /> Open Local Client PDF (Browser-Only)
+                      </button>
+
                       {dynamicSources.length > 0 && (
                         <button
                           type="button"
@@ -1097,13 +1202,23 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   <FileText size={48} className="mx-auto opacity-30 text-accent" />
                   <h3 className="text-sm font-semibold text-text-primary">No PDF Source Attached</h3>
                   <p className="text-xs max-w-sm mx-auto">
-                    You can switch to the <strong>Structured Article</strong> tab above to read the complete paper full-text, or upload a local PDF.
+                    Open any local PDF file from your device (100% browser-only storage), or read the structured full-text article.
                   </p>
-                  {fullTextSections.length > 0 && (
-                    <Button size="sm" variant="primary" onClick={() => setViewMode('article')}>
-                      Read Full-Text Article ({fullTextSections.length} Sections)
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => clientFileInputRef.current?.click()}
+                      className="flex items-center gap-1.5"
+                    >
+                      <FolderOpen size={14} className="text-accent" /> Open Local Client PDF (Browser-Only)
                     </Button>
-                  )}
+                    {fullTextSections.length > 0 && (
+                      <Button size="sm" variant="primary" onClick={() => setViewMode('article')}>
+                        Read Full-Text Article ({fullTextSections.length} Sections)
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
