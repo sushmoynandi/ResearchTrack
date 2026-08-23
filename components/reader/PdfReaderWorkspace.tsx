@@ -213,13 +213,23 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
   // Compute final iframe URL based on engine mode
   const targetPdfUrl = activeSource ? activeSource.url : pdfUrl
-  const finalIframeSrc = activeSource?.isHtml
-    ? activeSource.url
-    : targetPdfUrl.startsWith('/uploads/')
-    ? `${targetPdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
-    : embedEngine === 'gdocs' && targetPdfUrl.startsWith('http')
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(targetPdfUrl)}&embedded=true`
-    : `/api/proxy/pdf?url=${encodeURIComponent(targetPdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
+  const finalIframeSrc = React.useMemo(() => {
+    if (!targetPdfUrl) return ''
+    if (activeSource?.isHtml) return activeSource.url
+    if (targetPdfUrl.startsWith('blob:') || targetPdfUrl.startsWith('data:')) {
+      return `${targetPdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
+    }
+    if (targetPdfUrl.startsWith('/uploads/')) {
+      return `${targetPdfUrl}#toolbar=1&navpanes=1&scrollbar=1`
+    }
+    if (embedEngine === 'gdocs' && targetPdfUrl.startsWith('http')) {
+      return `https://docs.google.com/viewer?url=${encodeURIComponent(targetPdfUrl)}&embedded=true`
+    }
+    if (targetPdfUrl.startsWith('http')) {
+      return `/api/proxy/pdf?url=${encodeURIComponent(targetPdfUrl)}#toolbar=1&navpanes=1&scrollbar=1`
+    }
+    return targetPdfUrl
+  }, [targetPdfUrl, activeSource?.isHtml, activeSource?.url, embedEngine])
 
   const [viewMode, setViewMode] = useState<'pdf' | 'article'>('pdf')
   const [fullTextSections, setFullTextSections] = useState<{ id: string; title: string; sectionType: string; paragraphs: string[] }[]>([])
@@ -815,17 +825,24 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             <>
               <a
                 href={activeSource?.url || pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
+                rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
                 className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors flex items-center gap-1 text-xs"
                 title="Open original document in new tab"
               >
                 <ExternalLink size={14} />
               </a>
               <a
-                href={pdfUrl.startsWith('http') && !pdfUrl.includes('arxiv.org') ? `/api/proxy/pdf?url=${encodeURIComponent(pdfUrl)}` : pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={
+                  pdfUrl.startsWith('blob:')
+                    ? pdfUrl
+                    : pdfUrl.startsWith('http') && !pdfUrl.includes('arxiv.org')
+                    ? `/api/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`
+                    : pdfUrl
+                }
+                download={pdfUrl.startsWith('blob:') ? clientPdfName || 'paper.pdf' : undefined}
+                target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
+                rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
                 className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors"
                 title="Download PDF"
               >
