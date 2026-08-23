@@ -125,22 +125,32 @@ function getAutoResolvedPdfSources(paper: Paper) {
   // 4. DOI Resolution (arXiv DOI or Universal Publisher Article)
   if (paper.doi) {
     const arxivDoiMatch = paper.doi.match(/(?:arxiv\.|10\.48550\/arXiv\.)([0-9]{4}\.[0-9]{4,5})/i)
-    if (arxivDoiMatch && !sources.some((s) => s.url.includes(arxivDoiMatch[1]))) {
+    if (arxivDoiMatch) {
       const rawId = arxivDoiMatch[1]
+      if (!sources.some((s) => s.url.includes(rawId) && !s.isHtml)) {
+        sources.push({
+          id: 'arxiv-doi-pdf',
+          label: `arXiv PDF (${rawId})`,
+          url: `https://arxiv.org/pdf/${rawId}.pdf`,
+        })
+      }
+      if (!sources.some((s) => s.url.includes(rawId) && s.isHtml)) {
+        sources.push({
+          id: 'arxiv-doi-html',
+          label: 'arXiv Web View (HTML)',
+          url: `https://ar5iv.labs.arxiv.org/html/${rawId}`,
+          isHtml: true,
+        })
+      }
+    } else {
+      const cleanDoi = paper.doi.replace(/^https?:\/\/doi\.org\//i, '').trim()
       sources.push({
-        id: 'arxiv-doi-pdf',
-        label: `arXiv PDF (${rawId})`,
-        url: `https://arxiv.org/pdf/${rawId}.pdf`,
+        id: 'publisher-article',
+        label: 'Publisher Article View',
+        url: `https://doi.org/${cleanDoi}`,
+        isHtml: true,
       })
     }
-
-    const cleanDoi = paper.doi.replace(/^https?:\/\/doi\.org\//i, '').trim()
-    sources.push({
-      id: 'publisher-article',
-      label: 'Publisher Article View',
-      url: `https://doi.org/${cleanDoi}`,
-      isHtml: true,
-    })
   }
 
   return sources
