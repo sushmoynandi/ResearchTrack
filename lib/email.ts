@@ -91,6 +91,7 @@ export async function sendPaperAssignedEmail({
   toEmail,
   studentName,
   supervisorName,
+  supervisorImage,
   paperTitle,
   authors,
   dueDateFormatted,
@@ -101,6 +102,7 @@ export async function sendPaperAssignedEmail({
   toEmail: string
   studentName: string
   supervisorName: string
+  supervisorImage?: string
   paperTitle: string
   authors: string
   dueDateFormatted?: string
@@ -117,9 +119,19 @@ export async function sendPaperAssignedEmail({
 
       <div style="padding: 24px 0;">
         <h2 style="font-size: 18px; color: #f8fafc; margin-bottom: 12px;">Hi ${studentName},</h2>
-        <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-          Your supervisor <strong style="color: #38bdf8;">${supervisorName}</strong> has assigned you a new paper to read and analyze:
-        </p>
+        
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          ${
+            supervisorImage
+              ? `<img src="${supervisorImage}" alt="${supervisorName}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8;" />`
+              : `<div style="width: 42px; height: 42px; border-radius: 50%; background-color: #0284c7; color: #ffffff; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 18px;">${supervisorName.charAt(0)}</div>`
+          }
+          <div>
+            <p style="font-size: 14px; color: #cbd5e1; margin: 0; line-height: 1.5;">
+              Your supervisor <strong style="color: #38bdf8;">${supervisorName}</strong> has assigned you a new paper to read and analyze:
+            </p>
+          </div>
+        </div>
 
         <div style="background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin: 0 0 8px 0; color: #f8fafc; font-size: 16px;">📖 ${paperTitle}</h3>

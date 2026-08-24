@@ -417,7 +417,7 @@ export async function POST(request: NextRequest) {
       include: {
         paper: { select: { id: true, slug: true, title: true, authors: true } },
         student: { select: { id: true, name: true, email: true } },
-        assignedBy: { select: { id: true, name: true } },
+        assignedBy: { select: { id: true, name: true, image: true } },
       },
     })
 
@@ -435,6 +435,7 @@ export async function POST(request: NextRequest) {
       toEmail: assignment.student.email,
       studentName: assignment.student.name,
       supervisorName: assignment.assignedBy.name,
+      supervisorImage: assignment.assignedBy.image || undefined,
       paperTitle: assignment.paper.title,
       authors: assignment.paper.authors,
       dueDateFormatted: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
