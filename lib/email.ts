@@ -173,6 +173,8 @@ export async function sendMeetingScheduledEmail({
   meetingUrl,
   googleCalendarUrl,
   icalContent,
+  scopeType = 'ONE_ON_ONE',
+  labOrGroupName,
 }: {
   toEmail: string
   recipientName: string
@@ -183,31 +185,63 @@ export async function sendMeetingScheduledEmail({
   meetingUrl: string
   googleCalendarUrl?: string
   icalContent?: string
+  scopeType?: 'ONE_ON_ONE' | 'LAB_WIDE' | 'SUB_GROUP' | 'JOURNAL_CLUB'
+  labOrGroupName?: string
 }) {
+  let headerIcon = '🤝'
+  let headerTitle = '1-on-1 Advisor Session'
+  let subHeader = 'ResearchTrack Advisor Check-in Hub'
+  let introText = `A 1-on-1 research check-in has been scheduled with <strong style="color: #38bdf8;">${organizerName}</strong>:`
+  let subjectTitle = `🤝 1-on-1 Meeting Scheduled: "${meetingTitle}" with ${organizerName}`
+  let accentColor = '#a855f7'
+
+  if (scopeType === 'LAB_WIDE') {
+    headerIcon = '🏛️'
+    headerTitle = 'Lab-Wide Research Meeting'
+    subHeader = labOrGroupName || 'ResearchTrack Virtual Lab Hub'
+    introText = `A lab-wide research meeting has been scheduled by <strong style="color: #38bdf8;">${organizerName}</strong>:`
+    subjectTitle = `🏛️ Lab-Wide Meeting Scheduled: "${meetingTitle}" (${subHeader})`
+    accentColor = '#0284c7'
+  } else if (scopeType === 'SUB_GROUP') {
+    headerIcon = '🔬'
+    headerTitle = 'Sub-Group Research Meeting'
+    subHeader = labOrGroupName ? `${labOrGroupName} Cluster` : 'Sub-Group Research Cluster'
+    introText = `A research sub-group meeting for <strong style="color: #38bdf8;">${subHeader}</strong> has been scheduled by ${organizerName}:`
+    subjectTitle = `🔬 Sub-Group Meeting Scheduled: "${meetingTitle}" (${subHeader})`
+    accentColor = '#06b6d4'
+  } else if (scopeType === 'JOURNAL_CLUB') {
+    headerIcon = '📄'
+    headerTitle = 'Lab Journal Club Seminar'
+    subHeader = labOrGroupName ? `${labOrGroupName} Seminar` : 'Journal Club Paper Seminar'
+    introText = `A lab journal club paper presentation has been scheduled by <strong style="color: #38bdf8;">${organizerName}</strong>:`
+    subjectTitle = `📄 Journal Club Seminar: "${meetingTitle}"`
+    accentColor = '#f59e0b'
+  }
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 16px;">
       <div style="text-align: center; padding-bottom: 20px; border-b: 1px solid #334155;">
-        <h1 style="color: #38bdf8; margin: 0; font-size: 24px; font-weight: 800;">🤝 1-on-1 Advisor Session</h1>
-        <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Research Track Weekly Meeting Hub</p>
+        <h1 style="color: #38bdf8; margin: 0; font-size: 24px; font-weight: 800;">${headerIcon} ${headerTitle}</h1>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">${subHeader}</p>
       </div>
 
       <div style="padding: 24px 0;">
         <h2 style="font-size: 18px; color: #f8fafc; margin-bottom: 12px;">Hi ${recipientName},</h2>
         <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-          A 1-on-1 research check-in has been scheduled with <strong style="color: #38bdf8;">${organizerName}</strong>:
+          ${introText}
         </p>
 
-        <div style="background-color: #1e293b; border-left: 4px solid #a855f7; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <div style="background-color: #1e293b; border-left: 4px solid ${accentColor}; padding: 16px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin: 0 0 8px 0; color: #f8fafc; font-size: 16px;">📅 ${meetingTitle}</h3>
           <p style="margin: 0; color: #e2e8f0; font-size: 14px;"><strong>Time:</strong> ${scheduledTimeFormatted}</p>
           ${actionItems ? `<p style="margin: 12px 0 0 0; color: #cbd5e1; font-size: 13px;"><strong>📋 Agenda & Discussion Topics:</strong><br/>${actionItems.replace(/\n/g, '<br/>')}</p>` : ''}
         </div>
 
         <div style="text-align: center; margin: 28px 0;">
-          <a href="${meetingUrl}" style="background-color: #a855f7; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">Open Meeting Workspace &rarr;</a>
+          <a href="${meetingUrl}" style="background-color: ${accentColor}; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">Open Meeting Workspace &rarr;</a>
           ${
             googleCalendarUrl
-              ? `<div style="margin-top: 12px;"><a href="${googleCalendarUrl}" style="color: #c084fc; font-size: 13px; text-decoration: underline;">📅 Add to Google Calendar (with 1h, 30m, 10m alarms)</a></div>`
+              ? `<div style="margin-top: 12px;"><a href="${googleCalendarUrl}" style="color: #38bdf8; font-size: 13px; text-decoration: underline;">📅 Add to Google Calendar (with 1h, 30m, 10m alarms)</a></div>`
               : ''
           }
         </div>
@@ -221,7 +255,7 @@ export async function sendMeetingScheduledEmail({
 
   return sendEmail({
     to: toEmail,
-    subject: `🤝 1-on-1 Meeting Scheduled: "${meetingTitle}" with ${organizerName}`,
+    subject: subjectTitle,
     html,
     icalEvent: icalContent,
   })

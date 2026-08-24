@@ -200,6 +200,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         meetingUrl: slidesUrl,
         googleCalendarUrl: googleCalUrl,
         icalContent,
+        scopeType: 'JOURNAL_CLUB',
+        labOrGroupName: group.name,
       }).catch(() => {})
     }
 

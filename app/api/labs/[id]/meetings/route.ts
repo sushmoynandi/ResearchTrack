@@ -274,6 +274,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           meetingUrl: targetMeetingUrl,
           googleCalendarUrl: googleCalUrl,
           icalContent,
+          scopeType: groupId ? 'SUB_GROUP' : 'LAB_WIDE',
+          labOrGroupName: targetGroupName || lab.name,
         }).catch(() => {})
       }
     }
