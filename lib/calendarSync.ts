@@ -196,7 +196,6 @@ export function getWebcalFeedUrl(token: string, hostUrl?: string): string {
  * Generate a 1-click Google Calendar Subscription Feed URL
  */
 export function getGoogleCalendarFeedSubscribeUrl(token: string, hostUrl?: string): string {
-  const base = hostUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.researchtrack.tech')
-  const httpUrl = `${base.replace(/\/$/, '')}/api/calendar/feed?token=${token}`
-  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpUrl)}`
+  const webcal = getWebcalFeedUrl(token, hostUrl)
+  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`
 }
