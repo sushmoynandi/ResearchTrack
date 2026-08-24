@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { LabProgressReportModal } from '@/components/reports/LabProgressReportModal'
+import { StudentProfileModal, StudentProfileData } from '@/components/students/StudentProfileModal'
 import {
   Users,
   GraduationCap,
@@ -33,107 +34,12 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  Info,
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import type { Paper } from '@/lib/types'
 
-interface StudentData {
-  id: string
-  name: string
-  email: string
-  image: string | null
-  institution: string | null
-  department: string | null
-  systemRole: string
-  isActive: boolean
-  createdAt: string
-  supervisorId: string | null
-  isDirectlySupervised: boolean
-  pendingSupervisionRequest?: { id: string; status: string; createdAt: string } | null
-  supervisor?: { id: string; name: string; email: string } | null
-  labMemberships: {
-    role: string
-    joinedAt: string
-    lab: { id: string; name: string; slug: string; leadId: string }
-  }[]
-  groupMemberships: {
-    role: string
-    group: { id: string; name: string; color: string }
-  }[]
-  papers: {
-    id: string
-    slug?: string | null
-    title: string
-    status: string
-    priority: string
-    isFavorite: boolean
-    replicationStatus: string
-    updatedAt: string
-  }[]
-  assignedPapers: {
-    id: string
-    status: string
-    dueDate: string | null
-    createdAt: string
-    assignedById: string
-    literatureReview?: string | null
-    paper: { id: string; slug?: string | null; title: string; status: string; doi?: string | null; url?: string | null }
-  }[]
-  feedbackGiven?: {
-    id: string
-    content: string
-    type: string
-    createdAt: string
-    paper: { id: string; slug?: string | null; title: string }
-  }[]
-  assignedLabTasks: {
-    id: string
-    title: string
-    category: string
-    priority: string
-    status: string
-    dueDate: string | null
-    deliverableUrl: string | null
-    createdAt: string
-    labId: string
-  }[]
-  milestonesAsStudent: {
-    id: string
-    title: string
-    status: string
-    dueDate: string | null
-  }[]
-  meetingsAsStudent: {
-    id: string
-    title: string
-    scheduledAt: string
-    status: string
-  }[]
-  metrics: {
-    totalAssignedPapers: number
-    completedAssignedPapers: number
-    inProgressAssignedPapers: number
-    pendingAssignedPapers: number
-    assignedCompletionRate: number
-
-    totalPapers: number
-    completedPapers: number
-    readingPapers: number
-    toReadPapers: number
-    completionRate: number
-
-    totalTasks: number
-    activeTasks: number
-    completedTasks: number
-    inReviewTasks?: number
-
-    totalMilestones: number
-    completedMilestones: number
-    totalNotes: number
-    upcomingMeetingsCount: number
-    healthStatus: 'HIGH_VELOCITY' | 'ON_TRACK' | 'TASKS_DUE' | 'INACTIVE'
-  }
-}
+type StudentData = StudentProfileData
 
 export default function StudentsPage() {
   const { user, isSupervisor, isAdmin } = useAuth()
@@ -144,6 +50,9 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'TASKS_DUE' | 'HIGH_VELOCITY' | 'INACTIVE'>('ALL')
   const [viewMode, setViewMode] = useState<'SUPERVISED' | 'DISCOVER'>('SUPERVISED')
+
+  // Detailed Student Profile & Affiliation Modal
+  const [selectedProfileStudent, setSelectedProfileStudent] = useState<StudentData | null>(null)
 
   // Report Modal
   const [reportStudent, setReportStudent] = useState<StudentData | null>(null)
@@ -669,24 +578,42 @@ export default function StudentsPage() {
                     </div>
                   </div>
 
-                  {/* Enrolled Research Labs & Sub-Group Chips */}
-                  <div className="space-y-1 pt-1">
+                  {/* Enrolled Research Labs & Academic Supervision Chips */}
+                  <div className="space-y-1.5 pt-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {isDirect && (
+                      {isDirect ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
                           <GraduationCap size={10} /> Directly Supervised
                         </span>
+                      ) : student.supervisor ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProfileStudent(student)}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 transition-colors flex items-center gap-1 cursor-pointer"
+                          title={`Primary Advisor: ${student.supervisor.name} (${student.supervisor.email})`}
+                        >
+                          <GraduationCap size={10} /> Advisor: {student.supervisor.name}
+                        </button>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-bg-tertiary text-text-tertiary border border-border-default flex items-center gap-1">
+                          <Info size={10} /> No Advisor
+                        </span>
                       )}
 
-                      {student.labMemberships.map((m) => (
-                        <Link
-                          key={m.lab.id}
-                          href={`/labs/${m.lab.slug}`}
-                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors flex items-center gap-1"
-                        >
-                          <Building size={10} /> {m.lab.name}
-                        </Link>
-                      ))}
+                      {student.labMemberships.map((m) => {
+                        const isMyLab = user && m.lab.leadId === user.id
+                        return (
+                          <button
+                            key={m.lab.id}
+                            type="button"
+                            onClick={() => setSelectedProfileStudent(student)}
+                            className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors flex items-center gap-1 cursor-pointer"
+                            title={`Lab: ${m.lab.name} · PI / Lead: ${isMyLab ? 'You' : m.lab.lead?.name || 'Faculty Lead'}`}
+                          >
+                            <Building size={10} /> {m.lab.name} {m.lab.lead?.name ? `(${isMyLab ? 'Your Lab' : m.lab.lead.name})` : ''}
+                          </button>
+                        )
+                      })}
 
                       {student.groupMemberships.map((g) => (
                         <span
@@ -696,12 +623,6 @@ export default function StudentsPage() {
                           <Layers size={10} className="text-purple-400" /> {g.group.name}
                         </span>
                       ))}
-
-                      {student.labMemberships.length === 0 && !isDirect && (
-                        <span className="text-[10px] text-text-tertiary italic">
-                          Not enrolled in a lab yet
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -922,14 +843,24 @@ export default function StudentsPage() {
                     </Button>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenReport(student)}
-                      className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium cursor-pointer"
-                    >
-                      <FileText size={12} /> Progress Report
-                    </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProfileStudent(student)}
+                        className="text-[11px] text-accent hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                        title="View complete researcher profile, supervisor info, lab affiliations, and reading records"
+                      >
+                        <Users size={12} /> View Profile &amp; Lab Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReport(student)}
+                        className="text-[11px] text-text-secondary hover:text-text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <FileText size={12} /> Report
+                      </button>
+                    </div>
 
                     {isDirect ? (
                       <div className="flex items-center gap-2">
@@ -1205,6 +1136,26 @@ export default function StudentsPage() {
           student={reportStudent}
           supervisorName={user?.name || 'Faculty Advisor'}
           papers={reportPapers}
+        />
+      )}
+
+      {/* Detailed Student Researcher Profile & Affiliation Modal */}
+      {selectedProfileStudent && (
+        <StudentProfileModal
+          isOpen={Boolean(selectedProfileStudent)}
+          onClose={() => setSelectedProfileStudent(null)}
+          student={selectedProfileStudent}
+          onLinkSuccess={() => {
+            fetchStudents()
+            setSelectedProfileStudent(null)
+          }}
+          onUnlinkSuccess={() => {
+            fetchStudents()
+            setSelectedProfileStudent(null)
+          }}
+          onOpenAssign={(s) => handleOpenAssign(s)}
+          onOpenMeeting={(s) => handleOpenMeeting(s)}
+          onOpenAdvice={(s) => handleOpenAdvice(s)}
         />
       )}
     </div>

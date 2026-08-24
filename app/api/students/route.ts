@@ -82,6 +82,8 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            institution: true,
+            department: true,
           },
         },
         labMemberships: {
@@ -93,7 +95,18 @@ export async function GET(request: NextRequest) {
                 id: true,
                 name: true,
                 slug: true,
+                institution: true,
+                department: true,
+                description: true,
                 leadId: true,
+                lead: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    department: true,
+                  },
+                },
               },
             },
           },
