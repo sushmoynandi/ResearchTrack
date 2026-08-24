@@ -19,6 +19,7 @@ import { CitationGraph } from '@/components/papers/CitationGraph'
 import { ConnectedLiteratureExplorer } from '@/components/papers/ConnectedLiteratureExplorer'
 import { PaperChatAssistant } from '@/components/papers/PaperChatAssistant'
 import { SharePaperModal } from '@/components/papers/SharePaperModal'
+import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -793,10 +794,23 @@ export default function PaperDetailPage() {
 
             <div className="flex items-center gap-2 flex-wrap">
               {visibleAssignment.dueDate && (
-                <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
-                  <Calendar size={13} className="text-accent" />
-                  Due: {new Date(visibleAssignment.dueDate).toLocaleDateString()}
-                </span>
+                <>
+                  <span className="text-xs font-mono px-3 py-1 rounded-lg bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1.5">
+                    <Calendar size={13} className="text-accent" />
+                    Due: {new Date(visibleAssignment.dueDate).toLocaleDateString()}
+                  </span>
+                  <CalendarSyncButton
+                    event={{
+                      title: `📖 Reading Deadline: ${paper.title}`,
+                      description: `Supervisory Reading Assignment for: ${paper.title}\nAuthors: ${paper.authors}\nAssigned by: ${visibleAssignment.assignedBy?.name || 'Faculty Advisor'}\nNote: ${visibleAssignment.note || 'None'}\n\nPaper Workspace: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                      startDate: new Date(visibleAssignment.dueDate),
+                      location: 'ResearchTrack Paper Workspace',
+                    }}
+                    filename={`reading_deadline_${paper.slug || paper.id}`}
+                    buttonText="Sync Deadline"
+                    size="xs"
+                  />
+                </>
               )}
 
               {/* Student 1-Click Status Switcher */}

@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
+import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
 
 interface MeetingItem {
   id: string
@@ -380,7 +381,19 @@ export default function MeetingsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CalendarSyncButton
+                    event={{
+                      title: activeMeeting.title,
+                      description: `1-on-1 Research Check-in.\nStudent: ${activeMeeting.student.name}\nSupervisor: ${activeMeeting.supervisor.name}\n\nMeeting Hub: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                      startDate: activeMeeting.scheduledAt,
+                      location: '1-on-1 Research Check-in Hub',
+                    }}
+                    filename={`meeting_${activeMeeting.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}`}
+                    buttonText="Sync Calendar"
+                    size="xs"
+                  />
+
                   {(isSupervisor || isAdmin || activeMeeting.supervisor.id === user?.id) && (
                     <Button size="xs" variant="secondary" onClick={handleOpenEdit} icon={<Edit2 size={13} />}>
                       Edit / Reschedule

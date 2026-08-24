@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
+import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
 import { REPLICATION_LABELS, REPLICATION_COLORS } from '@/lib/types'
 
 interface JournalClubSessionItem {
@@ -555,6 +556,19 @@ export function JournalClubSection({
                         Paper Workspace
                       </Button>
                     </Link>
+
+                    {/* Calendar Sync */}
+                    <CalendarSyncButton
+                      event={{
+                        title: `🔬 Lab Journal Club: ${s.paper.title}`,
+                        description: `Lab Journal Club presentation on: ${s.paper.title}\nPresenter: ${s.presenter?.name || 'Lab Member'}\nSeminar Focus: ${s.notes || 'General discussion'}\n\nInteractive Slides: ${typeof window !== 'undefined' ? `${window.location.origin}/papers/${s.paper.slug || s.paper.id}/present` : ''}`,
+                        startDate: new Date(s.scheduledAt),
+                        location: 'Lab Journal Club Seminar',
+                      }}
+                      filename={`journal_club_${s.paper.title.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '_')}`}
+                      buttonText="Sync Seminar"
+                      size="sm"
+                    />
                   </div>
 
                   {/* Management & Status Controls */}

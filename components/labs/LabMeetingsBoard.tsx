@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button'
 import { ScheduleMeetingModal } from '@/components/labs/ScheduleMeetingModal'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
+import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
 
 interface MeetingItem {
   id: string
@@ -354,6 +355,20 @@ export function LabMeetingsBoard({
                         </Button>
                       </a>
                     )}
+
+                    <CalendarSyncButton
+                      event={{
+                        title: `🔬 ${m.title}`,
+                        description: `${m.description || 'Lab Research Sync'}\nHost: ${m.host.name}\n${m.meetingUrl ? `Join Link: ${m.meetingUrl}\n` : ''}${m.agenda ? `Agenda: ${m.agenda}\n` : ''}`,
+                        startDate: new Date(m.startTime),
+                        endDate: m.endTime ? new Date(m.endTime) : undefined,
+                        location: m.location || m.meetingUrl || 'Virtual Lab Hub',
+                        url: m.meetingUrl || undefined,
+                      }}
+                      filename={`lab_meeting_${m.title.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '_')}`}
+                      buttonText="Sync"
+                      size="xs"
+                    />
 
                     {m.agenda && (
                       <Button

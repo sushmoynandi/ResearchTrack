@@ -7,6 +7,7 @@ import { PaperCard } from '@/components/papers/PaperCard'
 import { PaperRow } from '@/components/papers/PaperRow'
 import { CollectionModal } from '@/components/collections/CollectionModal'
 import { AddPapersToCollectionModal } from '@/components/collections/AddPapersToCollectionModal'
+import { ExportMatrixModal } from '@/components/papers/ExportMatrixModal'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -21,6 +22,8 @@ import {
   FileText,
   BookmarkPlus,
   Trash2,
+  Download,
+  BookOpen,
 } from 'lucide-react'
 import type { Collection, Paper } from '@/lib/types'
 
@@ -38,6 +41,7 @@ export default function CollectionDetailPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isAddPapersOpen, setIsAddPapersOpen] = useState(false)
+  const [isExportOpen, setIsExportOpen] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
 
   const collectionId = params.id as string
@@ -153,6 +157,16 @@ export default function CollectionDetailPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {collection.papers.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<BookOpen size={14} className="text-accent" />}
+                onClick={() => setIsExportOpen(true)}
+              >
+                Export Vault
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -311,6 +325,14 @@ export default function CollectionDetailPage() {
         onClose={() => setIsEditOpen(false)}
         collection={collection}
         onSuccess={fetchCollection}
+      />
+
+      {/* Export to PKM Vault & Calendar Modal */}
+      <ExportMatrixModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        papers={collection.papers}
+        title={`Export "${collection.name}" to Obsidian Vault & PKM`}
       />
     </div>
   )

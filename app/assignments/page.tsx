@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
 import {
   ClipboardList,
   Plus,
@@ -337,9 +338,22 @@ export default function AssignmentsPage() {
               {/* Action and Due Date area */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
                 {a.dueDate && (
-                  <div className="flex items-center gap-1.5 text-xs text-text-tertiary bg-bg-tertiary px-3 py-1.5 rounded-lg border border-border-default">
-                    <Calendar size={13} className="text-accent" />
-                    <span>Due: {new Date(a.dueDate).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-text-tertiary bg-bg-tertiary px-3 py-1.5 rounded-lg border border-border-default">
+                      <Calendar size={13} className="text-accent" />
+                      <span>Due: {new Date(a.dueDate).toLocaleDateString()}</span>
+                    </div>
+                    <CalendarSyncButton
+                      event={{
+                        title: `📖 Reading Deadline: ${a.paper.title}`,
+                        description: `Research reading assignment for: ${a.paper.title}\nAuthors: ${a.paper.authors}\nAssigned by: ${a.assignedBy?.name || 'Supervisor'}\nNote: ${a.note || 'None'}\n\nWorkspace: ${typeof window !== 'undefined' ? `${window.location.origin}/papers/${a.paper.slug || a.paper.id}` : ''}`,
+                        startDate: new Date(a.dueDate),
+                        location: 'ResearchTrack Paper Workspace',
+                      }}
+                      filename={`assignment_${a.paper.title.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '_')}`}
+                      buttonText="Sync"
+                      size="xs"
+                    />
                   </div>
                 )}
 

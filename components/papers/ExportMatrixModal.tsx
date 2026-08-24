@@ -14,8 +14,12 @@ import {
   Code,
   Layers,
   Sparkles,
+  Calendar,
+  BookOpen,
 } from 'lucide-react'
 import type { Paper, BenchmarkScore, LiteratureReviewData } from '@/lib/types'
+import { generateObsidianMarkdown, generateNotionMarkdown } from '@/lib/pkmExport'
+import { generateIcsContent } from '@/lib/calendarSync'
 
 interface ExportMatrixModalProps {
   isOpen: boolean
@@ -24,16 +28,16 @@ interface ExportMatrixModalProps {
   title?: string
 }
 
-type ExportFormat = 'bibtex' | 'latex' | 'markdown' | 'csv'
+type ExportFormat = 'obsidian' | 'notion' | 'latex' | 'bibtex' | 'ical' | 'markdown' | 'csv'
 
 export function ExportMatrixModal({
   isOpen,
   onClose,
   papers,
-  title = 'Export Literature Review & Citations',
+  title = 'Export Literature Review & PKM Vault',
 }: ExportMatrixModalProps) {
   const { addToast } = useToast()
-  const [format, setFormat] = useState<ExportFormat>('latex')
+  const [format, setFormat] = useState<ExportFormat>('obsidian')
   const [copied, setCopied] = useState(false)
 
   // Helper to generate a clean BibTeX citation key
@@ -45,7 +49,21 @@ export function ExportMatrixModal({
     return `${cleanAuthor}${year}${firstWord}`
   }
 
-  // 1. Generate BibTeX format
+  // 1. Generate Obsidian Vault Markdown with [[wikilinks]]
+  const generateObsidian = () => {
+    return papers
+      .map((p) => generateObsidianMarkdown(p, (p as any).highlights || [], (p as any).notes || []))
+      .join('\n\n---\n\n')
+  }
+
+  // 2. Generate Notion Research Database format
+  const generateNotion = () => {
+    return papers
+      .map((p) => generateNotionMarkdown(p, (p as any).highlights || [], (p as any).notes || []))
+      .join('\n\n---\n\n')
+  }
+
+  // 3. Generate BibTeX format
   const generateBibTeX = () => {
     return papers
       .map((p) => {
@@ -65,7 +83,7 @@ export function ExportMatrixModal({
       .join('\n\n')
   }
 
-  // 2. Generate LaTeX Tabularx Table
+  // 4. Generate LaTeX Tabularx Table
   const generateLaTeX = () => {
     let tex = `% ====================================================================\n`
     tex += `% ResearchTrack Literature Review Survey Matrix (LaTeX / Overleaf Ready)\n`
@@ -102,43 +120,43 @@ export function ExportMatrixModal({
     return tex
   }
 
-  // 3. Generate Markdown Table
+  // 5. Generate Markdown Comparison Matrix
   const generateMarkdown = () => {
-    let md = `## Literature Review Matrix\n\n`
-    md += `| Paper | Authors | Architecture / Model | Problem Solved | Key Contribution | Year |\n`
-    md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`
+    let md = `# 📊 Literature Review Matrix\n\n`
+    md += `| Citation | Problem Solved | Method / Architecture | Key Contribution & Benchmarks | Year |\n`
+    md += `| :--- | :--- | :--- | :--- | :---: |\n`
 
     papers.forEach((p) => {
-      const title = p.title.replace(/\|/g, '-')
-      const authors = p.authors.split(',')[0] + ' et al.'
-      const arch = p.architecture ? `${p.architecture} (${p.parameters || ''})` : '-'
-      const problem = (p.problemSolved || '-').replace(/\|/g, '-')
-      const contribution = (p.keyContribution || '-').replace(/\|/g, '-')
+      const authors = p.authors.split(',')[0].trim() + (p.authors.includes(',') ? ' et al.' : '')
+      const title = `[**${authors}**](${p.url || '#'})`
+      const problem = p.problemSolved || p.abstract?.slice(0, 100) || 'Baseline optimization'
+      const method = p.architecture ? `${p.architecture} (${p.parameters || 'Standard'})` : 'ML Pipeline'
+      const outcome = p.keyContribution || 'Published SOTA findings'
       const year = p.publicationYear || '-'
 
-      md += `| **${title}** | ${authors} | ${arch} | ${problem} | ${contribution} | ${year} |\n`
+      md += `| ${title} | ${problem.slice(0, 100)} | ${method} | ${outcome.slice(0, 100)} | ${year} |\n`
     })
 
     return md
   }
 
-  // 4. Generate CSV
+  // 6. Generate CSV Spreadsheet
   const generateCSV = () => {
     const headers = [
       'Title',
       'Authors',
       'Year',
-      'Venue/Journal',
+      'Journal/Venue',
       'Status',
       'Priority',
-      'DOI',
-      'ArXiv ID',
-      'Architecture',
-      'Parameters',
-      'Context Window',
+      'Replication Status',
+      'Code URL',
+      'Model URL',
       'Problem Solved',
       'Key Contribution',
       'Limitations',
+      'DOI',
+      'ArXiv ID',
     ]
 
     const rows = papers.map((p) => [
@@ -148,60 +166,89 @@ export function ExportMatrixModal({
       `"${(p.journal || '').replace(/"/g, '""')}"`,
       p.status,
       p.priority,
-      p.doi || '',
-      p.arxivId || '',
-      `"${(p.architecture || '').replace(/"/g, '""')}"`,
-      `"${(p.parameters || '').replace(/"/g, '""')}"`,
-      `"${(p.contextWindow || '').replace(/"/g, '""')}"`,
+      p.replicationStatus || 'UNTESTED',
+      p.codeUrl || '',
+      p.modelUrl || '',
       `"${(p.problemSolved || '').replace(/"/g, '""')}"`,
       `"${(p.keyContribution || '').replace(/"/g, '""')}"`,
       `"${(p.limitations || '').replace(/"/g, '""')}"`,
+      p.doi || '',
+      p.arxivId || '',
     ])
 
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
   }
 
+  // 7. Generate iCal Calendar Sprint
+  const generateICalSprint = () => {
+    const now = new Date()
+    return papers
+      .map((p, index) => {
+        const targetDate = new Date(now.getTime() + (index + 1) * 3 * 24 * 60 * 60 * 1000)
+        return generateIcsContent({
+          title: `📖 Reading Sprint: ${p.title.slice(0, 50)}`,
+          description: `Research paper reading goal for: ${p.title}\nAuthors: ${p.authors}\nStatus: ${p.status}`,
+          startDate: targetDate,
+          url: p.url || undefined,
+        })
+      })
+      .join('\n')
+  }
+
   const getContent = () => {
     switch (format) {
-      case 'bibtex':
-        return generateBibTeX()
+      case 'obsidian':
+        return generateObsidian()
+      case 'notion':
+        return generateNotion()
       case 'latex':
         return generateLaTeX()
+      case 'bibtex':
+        return generateBibTeX()
       case 'markdown':
         return generateMarkdown()
       case 'csv':
         return generateCSV()
+      case 'ical':
+        return generateICalSprint()
+      default:
+        return ''
     }
   }
 
   const handleCopy = () => {
-    const text = getContent()
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(getContent())
     setCopied(true)
-    addToast('success', `Copied ${format.toUpperCase()} to clipboard!`)
+    addToast('success', 'Copied to clipboard!')
     setTimeout(() => setCopied(false), 2000)
   }
 
   const handleDownload = () => {
     const text = getContent()
     const extensions: Record<ExportFormat, string> = {
-      bibtex: 'bib',
+      obsidian: 'md',
+      notion: 'md',
       latex: 'tex',
+      bibtex: 'bib',
       markdown: 'md',
       csv: 'csv',
+      ical: 'ics',
     }
     const mimeTypes: Record<ExportFormat, string> = {
-      bibtex: 'text/plain',
-      latex: 'text/x-tex',
-      markdown: 'text/markdown',
-      csv: 'text/csv',
+      obsidian: 'text/markdown;charset=utf-8',
+      notion: 'text/markdown;charset=utf-8',
+      latex: 'text/x-tex;charset=utf-8',
+      bibtex: 'application/x-bibtex;charset=utf-8',
+      markdown: 'text/markdown;charset=utf-8',
+      csv: 'text/csv;charset=utf-8',
+      ical: 'text/calendar;charset=utf-8',
     }
 
     const blob = new Blob([text], { type: mimeTypes[format] })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `literature_matrix_${new Date().toISOString().slice(0, 10)}.${extensions[format]}`
+    a.download = `researchtrack_${format}_${new Date().toISOString().slice(0, 10)}.${extensions[format]}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -214,17 +261,20 @@ export function ExportMatrixModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      description={`Export ${papers.length} ${papers.length === 1 ? 'paper' : 'papers'} as ready-to-compile academic matrices, BibTeX references, or datasets.`}
+      description={`Export ${papers.length} ${papers.length === 1 ? 'paper' : 'papers'} directly to Obsidian vaults, Notion databases, LaTeX tables, or Calendar deadlines.`}
       size="lg"
     >
       <div className="space-y-4 pt-1">
         {/* Format Selector Tabs */}
         <div className="flex items-center gap-2 border-b border-border-default pb-3 overflow-x-auto">
           {[
+            { id: 'obsidian', label: 'Obsidian Vault ([[wikilinks]])', icon: BookOpen },
+            { id: 'notion', label: 'Notion Database (.md)', icon: Layers },
             { id: 'latex', label: 'LaTeX Table (Overleaf)', icon: FileCode },
             { id: 'bibtex', label: 'BibTeX (.bib)', icon: Code },
-            { id: 'markdown', label: 'Markdown Matrix (.md)', icon: FileText },
-            { id: 'csv', label: 'CSV Spreadsheet (.csv)', icon: FileSpreadsheet },
+            { id: 'ical', label: 'Calendar Sprint (.ics)', icon: Calendar },
+            { id: 'markdown', label: 'Markdown Matrix', icon: FileText },
+            { id: 'csv', label: 'CSV Spreadsheet', icon: FileSpreadsheet },
           ].map((tab) => {
             const Icon = tab.icon
             return (
@@ -251,11 +301,16 @@ export function ExportMatrixModal({
               Format: <strong className="text-accent">{format.toUpperCase()}</strong> ({papers.length} items)
             </span>
             <div className="flex items-center gap-1">
-              <Button size="xs" variant="secondary" onClick={handleCopy} icon={copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}>
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={handleCopy}
+                icon={copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+              >
                 {copied ? 'Copied' : 'Copy'}
               </Button>
               <Button size="xs" variant="primary" onClick={handleDownload} icon={<Download size={12} />}>
-                Download
+                Download File
               </Button>
             </div>
           </div>
@@ -265,10 +320,25 @@ export function ExportMatrixModal({
           </pre>
         </div>
 
-        {/* Overleaf Tip */}
+        {/* Dynamic Helpful Tips */}
+        {format === 'obsidian' && (
+          <p className="text-[11px] text-text-tertiary italic">
+            💡 <strong>Obsidian Tip:</strong> Drop this file directly into your Obsidian vault. Author and venue names are formatted with <code className="bg-bg-tertiary px-1 rounded text-accent">[[wikilinks]]</code> to automatically build your interactive knowledge graph.
+          </p>
+        )}
+        {format === 'notion' && (
+          <p className="text-[11px] text-text-tertiary italic">
+            💡 <strong>Notion Tip:</strong> In Notion, click <em>Import &rarr; Markdown</em> to automatically create database rows with abstract callouts and properties.
+          </p>
+        )}
         {format === 'latex' && (
           <p className="text-[11px] text-text-tertiary italic">
-            💡 <strong>Tip for Overleaf:</strong> Ensure you include <code className="bg-bg-tertiary px-1 rounded text-accent">\usepackage&#123;tabularx&#125;</code> and <code className="bg-bg-tertiary px-1 rounded text-accent">\usepackage&#123;cite&#125;</code> in your LaTeX preamble.
+            💡 <strong>Overleaf Tip:</strong> Include <code className="bg-bg-tertiary px-1 rounded text-accent">\usepackage&#123;tabularx&#125;</code> and <code className="bg-bg-tertiary px-1 rounded text-accent">\usepackage&#123;cite&#125;</code> in your LaTeX preamble.
+          </p>
+        )}
+        {format === 'ical' && (
+          <p className="text-[11px] text-text-tertiary italic">
+            💡 <strong>Calendar Tip:</strong> Opening this <code className="bg-bg-tertiary px-1 rounded text-accent">.ics</code> file adds scheduled reading sprint milestones to Google Calendar, Apple Calendar, or Outlook.
           </p>
         )}
 
