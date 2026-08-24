@@ -312,15 +312,23 @@ export default function LabDetailPage() {
                 {lab.name}
               </h2>
 
-              <p className="text-xs text-text-secondary">
-                Principal Investigator: <strong className="text-text-primary">{lab.lead.name}</strong> ({lab.lead.email})
-              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <p className="text-xs text-text-secondary">
+                  Principal Investigator: <strong className="text-text-primary">{lab.lead.name}</strong> ({lab.lead.email})
+                </p>
+
+                {!isLabLead && isSupervisor && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono">
+                    👁️ Guest Supervisor (Read-Only Discovery)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Join Code Pill & Supervisor Assign Action */}
           <div className="flex items-center gap-2 flex-wrap">
-            {(isLabLead || isSupervisor || isAdmin) && (
+            {isLabLead && (
               <Button
                 size="sm"
                 variant="primary"
@@ -529,7 +537,7 @@ export default function LabDetailPage() {
           labSlug={lab.slug}
           groups={lab.groups}
           members={lab.members}
-          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
+          isLeadOrSupervisor={Boolean(isLabLead)}
         />
       )}
 
@@ -538,7 +546,7 @@ export default function LabDetailPage() {
         <LabBroadcastsBoard
           labId={lab.id}
           groups={lab.groups}
-          isLeadOrSupervisor={Boolean(isLabLead || isSupervisor || isAdmin)}
+          isLeadOrSupervisor={Boolean(isLabLead)}
         />
       )}
 

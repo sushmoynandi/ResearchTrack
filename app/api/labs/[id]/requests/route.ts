@@ -17,9 +17,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId } = await params
 
+    const lab = await prisma.lab.findFirst({
+      where: {
+        OR: [{ id: labId }, { slug: labId }],
+      },
+    })
+
+    if (!lab) {
+      return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
+    }
+
+    if (lab.leadId !== user.id && user.systemRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const requests = await prisma.labJoinRequest.findMany({
       where: {
-        OR: [{ labId }, { lab: { slug: labId } }],
+        labId: lab.id,
         status: 'PENDING',
       },
       include: {

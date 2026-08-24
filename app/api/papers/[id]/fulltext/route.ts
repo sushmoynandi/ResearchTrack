@@ -26,10 +26,33 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       where: {
         OR: [{ id }, { slug: id }],
       },
+      include: {
+        user: { select: { id: true, supervisorId: true } },
+        assignments: { select: { studentId: true, assignedById: true } },
+        shares: { select: { sharedWithId: true } },
+      },
     })
 
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    }
+
+    // Access check: Owner, Admin, Supervisor in sphere, Assigned Student, or Shared Peer
+    const isOwner = paper.userId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+    const isAssigned = paper.assignments?.some((a) => a.studentId === user.id)
+    const isSharedWith = paper.shares?.some((s) => s.sharedWithId === user.id)
+    const isSupervisor =
+      user.systemRole === 'SUPERVISOR' &&
+      (isOwner ||
+        paper.user?.supervisorId === user.id ||
+        paper.assignments?.some((a) => a.assignedById === user.id))
+
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isSharedWith) {
+      return NextResponse.json(
+        { error: 'Forbidden: You do not have access to this paper workspace' },
+        { status: 403 }
+      )
     }
 
     let sections: FullTextSection[] = []

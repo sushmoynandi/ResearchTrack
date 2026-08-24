@@ -149,6 +149,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Research lab not found' }, { status: 404 })
       }
 
+      // Must be lab lead, admin, or enrolled lab member
+      const isLabLead = lab.leadId === user.id
+      const isAdmin = user.systemRole === 'ADMIN'
+      const isLabMember = lab.members.some((m) => m.userId === user.id)
+      if (!isLabLead && !isAdmin && !isLabMember) {
+        return NextResponse.json(
+          { error: 'Forbidden: You cannot assign papers to another supervisor\'s lab' },
+          { status: 403 }
+        )
+      }
+
       // Find all student members in this lab
       const studentMembers = lab.members.filter((m) => m.user.systemRole === 'STUDENT')
 
@@ -221,6 +232,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Sub-group not found' }, { status: 404 })
       }
 
+      // Must be lab lead, admin, or enrolled group/lab member
+      const isLabLead = group.lab.leadId === user.id
+      const isAdmin = user.systemRole === 'ADMIN'
+      const isGroupMember = group.members.some((m) => m.userId === user.id)
+      if (!isLabLead && !isAdmin && !isGroupMember) {
+        return NextResponse.json(
+          { error: 'Forbidden: You cannot assign papers to another supervisor\'s sub-group' },
+          { status: 403 }
+        )
+      }
+
       const studentMembers = group.members.filter((m) => m.user.systemRole === 'STUDENT')
 
       if (studentMembers.length === 0) {
@@ -286,18 +308,38 @@ export async function POST(request: NextRequest) {
 
     const student = await prisma.user.findUnique({
       where: { id: studentId },
+      include: {
+        labMemberships: {
+          include: {
+            lab: {
+              select: {
+                leadId: true,
+                members: { select: { userId: true } },
+              },
+            },
+          },
+        },
+      },
     })
 
     if (!student) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    // Verify ownership check for supervisors
-    if (user.systemRole === 'SUPERVISOR' && student.supervisorId !== user.id) {
-      return NextResponse.json(
-        { error: 'You can only assign papers to students assigned to you by the administrator' },
-        { status: 403 }
+    // Verify supervision sphere check for supervisors
+    if (user.systemRole === 'SUPERVISOR') {
+      const isDirectSupervisor = student.supervisorId === user.id
+      const isInSupervisorsLab = student.labMemberships.some(
+        (lm) => lm.lab.leadId === user.id || lm.lab.members.some((m) => m.userId === user.id)
       )
+      const isClaimable = student.supervisorId === null
+
+      if (!isDirectSupervisor && !isInSupervisorsLab && !isClaimable) {
+        return NextResponse.json(
+          { error: 'Forbidden: You can only assign papers to students on your supervision roster, in your labs, or open for supervision' },
+          { status: 403 }
+        )
+      }
     }
 
     // Check if assignment already exists

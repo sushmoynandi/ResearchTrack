@@ -55,6 +55,7 @@ import {
   Building,
   Layers,
   User,
+  ShieldAlert,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -84,6 +85,8 @@ export default function PaperDetailPage() {
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>('')
   const [selectedSharedReviewId, setSelectedSharedReviewId] = useState<string>('')
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isAccessDenied, setIsAccessDenied] = useState(false)
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('')
 
   // Student Literature Review Editor Modal State
   const [isEditReviewModalOpen, setIsEditReviewModalOpen] = useState(false)
@@ -233,12 +236,19 @@ export default function PaperDetailPage() {
       if (res.ok) {
         const data = await res.json()
         setPaper(data)
+        setIsAccessDenied(false)
         // If accessed via old CUID or different slug, update the browser URL bar to the clean title slug
         if (data.slug && paperId !== data.slug && typeof window !== 'undefined') {
           const currentUrl = new URL(window.location.href)
           currentUrl.pathname = `/papers/${data.slug}`
           window.history.replaceState(null, '', currentUrl.toString())
         }
+      } else if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}))
+        setIsAccessDenied(true)
+        setAccessDeniedMessage(
+          errData.error || 'Forbidden: You do not have permission to access this private paper workspace.'
+        )
       } else {
         addToast('error', 'Paper not found')
         router.push('/papers')
@@ -352,6 +362,29 @@ export default function PaperDetailPage() {
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
+        </div>
+      </div>
+    )
+  }
+
+  if (isAccessDenied) {
+    return (
+      <div className="max-w-xl mx-auto glass-card p-10 text-center space-y-5 my-12 border-rose-500/30">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/15 text-rose-400 flex items-center justify-center mx-auto">
+          <ShieldAlert size={32} />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-text-primary font-display">Access Denied</h2>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            {accessDeniedMessage || 'You do not have permission to access this private paper workspace.'}
+          </p>
+        </div>
+        <div className="pt-2">
+          <Link href="/papers">
+            <Button variant="primary" size="sm" icon={<ArrowLeft size={14} />}>
+              Back to Paper Library
+            </Button>
+          </Link>
         </div>
       </div>
     )

@@ -93,10 +93,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
     }
 
-    // Must be supervisor, lab lead, or admin
-    if (lab.leadId !== user.id && user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
+    // Must be lab lead, affiliated supervisor, or admin
+    const labMember = await prisma.labMember.findUnique({
+      where: { labId_userId: { labId: lab.id, userId: user.id } },
+    })
+    const isLabLeadOrSupervisor =
+      lab.leadId === user.id ||
+      user.systemRole === 'ADMIN' ||
+      Boolean(labMember && ['LEAD', 'CO_LEAD', 'SUPERVISOR'].includes(labMember.role))
+
+    if (!isLabLeadOrSupervisor) {
       return NextResponse.json(
-        { error: 'Forbidden: Only faculty supervisors and lab leads can assign tasks' },
+        { error: 'Forbidden: Only lab leads and affiliated supervisors can assign tasks in this lab' },
         { status: 403 }
       )
     }
@@ -253,10 +261,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const isAssignee = task.assigneeId === user.id
     const isCreator = task.createdById === user.id
     const isLabLead = task.lab.leadId === user.id
-    const isSupervisorOrAdmin = user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN'
+    const labMember = await prisma.labMember.findUnique({
+      where: { labId_userId: { labId: task.labId, userId: user.id } },
+    })
+    const isLabSupervisorOrAdmin =
+      isCreator ||
+      isLabLead ||
+      user.systemRole === 'ADMIN' ||
+      Boolean(labMember && ['LEAD', 'CO_LEAD', 'SUPERVISOR'].includes(labMember.role))
 
-    if (!isAssignee && !isCreator && !isLabLead && !isSupervisorOrAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isAssignee && !isLabSupervisorOrAdmin) {
+      return NextResponse.json({ error: 'Forbidden: You do not have access to this task' }, { status: 403 })
     }
 
     const updateData: any = {}
@@ -266,8 +281,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (deliverableUrl !== undefined) updateData.deliverableUrl = deliverableUrl?.trim() || null
     if (progressNotes !== undefined) updateData.progressNotes = progressNotes?.trim() || null
 
-    // Fields only supervisors/leads can update
-    if (isCreator || isLabLead || isSupervisorOrAdmin) {
+    // Fields only affiliated supervisors/leads/admins can update
+    if (isLabSupervisorOrAdmin) {
       if (title !== undefined) updateData.title = title.trim()
       if (description !== undefined) updateData.description = description?.trim() || null
       if (category !== undefined) updateData.category = category

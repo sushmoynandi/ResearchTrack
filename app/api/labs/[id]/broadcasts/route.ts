@@ -86,9 +86,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
     }
 
-    // Must be lab lead, supervisor, or admin
-    if (lab.leadId !== user.id && user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Only lab leads and supervisors can post notices' }, { status: 403 })
+    // Must be lab lead, affiliated supervisor member, or admin
+    const labMember = await prisma.labMember.findUnique({
+      where: { labId_userId: { labId: lab.id, userId: user.id } },
+    })
+    const isLabLeadOrSupervisor =
+      lab.leadId === user.id ||
+      user.systemRole === 'ADMIN' ||
+      Boolean(labMember && ['LEAD', 'CO_LEAD', 'SUPERVISOR'].includes(labMember.role))
+
+    if (!isLabLeadOrSupervisor) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only lab leads and affiliated supervisors can post notices' },
+        { status: 403 }
+      )
     }
 
     let targetGroupId: string | null = null
