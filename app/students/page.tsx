@@ -366,7 +366,7 @@ export default function StudentsPage() {
         <p className="text-xs text-text-secondary leading-relaxed">
           The Student Supervision Roster is dedicated for faculty advisors and lab leads. View your assigned readings and lab tasks from your personal dashboard.
         </p>
-        <Link href="/">
+        <Link href="/dashboard">
           <Button variant="primary" size="sm">
             Back to Student Dashboard
           </Button>

@@ -66,7 +66,9 @@ function LoginForm() {
   // If already authenticated, redirect to target page
   useEffect(() => {
     if (!authLoading && user) {
-      const target = searchParams.get('redirect') || (user.systemRole === 'ADMIN' ? '/admin/users' : '/')
+      const target =
+        searchParams.get('redirect') ||
+        (user.systemRole === 'ADMIN' ? '/admin/users' : '/dashboard')
       router.replace(target)
     }
   }, [user, authLoading, searchParams, router])
@@ -148,7 +150,9 @@ function LoginForm() {
         if (data.user && data.token) {
           setAuthSession(data.user, data.token)
         }
-        const targetRedirect = searchParams.get('redirect') || (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/')
+        const targetRedirect =
+          searchParams.get('redirect') ||
+          (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/dashboard')
         addToast('success', `Signed in as ${data.user?.name || 'Researcher'}!`)
         // Straight there — no timer, no full reload. The session is already in
         // memory, so the app doesn't have to boot again and work out who you
@@ -270,7 +274,7 @@ function LoginForm() {
         addToast('success', '✅ Two-step verification passed!')
         const targetRedirect =
           searchParams.get('redirect') ||
-          (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/')
+          (data.user?.systemRole === 'ADMIN' ? '/admin/users' : '/dashboard')
         router.replace(targetRedirect)
         return
       }

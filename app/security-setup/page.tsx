@@ -65,7 +65,7 @@ function SecuritySetupForm() {
 
   useEffect(() => {
     if (sessionChecked && !user) router.replace('/login')
-    if (sessionChecked && user && user.systemRole !== 'ADMIN') router.replace('/')
+    if (sessionChecked && user && user.systemRole !== 'ADMIN') router.replace('/dashboard')
   }, [sessionChecked, user, router])
 
   const choose = async (picked: Method) => {

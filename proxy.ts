@@ -66,6 +66,16 @@ export default async function proxy(request: NextRequest) {
       url.search = pathname === '/' ? '' : `?redirect=${encodeURIComponent(pathname)}`
       return NextResponse.redirect(url)
     }
+
+    // "/" is the public landing page. Someone signed in has no business
+    // reading the sales pitch, so they go to their dashboard — decided here,
+    // on the server, which means the browser is handed the dashboard directly
+    // instead of drawing the landing page and swapping it out a moment later.
+    if (pathname === '/') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
   } catch {
     // Unreadable / expired token — leave it to the page's own auth handling
   }

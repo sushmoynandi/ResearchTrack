@@ -49,7 +49,7 @@ export function Sidebar() {
         { href: '/admin/audit', label: 'Audit Trail', icon: ShieldAlert },
       ]
     : [
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/labs', label: 'Research Labs', icon: Building },
         { href: '/papers', label: 'Paper Library', icon: FileText },
         ...(user?.systemRole === 'STUDENT'
@@ -67,7 +67,7 @@ export function Sidebar() {
       ]
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
+    if (href === '/dashboard') return pathname === '/dashboard'
     if (href === '/papers?scope=shared') return pathname === '/papers' && currentScope === 'shared'
     if (href === '/papers') return pathname === '/papers' && currentScope !== 'shared'
     return pathname.startsWith(href)
@@ -75,7 +75,7 @@ export function Sidebar() {
 
   // Quick 4 items for mobile bottom bar
   const mobileQuickItems = [
-    { href: '/', label: 'Home', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/papers', label: 'Library', icon: FileText },
     { href: '/tracks', label: 'Tracks', icon: Milestone },
     { href: '/labs', label: 'Labs', icon: Building },

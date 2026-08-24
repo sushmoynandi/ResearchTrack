@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       title: 'Advisor Supervision Invitation 🎓',
       message: `${user.name} (${user.department || user.institution || 'Faculty Advisor'}) has invited you to join their direct research supervision roster.`,
       type: 'SYSTEM',
-      link: '/',
+      link: '/dashboard',
     })
 
     return NextResponse.json({

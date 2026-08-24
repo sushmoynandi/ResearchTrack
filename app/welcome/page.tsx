@@ -54,7 +54,7 @@ function WelcomeForm() {
     }
   }, [user, sessionChecked, router])
 
-  const redirectTarget = searchParams.get('redirect') || '/'
+  const redirectTarget = searchParams.get('redirect') || '/dashboard'
 
 
   const handleSubmit = async (e: React.FormEvent) => {

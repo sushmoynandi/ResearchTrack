@@ -1,6 +1,14 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useSyncExternalStore,
+} from 'react'
 import type { User, SystemRole } from '@/lib/types'
 
 interface AuthContextType {
@@ -14,9 +22,10 @@ interface AuthContextType {
   sessionChecked: boolean
   /**
    * True once we know for certain that nobody is signed in. That is either the
-   * server having answered, or there being no session cookie to answer about —
-   * the second case lets a public page render on the first paint instead of
-   * sitting behind a spinner.
+   * server having answered, or there being nothing to restore from at all — no
+   * session cookie and no token saved in this browser. The second case lets a
+   * public page render on the first paint instead of sitting behind a spinner,
+   * while still never showing it to someone who turns out to be signed in.
    */
   signedOut: boolean
   token: string | null
@@ -43,6 +52,61 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   hasRole: () => false,
 })
+
+/**
+ * Whether this browser has a sign-in saved from a previous visit.
+ *
+ * Read through useSyncExternalStore rather than in an effect on purpose. The
+ * server renders with no knowledge of localStorage, and an effect only runs
+ * *after* the first paint — which is long enough for the public landing page
+ * to appear for a moment on "/" before the dashboard replaces it. This hook
+ * makes React re-render with the real answer during hydration, before anything
+ * is painted, so that flash never happens.
+ */
+const NO_SAVED_TOKEN = () => false
+
+function subscribeToSavedToken(onChange: () => void) {
+  window.addEventListener('storage', onChange)
+  return () => window.removeEventListener('storage', onChange)
+}
+
+function readSavedToken() {
+  try {
+    return Boolean(
+      localStorage.getItem('researchtrack_token') ||
+        localStorage.getItem('papertrack_token')
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Cookie the server reads to know a request is signed in. 30 days, matching the token. */
+function restoreSessionCookie(token: string) {
+  try {
+    if (document.cookie.includes('researchtrack_session=')) return
+    const attrs = 'path=/; max-age=2592000; SameSite=Lax'
+    document.cookie = `researchtrack_session=${token}; ${attrs}`
+    document.cookie = `papertrack_session=${token}; ${attrs}`
+  } catch {
+    // Cookies disabled — the Bearer token still carries the session.
+  }
+}
+
+/** Forget the signed-in session in every place it is kept. */
+function clearStoredSession() {
+  try {
+    localStorage.removeItem('researchtrack_user')
+    localStorage.removeItem('researchtrack_token')
+    localStorage.removeItem('papertrack_user')
+    localStorage.removeItem('papertrack_token')
+    const expired = 'path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+    document.cookie = `researchtrack_session=; ${expired}`
+    document.cookie = `papertrack_session=; ${expired}`
+  } catch {
+    // ignore
+  }
+}
 
 export function AuthProvider({
   children,
@@ -81,7 +145,10 @@ export function AuthProvider({
 
   const refreshUser = useCallback(async () => {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 4000)
+    // Generous on purpose. This is the request that decides whether you are
+    // still signed in, so it must not give up while the server is merely busy
+    // — in development the first hit on a route can spend seconds compiling.
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
 
     try {
       let currentToken = tokenRef.current
@@ -108,25 +175,38 @@ export function AuthProvider({
           try {
             localStorage.setItem('researchtrack_user', JSON.stringify(data.user))
           } catch { /* ignore */ }
+          // The server has just confirmed this token, so put the session
+          // cookie back if it went missing. Without this, a browser left
+          // holding only the saved token stays in a half-signed-in state: the
+          // app works, but the *server* sees a stranger on every request, so
+          // "/" is rendered as the public landing page and only turns into the
+          // dashboard once JavaScript has caught up. Restoring the cookie
+          // means the next visit is the dashboard from the first byte.
+          if (currentToken) restoreSessionCookie(currentToken)
         } else {
           setUser(null)
         }
-      } else {
-        // 401 Unauthorized — clear session state cleanly
+      } else if (res.status === 401) {
+        // The server has looked at this session and rejected it. That is the
+        // only answer that means "signed out", so it is the only one allowed
+        // to throw the session away.
+        clearStoredSession()
         setUser(null)
         setToken(null)
         tokenRef.current = null
-        try {
-          localStorage.removeItem('researchtrack_user')
-          localStorage.removeItem('researchtrack_token')
-          localStorage.removeItem('papertrack_user')
-          localStorage.removeItem('papertrack_token')
-          document.cookie = 'researchtrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-          document.cookie = 'papertrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-        } catch { /* ignore */ }
+      } else {
+        // 500, 502, a restarting dev server, a database blip. The session is
+        // very probably still perfectly good, and wiping it here is what used
+        // to dump people back on the login page after a reload. Leave what is
+        // saved alone and carry on with it.
+        console.warn(
+          `Session check got HTTP ${res.status}; keeping the saved session.`
+        )
       }
     } catch (err) {
-      console.warn('User session check completed with notice:', err)
+      // Aborted, offline, connection refused — again, says nothing about
+      // whether the session is valid, so nothing is cleared.
+      console.warn('Could not reach the server to check the session:', err)
     } finally {
       clearTimeout(timeoutId)
       setLoading(false)
@@ -220,16 +300,7 @@ export function AuthProvider({
       setToken(null)
       tokenRef.current = null
       setLoading(false)
-      try {
-        localStorage.removeItem('researchtrack_user')
-        localStorage.removeItem('researchtrack_token')
-        localStorage.removeItem('papertrack_user')
-        localStorage.removeItem('papertrack_token')
-        document.cookie = 'researchtrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-        document.cookie = 'papertrack_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-      } catch {
-        // ignore
-      }
+      clearStoredSession()
       window.location.replace('/login')
     }
   }
@@ -239,7 +310,19 @@ export function AuthProvider({
     return roles.includes(user.systemRole)
   }, [user])
 
-  const signedOut = !user && (!hasSessionCookie || sessionChecked)
+  const hasSavedToken = useSyncExternalStore(
+    subscribeToSavedToken,
+    readSavedToken,
+    NO_SAVED_TOKEN
+  )
+
+  // "Definitely nobody is signed in" — which is stricter than "we don't have a
+  // user yet". It is true once the server has answered, or straight away when
+  // there is nothing at all to restore from: no session cookie and no saved
+  // token. Anything less than that means the answer is still on its way, and
+  // "/" should wait rather than assume a visitor and show the landing page.
+  const signedOut =
+    !user && (sessionChecked || (!hasSessionCookie && !hasSavedToken))
 
   const isStudent = user?.systemRole === 'STUDENT'
   const isSupervisor = user?.systemRole === 'SUPERVISOR'

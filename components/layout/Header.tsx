@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import type { Paper } from '@/lib/types'
 
 const pageTitles: Record<string, string> = {
-  '/': 'Dashboard',
+  '/dashboard': 'Dashboard',
   '/papers': 'Research Library & Matrix',
   '/papers/new': 'Add New Research Paper',
   '/collections': 'Paper Collections & Syntheses',
