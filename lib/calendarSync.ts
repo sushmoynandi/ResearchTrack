@@ -10,6 +10,7 @@ export interface CalendarEventParams {
   startDate: Date | string
   endDate?: Date | string
   url?: string
+  attendeeEmail?: string
   /** Alarm notification intervals in minutes before event. Default: [60, 30, 10] (1 hr, 30 min, 10 min) */
   alarms?: number[]
 }
@@ -41,23 +42,27 @@ export function generateVEventBlock(event: CalendarEventParams): string {
 
   // Multi-stage reminder notifications (60m, 30m, 10m before event: Popup Push + Mandatory Email)
   const alarmMinutes = event.alarms ?? [60, 30, 10]
-  const alarmBlocks = alarmMinutes.flatMap((mins) => [
-    [
+  const alarmBlocks = alarmMinutes.flatMap((mins) => {
+    const displayAlarm = [
       'BEGIN:VALARM',
       'ACTION:DISPLAY',
       `DESCRIPTION:Reminder: ${mins} minutes before ${cleanTitle}`,
       `TRIGGER:-PT${mins}M`,
       'END:VALARM',
-    ].join('\r\n'),
-    [
+    ].join('\r\n')
+
+    const emailAlarmLines = [
       'BEGIN:VALARM',
       'ACTION:EMAIL',
-      `SUMMARY:Mandatory Reminder: ${mins} minutes before ${cleanTitle}`,
-      `DESCRIPTION:Reminder alert for ${cleanTitle}`,
+      `SUMMARY:Email Reminder: ${mins} minutes before ${cleanTitle}`,
+      `DESCRIPTION:Upcoming research session reminder for ${cleanTitle}`,
+      event.attendeeEmail ? `ATTENDEE:mailto:${event.attendeeEmail}` : '',
       `TRIGGER:-PT${mins}M`,
       'END:VALARM',
-    ].join('\r\n'),
-  ])
+    ].filter(Boolean).join('\r\n')
+
+    return [displayAlarm, emailAlarmLines]
+  })
 
   const lines = [
     'BEGIN:VEVENT',

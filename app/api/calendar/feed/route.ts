@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         endDate: new Date(new Date(m.scheduledAt).getTime() + 60 * 60 * 1000),
         location: '1-on-1 Research Check-in Hub',
         url: `${request.nextUrl.origin}/meetings`,
+        attendeeEmail: user.email,
         alarms: [60, 30, 10], // 1 hour, 30 min, 10 min
       })
     }
@@ -104,6 +105,7 @@ export async function GET(request: NextRequest) {
         endDate: new Date(new Date(a.dueDate).getTime() + 30 * 60 * 1000),
         location: 'ResearchTrack Paper Workspace',
         url: paperUrl,
+        attendeeEmail: user.email,
         alarms: [60, 30, 10], // 1 hour, 30 min, 10 min
       })
     }
@@ -159,6 +161,7 @@ export async function GET(request: NextRequest) {
           endDate: lm.endTime ? new Date(lm.endTime) : new Date(new Date(lm.startTime).getTime() + 60 * 60 * 1000),
           location: lm.location || lm.meetingUrl || 'Virtual Lab Hub',
           url: lm.meetingUrl || undefined,
+          attendeeEmail: user.email,
           alarms: [60, 30, 10], // 1 hour, 30 min, 10 min
         })
       }
@@ -193,6 +196,7 @@ export async function GET(request: NextRequest) {
           endDate: new Date(new Date(jc.scheduledAt).getTime() + 60 * 60 * 1000),
           location: 'Lab Journal Club Seminar Room',
           url: slidesUrl,
+          attendeeEmail: user.email,
           alarms: [60, 30, 10],
         })
       }
