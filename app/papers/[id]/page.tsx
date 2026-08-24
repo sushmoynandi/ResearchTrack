@@ -10,6 +10,7 @@ import { CitationModal } from '@/components/citations/CitationModal'
 import { ExportMatrixModal } from '@/components/papers/ExportMatrixModal'
 import { NotesSection } from '@/components/notes/NotesSection'
 import { PaperHighlightsSection } from '@/components/papers/PaperHighlightsSection'
+import { CodeReproductionCard } from '@/components/papers/CodeReproductionCard'
 import { FeedbackPanel } from '@/components/papers/FeedbackPanel'
 import { FacultyRubricCard } from '@/components/papers/FacultyRubricCard'
 import { GroupReadingRadarCard } from '@/components/papers/GroupReadingRadarCard'
@@ -1219,6 +1220,13 @@ export default function PaperDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Code Reproduction Tracker & Artifact Linker */}
+      <CodeReproductionCard
+        paper={paper}
+        onRefresh={fetchPaper}
+        canEdit={canEdit}
+      />
 
       {/* Structured Literature Review & 20-Column Survey Questionnaire */}
       <div className="glass-card p-6 md:p-8 space-y-5">

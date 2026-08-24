@@ -143,6 +143,12 @@ model Paper {
   codeUrl           String?
   modelUrl          String?
   datasetUrl        String?
+  weightsUrl        String?
+  studentRepoUrl    String?
+  notebookUrl       String?
+  hardwareSpecs     String?
+  replicationNotes  String? @db.Text
+  replicationChecklist String? @db.Text
   replicationStatus ReplicationStatus @default(UNTESTED)
 
   // Model Architecture & Compute Specs
@@ -335,9 +341,13 @@ enum Priority {
 
 enum ReplicationStatus {
   UNTESTED
+  VERIFIED_RUNNABLE
+  MISSING_WEIGHTS
+  DATASET_UNAVAILABLE
+  ABLATION_REPLICATED
+  FAILED
   REPRODUCING
   REPLICATED
-  FAILED
 }
 
 // ─── Notification (Real-Time Lab Alerts) ───────────────────

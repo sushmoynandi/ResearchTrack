@@ -1,7 +1,15 @@
 // ─── Core Enums ─────────────────────────────────────────────
 export type Status = 'TO_READ' | 'READING' | 'COMPLETED' | 'ARCHIVED'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-export type ReplicationStatus = 'UNTESTED' | 'REPRODUCING' | 'REPLICATED' | 'FAILED'
+export type ReplicationStatus =
+  | 'UNTESTED'
+  | 'VERIFIED_RUNNABLE'
+  | 'MISSING_WEIGHTS'
+  | 'DATASET_UNAVAILABLE'
+  | 'ABLATION_REPLICATED'
+  | 'FAILED'
+  | 'REPRODUCING'
+  | 'REPLICATED'
 export type AuthProvider = 'CREDENTIALS' | 'GITHUB' | 'GOOGLE' | 'ORCID' | 'GUEST'
 export type SystemRole = 'STUDENT' | 'SUPERVISOR' | 'ADMIN'
 export type AssignmentStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
@@ -57,10 +65,16 @@ export interface Paper {
   arxivId?: string | null
   citationCount?: number | null
 
-  // AI/ML Research Specific
+  // AI/ML Research Specific & Artifact Linkers
   codeUrl?: string | null
   modelUrl?: string | null
   datasetUrl?: string | null
+  weightsUrl?: string | null
+  studentRepoUrl?: string | null
+  notebookUrl?: string | null
+  hardwareSpecs?: string | null
+  replicationNotes?: string | null
+  replicationChecklist?: string | null
   replicationStatus: ReplicationStatus
 
   // Architecture & Compute
@@ -418,17 +432,25 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 }
 
 export const REPLICATION_LABELS: Record<ReplicationStatus, string> = {
-  UNTESTED: 'Not Tested',
-  REPRODUCING: 'Reproducing',
-  REPLICATED: 'Replicated',
-  FAILED: 'Failed',
+  UNTESTED: 'Untested / Initial',
+  VERIFIED_RUNNABLE: 'Verified Runnable (Code Runs)',
+  MISSING_WEIGHTS: 'Missing Model Weights',
+  DATASET_UNAVAILABLE: 'Dataset Unavailable / Paywalled',
+  ABLATION_REPLICATED: 'Ablation Replicated (±2% Delta)',
+  FAILED: 'Failed / Irreproducible',
+  REPRODUCING: 'In Progress (Reproducing)',
+  REPLICATED: 'Verified Replicated',
 }
 
 export const REPLICATION_COLORS: Record<ReplicationStatus, string> = {
   UNTESTED: 'default',
+  VERIFIED_RUNNABLE: 'info',
+  MISSING_WEIGHTS: 'warning',
+  DATASET_UNAVAILABLE: 'danger',
+  ABLATION_REPLICATED: 'success',
+  FAILED: 'danger',
   REPRODUCING: 'warning',
   REPLICATED: 'success',
-  FAILED: 'danger',
 }
 
 export const STATUS_COLORS: Record<Status, string> = {
