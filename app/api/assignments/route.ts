@@ -204,6 +204,28 @@ export async function POST(request: NextRequest) {
             type: 'ASSIGNMENT',
             link: `/papers/${paper.slug || paper.id}`,
           }).catch(() => {})
+
+          // Send automated email notification
+          const paperUrl = `${request.nextUrl.origin}/papers/${paper.slug || paper.id}`
+          const googleCalUrl = getGoogleCalendarUrl({
+            title: `📖 Reading Deadline: ${paper.title}`,
+            description: `Lab Reading Assignment for ${lab.name}: ${paper.title}\nAuthors: ${paper.authors}\nSupervisor: ${user.name}`,
+            startDate: dueDate ? new Date(dueDate) : new Date(),
+            url: paperUrl,
+            alarms: [60, 30, 10],
+          })
+
+          sendPaperAssignedEmail({
+            toEmail: m.user.email,
+            studentName: m.user.name,
+            supervisorName: user.name,
+            paperTitle: paper.title,
+            authors: paper.authors,
+            dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+            note: note?.trim() || undefined,
+            paperUrl,
+            googleCalendarUrl: googleCalUrl,
+          }).catch(() => {})
         }
       }
 
@@ -285,6 +307,28 @@ export async function POST(request: NextRequest) {
             message: `${user.name} assigned "${paper.title}" to sub-group ${group.name}.`,
             type: 'ASSIGNMENT',
             link: `/papers/${paper.slug || paper.id}`,
+          }).catch(() => {})
+
+          // Send automated email notification
+          const paperUrl = `${request.nextUrl.origin}/papers/${paper.slug || paper.id}`
+          const googleCalUrl = getGoogleCalendarUrl({
+            title: `📖 Reading Deadline: ${paper.title}`,
+            description: `Sub-Group Reading Assignment for ${group.name}: ${paper.title}\nAuthors: ${paper.authors}\nSupervisor: ${user.name}`,
+            startDate: dueDate ? new Date(dueDate) : new Date(),
+            url: paperUrl,
+            alarms: [60, 30, 10],
+          })
+
+          sendPaperAssignedEmail({
+            toEmail: m.user.email,
+            studentName: m.user.name,
+            supervisorName: user.name,
+            paperTitle: paper.title,
+            authors: paper.authors,
+            dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+            note: note?.trim() || undefined,
+            paperUrl,
+            googleCalendarUrl: googleCalUrl,
           }).catch(() => {})
         }
       }
