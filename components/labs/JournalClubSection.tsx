@@ -561,9 +561,17 @@ export function JournalClubSection({
                     <CalendarSyncButton
                       event={{
                         title: `🔬 Lab Journal Club: ${s.paper.title}`,
-                        description: `Lab Journal Club presentation on: ${s.paper.title}\nPresenter: ${s.presenter?.name || 'Lab Member'}\nSeminar Focus: ${s.notes || 'General discussion'}\n\nInteractive Slides: ${typeof window !== 'undefined' ? `${window.location.origin}/papers/${s.paper.slug || s.paper.id}/present` : ''}`,
+                        description: [
+                          `📄 Paper Title: ${s.paper.title}`,
+                          `👥 Authors: ${s.paper.authors}`,
+                          `👤 Presenter: ${s.presenter?.name || 'Lab Member'}${s.presenter?.email ? ` (${s.presenter.email})` : ''}`,
+                          s.notes ? `\n🎯 Seminar Focus & Discussion Topics:\n${s.notes}` : '',
+                          `\n🖥️ Launch Presentation Slides: ${typeof window !== 'undefined' ? `${window.location.origin}/papers/${s.paper.slug || s.paper.id}/present` : ''}`,
+                          `📖 Paper Workspace: ${typeof window !== 'undefined' ? `${window.location.origin}/papers/${s.paper.slug || s.paper.id}` : ''}`,
+                        ].filter(Boolean).join('\n'),
                         startDate: new Date(s.scheduledAt),
-                        location: 'Lab Journal Club Seminar',
+                        location: 'Lab Journal Club Seminar Room',
+                        url: typeof window !== 'undefined' ? `${window.location.origin}/papers/${s.paper.slug || s.paper.id}/present` : undefined,
                       }}
                       filename={`journal_club_${s.paper.title.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '_')}`}
                       buttonText="Sync Seminar"

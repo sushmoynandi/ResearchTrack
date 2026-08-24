@@ -359,7 +359,16 @@ export function LabMeetingsBoard({
                     <CalendarSyncButton
                       event={{
                         title: `🔬 ${m.title}`,
-                        description: `${m.description || 'Lab Research Sync'}\nHost: ${m.host.name}\n${m.meetingUrl ? `Join Link: ${m.meetingUrl}\n` : ''}${m.agenda ? `Agenda: ${m.agenda}\n` : ''}`,
+                        description: [
+                          `📋 Meeting: ${m.title}`,
+                          `👥 Meeting Audience & Scope: ${m.group ? `Sub-Group Cluster (${m.group.name})` : 'Lab-Wide Research Sync'}`,
+                          `👤 Host: ${m.host.name}${m.host.email ? ` (${m.host.email})` : ''}`,
+                          m.meetingUrl ? `🔗 Join Link: ${m.meetingUrl}` : '',
+                          m.location ? `📍 Location: ${m.location}` : '',
+                          m.description ? `📝 Overview: ${m.description}` : '',
+                          m.agenda ? `\n🎯 Agenda & Discussion Topics:\n${m.agenda}` : '',
+                          `\n🏛️ Lab Portal: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                        ].filter(Boolean).join('\n'),
                         startDate: new Date(m.startTime),
                         endDate: m.endTime ? new Date(m.endTime) : undefined,
                         location: m.location || m.meetingUrl || 'Virtual Lab Hub',

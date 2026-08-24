@@ -84,8 +84,8 @@ export function getGoogleCalendarUrl(event: CalendarEventParams): string {
   const datesParam = `${formatGoogleDate(start)}/${formatGoogleDate(end)}`
 
   let details = event.description || ''
-  if (event.url) {
-    details += `\n\nPaper/Meeting Link: ${event.url}`
+  if (event.url && !details.includes(event.url)) {
+    details += `\n\nMeeting Link: ${event.url}`
   }
 
   const params = new URLSearchParams({
@@ -93,7 +93,7 @@ export function getGoogleCalendarUrl(event: CalendarEventParams): string {
     text: event.title,
     dates: datesParam,
     details: details.trim(),
-    location: event.location || 'ResearchTrack Portal',
+    location: event.location || event.url || 'ResearchTrack Portal',
   })
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`
@@ -107,8 +107,8 @@ export function getOutlookCalendarUrl(event: CalendarEventParams): string {
   const end = event.endDate ? new Date(event.endDate) : new Date(start.getTime() + 60 * 60 * 1000)
 
   let body = event.description || ''
-  if (event.url) {
-    body += `\n\nLink: ${event.url}`
+  if (event.url && !body.includes(event.url)) {
+    body += `\n\nMeeting Link: ${event.url}`
   }
 
   const params = new URLSearchParams({
@@ -118,7 +118,7 @@ export function getOutlookCalendarUrl(event: CalendarEventParams): string {
     startdt: start.toISOString(),
     enddt: end.toISOString(),
     body: body.trim(),
-    location: event.location || 'ResearchTrack Portal',
+    location: event.location || event.url || 'ResearchTrack Portal',
   })
 
   return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`

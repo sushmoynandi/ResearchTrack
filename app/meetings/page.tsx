@@ -385,7 +385,13 @@ export default function MeetingsPage() {
                   <CalendarSyncButton
                     event={{
                       title: activeMeeting.title,
-                      description: `1-on-1 Research Check-in.\nStudent: ${activeMeeting.student.name}\nSupervisor: ${activeMeeting.supervisor.name}\n\nMeeting Hub: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                      description: [
+                        `🤝 Session: ${activeMeeting.title}`,
+                        `👤 Host / Supervisor: ${activeMeeting.supervisor.name} (${activeMeeting.supervisor.email})`,
+                        `🎓 Student Researcher: ${activeMeeting.student.name} (${activeMeeting.student.email})`,
+                        activeMeeting.actionItems ? `\n📋 Discussion Topics & Action Items:\n${activeMeeting.actionItems}` : '',
+                        `\n🏛️ Meeting Hub: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                      ].filter(Boolean).join('\n'),
                       startDate: activeMeeting.scheduledAt,
                       location: '1-on-1 Research Check-in Hub',
                     }}
