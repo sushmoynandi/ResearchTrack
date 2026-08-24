@@ -209,6 +209,19 @@ export function CalendarSubscriptionModal({ isOpen, onClose }: CalendarSubscript
           </p>
         </div>
 
+        {/* Step-by-step Google Calendar manual add helper */}
+        <div className="p-3.5 rounded-xl bg-bg-tertiary/70 border border-border-default space-y-2">
+          <h5 className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+            <CheckCircle2 size={14} className="text-emerald-400" />
+            How to Add in Google Calendar (Takes 10 Seconds):
+          </h5>
+          <ol className="text-xs text-text-secondary space-y-1.5 pl-5 list-decimal text-[11px]">
+            <li>Open <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="text-accent underline font-semibold">Google Calendar</a> on web.</li>
+            <li>On the left sidebar, click <strong>+</strong> next to <strong>"Other calendars"</strong> &rarr; Select <strong>"From URL"</strong>.</li>
+            <li>Paste your <strong>Private Feed URL</strong> copied above and click <strong>"Add calendar"</strong>.</li>
+          </ol>
+        </div>
+
         {/* Modal Footer Controls */}
         <div className="flex items-center justify-between pt-2 border-t border-border-default flex-wrap gap-2">
           <Button

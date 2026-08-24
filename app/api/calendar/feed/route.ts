@@ -207,6 +207,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `inline; filename="researchtrack-${user.id}.ics"`,
         'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+        'Access-Control-Allow-Origin': '*',
       },
     })
   } catch (error: any) {
