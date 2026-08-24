@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
 import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
+import { CalendarSubscriptionModal } from '@/components/calendar/CalendarSubscriptionModal'
 
 interface MeetingItem {
   id: string
@@ -47,6 +48,7 @@ export default function MeetingsPage() {
 
   // Scheduling Modal State
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
   const [students, setStudents] = useState<{ id: string; name: string; email: string }[]>([])
   const [title, setTitle] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
@@ -286,9 +288,19 @@ export default function MeetingsPage() {
           </p>
         </div>
 
-        <Button onClick={handleOpenSchedule} icon={<Plus size={16} />}>
-          Schedule 1-on-1
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => setIsSubscriptionOpen(true)}
+            icon={<Sparkles size={15} className="text-accent" />}
+          >
+            <span>Auto-Sync to Google Calendar</span>
+          </Button>
+
+          <Button onClick={handleOpenSchedule} icon={<Plus size={16} />}>
+            Schedule 1-on-1
+          </Button>
+        </div>
       </div>
 
       {/* Main Split Layout */}
@@ -641,6 +653,12 @@ export default function MeetingsPage() {
           </div>
         </div>
       )}
+
+      {/* Live Calendar Subscription Modal */}
+      <CalendarSubscriptionModal
+        isOpen={isSubscriptionOpen}
+        onClose={() => setIsSubscriptionOpen(false)}
+      />
     </div>
   )
 }

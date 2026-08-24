@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { CalendarSyncButton } from '@/components/calendar/CalendarSyncButton'
+import { CalendarSubscriptionModal } from '@/components/calendar/CalendarSubscriptionModal'
 import {
   ClipboardList,
   Plus,
@@ -22,6 +23,7 @@ import {
   AlertCircle,
   FileText,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react'
 
 interface AssignmentItem {
@@ -69,6 +71,7 @@ export default function AssignmentsPage() {
 
   // Assign Paper Modal State (Supervisors / Admins)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
   const [assignMode, setAssignMode] = useState<'INDIVIDUAL' | 'GROUP'>('INDIVIDUAL')
   const [availablePapers, setAvailablePapers] = useState<{ id: string; title: string }[]>([])
   const [availableStudents, setAvailableStudents] = useState<{ id: string; name: string; email: string }[]>([])
@@ -258,11 +261,21 @@ export default function AssignmentsPage() {
           </p>
         </div>
 
-        {(isSupervisor || isAdmin) && (
-          <Button onClick={handleOpenModal} icon={<Plus size={16} />}>
-            Assign New Paper
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => setIsSubscriptionOpen(true)}
+            icon={<Sparkles size={15} className="text-accent" />}
+          >
+            <span>Auto-Sync to Google Calendar</span>
           </Button>
-        )}
+
+          {(isSupervisor || isAdmin) && (
+            <Button onClick={handleOpenModal} icon={<Plus size={16} />}>
+              Assign New Paper
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -561,6 +574,12 @@ export default function AssignmentsPage() {
           </div>
         </div>
       )}
+
+      {/* Live Calendar Auto-Sync Modal */}
+      <CalendarSubscriptionModal
+        isOpen={isSubscriptionOpen}
+        onClose={() => setIsSubscriptionOpen(false)}
+      />
     </div>
   )
 }

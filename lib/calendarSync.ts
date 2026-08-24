@@ -1,5 +1,6 @@
 /**
  * Calendar Sync Utilities (Google Calendar, Outlook Live, Apple Calendar & iCal .ics file generator)
+ * Supports RFC 5545 Multi-Stage Reminders (VALARM triggers at -PT60M, -PT30M, -PT10M) and Live WebCal Feeds
  */
 
 export interface CalendarEventParams {
@@ -9,6 +10,8 @@ export interface CalendarEventParams {
   startDate: Date | string
   endDate?: Date | string
   url?: string
+  /** Alarm notification intervals in minutes before event. Default: [60, 30, 10] (1 hr, 30 min, 10 min) */
+  alarms?: number[]
 }
 
 function formatDateToIcsString(date: Date): string {
@@ -20,9 +23,9 @@ function formatGoogleDate(date: Date): string {
 }
 
 /**
- * Generate iCalendar RFC 5545 `.ics` file content
+ * Generate a single VEVENT block with multi-stage VALARM triggers
  */
-export function generateIcsContent(event: CalendarEventParams): string {
+export function generateVEventBlock(event: CalendarEventParams): string {
   const start = new Date(event.startDate)
   const end = event.endDate ? new Date(event.endDate) : new Date(start.getTime() + 60 * 60 * 1000)
   const now = new Date()
@@ -34,14 +37,21 @@ export function generateIcsContent(event: CalendarEventParams): string {
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;')
 
-  const cleanTitle = (event.title || 'Research Meeting').replace(/,/g, '\\,')
+  const cleanTitle = (event.title || 'Research Session').replace(/,/g, '\\,')
 
-  return [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//ResearchTrack//Academic Research Calendar//EN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
+  // Multi-stage reminder notifications (60m, 30m, 10m before event)
+  const alarmMinutes = event.alarms ?? [60, 30, 10]
+  const alarmBlocks = alarmMinutes.map((mins) =>
+    [
+      'BEGIN:VALARM',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:Reminder: ${mins} minutes before ${cleanTitle}`,
+      `TRIGGER:-PT${mins}M`,
+      'END:VALARM',
+    ].join('\r\n')
+  )
+
+  const lines = [
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${formatDateToIcsString(now)}`,
@@ -52,11 +62,48 @@ export function generateIcsContent(event: CalendarEventParams): string {
     event.location ? `LOCATION:${event.location.replace(/,/g, '\\,')}` : '',
     event.url ? `URL:${event.url}` : '',
     'STATUS:CONFIRMED',
+    ...alarmBlocks,
     'END:VEVENT',
+  ].filter(Boolean)
+
+  return lines.join('\r\n')
+}
+
+/**
+ * Generate iCalendar RFC 5545 `.ics` file content with 1-hr, 30-min, 10-min reminders
+ */
+export function generateIcsContent(event: CalendarEventParams): string {
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ResearchTrack//Academic Research Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:ResearchTrack Schedule',
+    generateVEventBlock(event),
     'END:VCALENDAR',
-  ]
-    .filter(Boolean)
-    .join('\r\n')
+  ].join('\r\n')
+}
+
+/**
+ * Generate multi-event iCalendar RFC 5545 feed content (for live WebCal subscription)
+ */
+export function generateMultiEventIcs(events: CalendarEventParams[], calendarName = 'ResearchTrack Academic Schedule'): string {
+  const eventBlocks = events.map((evt) => generateVEventBlock(evt))
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ResearchTrack//Academic Research Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${calendarName}`,
+    'X-WR-TIMEZONE:UTC',
+    'REFRESH-INTERVAL;VALUE=DURATION:PT15M',
+    'X-PUBLISHED-TTL:PT15M',
+    ...eventBlocks,
+    'END:VCALENDAR',
+  ].join('\r\n')
 }
 
 /**
@@ -122,4 +169,21 @@ export function getOutlookCalendarUrl(event: CalendarEventParams): string {
   })
 
   return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`
+}
+
+/**
+ * Generate a WebCal subscription URL for Apple Calendar and live calendar apps
+ */
+export function getWebcalFeedUrl(token: string, hostUrl?: string): string {
+  const base = hostUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://researchtrack.app')
+  const cleanBase = base.replace(/^https?:\/\//i, '')
+  return `webcal://${cleanBase}/api/calendar/feed?token=${token}`
+}
+
+/**
+ * Generate a 1-click Google Calendar Subscription Feed URL
+ */
+export function getGoogleCalendarFeedSubscribeUrl(token: string, hostUrl?: string): string {
+  const webcal = getWebcalFeedUrl(token, hostUrl)
+  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`
 }

@@ -49,6 +49,9 @@ model User {
   huggingFaceUrl   String?
   researchGateUrl  String?
 
+  // Live Calendar Subscription Feed Token (RFC 5545 WebCal / Google Calendar)
+  calendarFeedToken String?      @unique @default(cuid())
+
   // Two-factor, open to any account. Both ways of receiving a code can be set
   // up side by side — `twoFactorSecret` holds the authenticator app's key and
   // `twoFactorEmailReady` records that emailed codes have been proven to

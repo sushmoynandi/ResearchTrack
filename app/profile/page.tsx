@@ -53,6 +53,7 @@ import {
   TwitterXIcon,
   ResearchGateIcon,
 } from '@/components/ui/Icons'
+import { CalendarSubscriptionModal } from '@/components/calendar/CalendarSubscriptionModal'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -111,6 +112,7 @@ export default function ProfilePage() {
   const [huggingFaceUrl, setHuggingFaceUrl] = useState('')
   const [researchGateUrl, setResearchGateUrl] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
 
   // Profile photo
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1052,6 +1054,57 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Live Calendar Auto-Sync & Multi-Stage Reminders */}
+      <div className="glass-card p-6 space-y-6">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-accent" />
+            <div>
+              <h3 className="text-base font-semibold text-text-primary font-display">
+                Live Google &amp; Apple Calendar Auto-Sync
+              </h3>
+              <p className="text-xs text-text-secondary">
+                Synchronize 1-on-1 advisor meetings, reading deadlines, and lab journal club seminars with automatic 1h, 30m, and 10m reminder alarms.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsSubscriptionOpen(true)}
+            icon={<Sparkles size={14} className="text-accent" />}
+          >
+            Manage Feed
+          </Button>
+        </div>
+
+        <div className="p-4 rounded-xl bg-bg-secondary/60 border border-border-default space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-text-primary">Calendar Feed:</span>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2.5 py-0.5 rounded-full font-mono">
+                  <CheckCircle2 size={12} /> RFC 5545 WebCal Active
+                </span>
+              </div>
+              <p className="text-xs text-text-tertiary">
+                Subscribe once in Google Calendar or Apple Calendar to receive live calendar event updates with active push alarms.
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setIsSubscriptionOpen(true)}
+              icon={<Calendar size={14} />}
+            >
+              Add to Google Calendar
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Role change request — decided by an admin, never by the person asking */}
       {!user.isGuest && user.systemRole !== 'ADMIN' && (
         <div className="glass-card p-5 space-y-4">
@@ -1357,6 +1410,12 @@ export default function ProfilePage() {
           </div>
         </div>
       </Modal>
+
+      {/* Live Calendar Auto-Sync Modal */}
+      <CalendarSubscriptionModal
+        isOpen={isSubscriptionOpen}
+        onClose={() => setIsSubscriptionOpen(false)}
+      />
     </div>
   )
 }
