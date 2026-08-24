@@ -4,8 +4,22 @@
 
 ## Brand Identity
 - **Personality**: Modern, high-precision, academic research-lab aesthetic
-- **Colors**: Deep slate background (`#0d1117`), cyan/teal accents (`#06b6d4`), semantic status badges (emerald green, amber, sky blue)
+- **Two themes**: the original **dark** look (deep slate background, cyan/teal accents) and a **light** look (soft off-white page, white cards, a deeper teal so the same accent still reads on a pale background). Semantic status colours — emerald green, amber, sky blue — exist in both, tuned so text stays readable either way.
+- **Colors**: Dark — background `#0d1117`, accent `#06b6d4`. Light — page `hsl(210 33% 98%)`, cards white, accent `hsl(191 90% 28%)`.
 - **Fonts**: Inter (display & body), JetBrains Mono (monospace identifiers, DOIs, parameters)
+
+### Switching the theme
+Anyone can choose **Light**, **Dark** or **System** from three places:
+- the small sun/moon/monitor switch in the top bar of the app
+- the same switch inside the profile menu (this is the one phones get, where the top-bar switch is hidden)
+- **Profile → Appearance**, with a line explaining what the current setting does
+
+"System" follows whatever the computer or phone is set to, and changes with it. A choice is remembered for a year and travels with the account's browser, so the app opens in the right theme every time — with no white flash on the way in, because the server already knows the answer before the page is drawn.
+
+New accounts, and anyone who has never touched the switch, get the dark theme — the app's original look. To make light (or system) the default instead, change the one line `DEFAULT_THEME` in `lib/theme.ts`.
+
+### Changing the theme colours
+All colours live in one place: `app/globals.css`. Near the top are two lists — one for dark, one for light — where every colour is named by its job (`--d-bg-primary`, `--l-accent`, and so on). Edit a value there and it updates everywhere in the app at once; nothing else needs touching.
 
 ## Authentication & User Accounts
 - **Login Options** (both available on `/login` and `/register`):
@@ -120,6 +134,10 @@ codes, so one script can style both differently.
 6. Restart the app. The "Continue with Google" button will now work.
 
 ## Recent Changes
+- 2026-08-24: Added a light theme. The app has only ever been dark, which suits a late-night reading session and not much else — a bright office, a projector in a lab meeting, or simply preferring it. There are now two full themes and a **Light / Dark / System** switch in the top bar, in the profile menu, and under **Profile → Appearance**. "System" follows the computer's own setting and keeps following it if that changes during the day.
+  The choice is remembered for a year and, importantly, the server is told about it — so the page arrives already in the right theme instead of flashing white or black for a moment while the browser catches up. Switching fades rather than snapping, and does nothing of the sort for anyone who has "reduce motion" switched on.
+  The dark theme is untouched: same colours, same look, still the default for anyone who has never used the switch. The light theme is not the dark one inverted — the page sits just below white so cards can be white and still look lifted, text is off-black rather than black, and the teal accent is deepened so white button text stays readable on it. Every text colour was checked against the surface behind it for contrast. Shadows, the glow behind the sign-in panel, the activity heatmap and the citation map all got a light-mode version of their own rather than being left to look wrong.
+  Under the hood this took almost no rewriting of pages, because the app already spoke in terms of "the primary background" rather than "dark grey" — those names now simply point at a different set of colours depending on the theme.
 - 2026-08-24: Added a proper landing page. Until now `/` was the dashboard and nothing else — a visitor who wasn't signed in got bounced straight to the login screen, so there was no page explaining what the site is. `/` now shows one of two things: the landing page if you're signed out, the dashboard if you're signed in. The landing page covers what the platform does (labs, paper import, reading tracks, assignments, meetings, milestones, analytics), what each of the three roles gets, the three steps to get started, and how accounts are secured — with **Log in** and **Register** buttons in the top bar, the opening section, the closing section and the footer. It's written on the site's own dark research-lab styling, so it doesn't look like a page borrowed from somewhere else, and it reads properly on a phone.
   One extra detail worth knowing: the page arrives fully drawn in the very first response instead of after a spinner. The app normally has to load and then ask the server who you are, which is fine behind a login but wrong for a public page. The site now checks for a session cookie on the server — no cookie means definitely signed out, so the landing page can be sent immediately. That also makes it readable by search engines.
 - 2026-08-22: Fixed a failing Vercel deploy. The build runs `prisma db push` before building the site, and the previous change removed the `twoFactorSetupDone` column — Prisma refuses to drop a column that still holds data, so it stopped with an error and the site was never built. The column is back in the schema, unused and marked as such, which keeps the database step purely additive. (Putting `--accept-data-loss` in the build script would also have "fixed" it, but then any future deploy could quietly destroy real data.) Noted in GIT-WORKFLOW.md so nobody hits it again.

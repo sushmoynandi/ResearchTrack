@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Atom, Library, LineChart, Users } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface AuthSplitLayoutProps {
   children: React.ReactNode;
@@ -122,9 +123,15 @@ export function AuthSplitLayout({
           className="absolute inset-x-0 top-0 h-100 pointer-events-none lg:hidden"
           style={{
             backgroundImage:
-              'radial-gradient(28rem 22rem at 50% 0%, hsl(190 70% 50% / 0.13), transparent 70%)',
+              'radial-gradient(28rem 22rem at 50% 0%, var(--auth-glow-a), transparent 70%)',
           }}
         />
+
+        {/* Theme switch, floated over the form column. Signed-out visitors
+            never see the app header, so this is their only way in. */}
+        <div className="absolute right-5 top-5 z-20 sm:right-7 sm:top-6">
+          <ThemeToggle />
+        </div>
 
         <div
           className={`relative z-10 w-full ${contentClassName} mx-auto my-auto px-6 sm:px-8 py-12 auth-rise`}

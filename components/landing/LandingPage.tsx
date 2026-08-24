@@ -24,6 +24,7 @@ import {
   KeyRound,
   LineChart,
 } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 /* ── Section data ───────────────────────────────────────────
    Kept beside the markup rather than in a separate file — it's
@@ -239,6 +240,7 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle className="hidden sm:inline-flex" />
             <Link
               href="/login"
               className="inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary sm:px-4"

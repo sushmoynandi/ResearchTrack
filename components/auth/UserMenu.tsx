@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from './AuthProvider'
 import { roleLabel, roleRingClass } from '@/lib/roles'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import {
   User as UserIcon,
   LogOut,
@@ -117,6 +118,15 @@ export function UserMenu() {
                 <span>Temporary Guest Session</span>
               </div>
             )}
+          </div>
+
+          {/* Appearance — the full-width switch, so the setting is reachable
+              on phones where the header version is hidden. */}
+          <div className="px-1 pb-2 mb-1 border-b border-border-default/60">
+            <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">
+              Appearance
+            </p>
+            <ThemeToggle size="full" />
           </div>
 
           {/* Action Links */}

@@ -520,7 +520,7 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
                           fill={node.color}
                           filter={isCenter ? 'url(#glow)' : undefined}
                           opacity={isSelected ? 1 : 0.9}
-                          stroke="#ffffff"
+                          style={{ stroke: 'var(--bg-secondary)' }}
                           strokeWidth={isSelected ? 2 : 1}
                         />
 
@@ -531,7 +531,7 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
                             cy={-node.radius * 0.7}
                             r={4.5}
                             fill="#a855f7"
-                            stroke="#ffffff"
+                            style={{ stroke: 'var(--bg-secondary)' }}
                             strokeWidth={1}
                           />
                         )}
@@ -540,7 +540,11 @@ export function CitationGraph({ paperId, paperTitle }: CitationGraphProps) {
                         <text
                           y={node.radius + 12}
                           textAnchor="middle"
-                          fill={isSelected ? '#ffffff' : '#94a3b8'}
+                          style={{
+                            fill: isSelected
+                              ? 'var(--text-primary)'
+                              : 'var(--text-tertiary)',
+                          }}
                           fontSize={isCenter ? 11 : 9}
                           fontWeight={isSelected ? 'bold' : 'normal'}
                           className="pointer-events-none font-sans"

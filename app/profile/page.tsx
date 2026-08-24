@@ -39,7 +39,10 @@ import {
   UserCog,
   Clock,
   XCircle,
+  Palette,
 } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { useTheme } from '@/components/theme/ThemeProvider'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -673,6 +676,9 @@ export default function ProfilePage() {
         </form>
       </div>
 
+      {/* Appearance */}
+      <AppearanceCard />
+
       {/* Web Push & Mobile Notifications Management */}
       <div className="glass-card p-6 space-y-6">
         <div className="flex items-center justify-between border-b border-border-default pb-3">
@@ -1072,6 +1078,41 @@ export default function ProfilePage() {
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+/**
+ * Light / dark / system, in the place people go looking for it. The header has
+ * the same switch; this one exists because "where do I change the theme?"
+ * is a settings question, and settings is where the answer should be.
+ */
+function AppearanceCard() {
+  const { theme, resolvedTheme } = useTheme()
+
+  const explanation =
+    theme === 'system'
+      ? `Following your device, which is currently ${resolvedTheme}.`
+      : `Always ${theme}, on every device you sign in from.`
+
+  return (
+    <div className="glass-card p-6 space-y-5">
+      <div className="flex items-center gap-2 border-b border-border-default pb-3">
+        <Palette size={18} className="text-accent" />
+        <div>
+          <h3 className="text-base font-semibold text-text-primary font-display">
+            Appearance
+          </h3>
+          <p className="text-xs text-text-secondary">
+            Long reading sessions are easier on a background that suits your room.
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-sm space-y-2">
+        <ThemeToggle size="full" />
+        <p className="text-xs text-text-tertiary">{explanation}</p>
+      </div>
     </div>
   )
 }

@@ -245,12 +245,10 @@ export function StudentContributionHeatmap({ studentId, studentName }: StudentCo
                   {weeks.map((week, colIdx) => (
                     <div key={colIdx} className="flex flex-col gap-[2px] sm:gap-[3px] flex-1 min-w-0">
                       {week.map((day) => {
-                        // GitHub color mapping: Only green when paper finished/completed
-                        let cellClass = 'bg-[#161b22] border border-white/5'
-                        if (day.level === 1) cellClass = 'bg-[#0e4429] border border-[#006d32]/40 hover:border-emerald-400'
-                        else if (day.level === 2) cellClass = 'bg-[#006d32] border border-[#26a641]/50 hover:border-emerald-300'
-                        else if (day.level === 3) cellClass = 'bg-[#26a641] border border-[#39d353]/60 hover:border-emerald-200'
-                        else if (day.level === 4) cellClass = 'bg-[#39d353] border border-emerald-300/80 shadow-[0_0_6px_rgba(57,211,83,0.6)]'
+                        // Green only when a paper was finished that day. The
+                        // five steps are defined in globals.css so each theme
+                        // gets a ramp that reads on its own background.
+                        const cellClass = `heat-cell heat-level-${day.level}`
 
                         return (
                           <div
@@ -288,11 +286,12 @@ export function StudentContributionHeatmap({ studentId, studentName }: StudentCo
               {/* Legend: Less -> More */}
               <div className="flex items-center gap-1.5 text-[11px] font-mono">
                 <span>Less</span>
-                <div className="w-[10.5px] h-[10.5px] rounded-[2px] bg-[#161b22] border border-white/5" />
-                <div className="w-[10.5px] h-[10.5px] rounded-[2px] bg-[#0e4429] border border-[#006d32]/40" />
-                <div className="w-[10.5px] h-[10.5px] rounded-[2px] bg-[#006d32] border border-[#26a641]/50" />
-                <div className="w-[10.5px] h-[10.5px] rounded-[2px] bg-[#26a641] border border-[#39d353]/60" />
-                <div className="w-[10.5px] h-[10.5px] rounded-[2px] bg-[#39d353] border border-emerald-300/80" />
+                {[0, 1, 2, 3, 4].map((level) => (
+                  <div
+                    key={level}
+                    className={`w-[10.5px] h-[10.5px] rounded-[2px] heat-cell heat-level-${level}`}
+                  />
+                ))}
                 <span>More</span>
               </div>
             </div>
@@ -407,7 +406,7 @@ export function StudentContributionHeatmap({ studentId, studentName }: StudentCo
                   onClick={() => handleSelectYear(year)}
                   className={`w-full text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-all text-left cursor-pointer flex items-center justify-between ${
                     isActive
-                      ? 'bg-[#1f6feb] text-white shadow-sm font-bold'
+                      ? 'bg-accent text-white shadow-sm font-bold'
                       : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
                   }`}
                 >
@@ -423,7 +422,7 @@ export function StudentContributionHeatmap({ studentId, studentName }: StudentCo
       {/* Floating Tooltip */}
       {hoveredDay && (
         <div
-          className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-[#0d1117] text-text-primary text-xs px-3 py-2 rounded-lg border border-border-default shadow-xl font-mono space-y-1 backdrop-blur-md"
+          className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-bg-secondary text-text-primary text-xs px-3 py-2 rounded-lg border border-border-default shadow-modal font-mono space-y-1 backdrop-blur-md"
           style={{
             left: `${hoveredDay.x}px`,
             top: `${hoveredDay.y - 6}px`,
