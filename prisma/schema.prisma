@@ -112,6 +112,10 @@ model User {
   // Supervision requests (Supervisor claims student, student accepts/rejects)
   supervisionRequestsSent     SupervisionRequest[] @relation("SupervisorRequestsSent")
   supervisionRequestsReceived SupervisionRequest[] @relation("StudentRequestsReceived")
+
+  // Highlights & Marginal Annotations
+  highlights        Highlight[]        @relation("UserHighlights")
+  highlightComments HighlightComment[] @relation("UserHighlightComments")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -162,6 +166,7 @@ model Paper {
   tags                Tag[]                @relation("PaperTags")
   collections         Collection[]         @relation("PaperCollections")
   notes               Note[]
+  highlights          Highlight[]
   assignments         Assignment[]
   feedback            Feedback[]
   rubrics             ReviewRubric[]
@@ -170,6 +175,43 @@ model Paper {
   shares              PaperShare[]
 
   @@unique([userId, doi])
+}
+
+// ─── Highlight & Marginal Annotation ────────────────────────
+model Highlight {
+  id          String   @id @default(cuid())
+  paperId     String
+  paper       Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("UserHighlights", fields: [userId], references: [id], onDelete: Cascade)
+  
+  text        String   @db.Text
+  color       String   @default("YELLOW") // "YELLOW" | "GREEN" | "ROSE" | "PURPLE"
+  category    String   @default("METHODOLOGY") // "METHODOLOGY" | "CONTRIBUTION" | "LIMITATION" | "FEEDBACK"
+  pageNumber  Int?     @default(1)
+  position    String?  @db.Text
+  isPrivate   Boolean  @default(false)
+  
+  comments    HighlightComment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([paperId])
+  @@index([userId])
+}
+
+model HighlightComment {
+  id          String    @id @default(cuid())
+  highlightId String
+  highlight   Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("UserHighlightComments", fields: [userId], references: [id], onDelete: Cascade)
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([highlightId])
+  @@index([userId])
 }
 
 // ─── PaperShare (Peer Student / Colleague Sharing) ───────────

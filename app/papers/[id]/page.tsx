@@ -9,6 +9,7 @@ import { StarButton } from '@/components/papers/StarButton'
 import { CitationModal } from '@/components/citations/CitationModal'
 import { ExportMatrixModal } from '@/components/papers/ExportMatrixModal'
 import { NotesSection } from '@/components/notes/NotesSection'
+import { PaperHighlightsSection } from '@/components/papers/PaperHighlightsSection'
 import { FeedbackPanel } from '@/components/papers/FeedbackPanel'
 import { FacultyRubricCard } from '@/components/papers/FacultyRubricCard'
 import { GroupReadingRadarCard } from '@/components/papers/GroupReadingRadarCard'
@@ -1540,6 +1541,13 @@ export default function PaperDetailPage() {
           </p>
         </div>
       )}
+
+      {/* Inline Highlights & Marginal Discussions Section */}
+      <PaperHighlightsSection
+        paperId={paper.id}
+        paperSlug={paper.slug}
+        canComment={canComment}
+      />
 
       {/* Interactive Notes Section */}
       <NotesSection

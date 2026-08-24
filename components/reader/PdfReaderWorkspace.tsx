@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   FileText,
@@ -51,16 +51,26 @@ import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
-import type { Paper, Note, LiteratureReviewData, QuestionAnswer } from '@/lib/types'
+import type {
+  Paper,
+  Note,
+  LiteratureReviewData,
+  QuestionAnswer,
+  Highlight,
+  HighlightColor,
+  HighlightCategory,
+} from '@/lib/types'
 import { AiConfigModal, getStoredAiConfig, StoredAiConfig } from './AiConfigModal'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { saveClientPdf, getClientPdf, removeClientPdf } from '@/lib/clientPdfStorage'
+import { HighlightFloatingToolbar } from './HighlightFloatingToolbar'
+import { HighlightMarginPanel } from './HighlightMarginPanel'
 
 interface PdfReaderWorkspaceProps {
   paper: Paper
 }
 
-type SidebarTab = 'ai' | 'notes' | 'survey'
+type SidebarTab = 'ai' | 'highlights' | 'notes' | 'survey'
 
 interface AiMessage {
   id: string
@@ -409,6 +419,60 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
     window.addEventListener('ai-config-changed', handleConfigChange)
     return () => window.removeEventListener('ai-config-changed', handleConfigChange)
   }, [])
+
+  // Highlights & Marginal Discussions state
+  const [highlights, setHighlights] = useState<Highlight[]>(paper.highlights || [])
+  const [loadingHighlights, setLoadingHighlights] = useState(false)
+
+  const fetchHighlights = useCallback(async () => {
+    try {
+      setLoadingHighlights(true)
+      const res = await fetch(`/api/papers/${paper.id}/highlights?_t=${Date.now()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setHighlights(data)
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setLoadingHighlights(false)
+    }
+  }, [paper.id])
+
+  useEffect(() => {
+    fetchHighlights()
+  }, [fetchHighlights])
+
+  const handleCreateHighlight = async (data: {
+    text: string
+    color: HighlightColor
+    category: HighlightCategory
+    pageNumber: number
+    initialComment?: string
+  }) => {
+    try {
+      const res = await fetch(`/api/papers/${paper.id}/highlights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setHighlights((prev) => [created, ...prev])
+        setIsSidebarOpen(true)
+        setActiveTab('highlights')
+        addToast('success', 'Inline highlight & marginal note saved!')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err.error || 'Failed to save highlight')
+      }
+    } catch {
+      addToast('error', 'Network error saving highlight')
+    } finally {
+      setSelectionTooltip(null)
+      window.getSelection()?.removeAllRanges()
+    }
+  }
 
   // Notes & Co-Reading state
   const [notes, setNotes] = useState<Note[]>(paper.notes || [])
@@ -1276,39 +1340,62 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               <button
                 type="button"
                 onClick={() => setActiveTab('ai')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 transition-all cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
                   activeTab === 'ai'
                     ? 'border-accent text-accent bg-bg-secondary'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <Bot size={14} /> AI Assistant
+                <Bot size={13} /> AI
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('highlights')}
+                className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'highlights'
+                    ? 'border-accent text-accent bg-bg-secondary'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Highlighter size={13} className="text-yellow-400" /> Highlights ({highlights.length})
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('notes')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 transition-all cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
                   activeTab === 'notes'
                     ? 'border-accent text-accent bg-bg-secondary'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <MessageSquare size={14} /> Notes ({notes.length})
+                <MessageSquare size={13} className="text-amber-400" /> Notes ({notes.length})
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('survey')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 transition-all cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
                   activeTab === 'survey'
                     ? 'border-accent text-accent bg-bg-secondary'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <FileCheck size={14} /> Survey Q1–Q9
+                <FileCheck size={13} className="text-purple-400" /> Q1–Q9
               </button>
             </div>
+
+            {/* TAB: Marginal Highlights & Threaded Discussions */}
+            {activeTab === 'highlights' && (
+              <div className="flex-1 flex flex-col p-4 space-y-3 min-h-0 overflow-hidden">
+                <HighlightMarginPanel
+                  paperId={paper.id}
+                  highlights={highlights}
+                  onRefresh={fetchHighlights}
+                />
+              </div>
+            )}
 
             {/* TAB 1: AI Reading Assistant */}
             {activeTab === 'ai' && (
@@ -1813,88 +1900,36 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
       {/* Interactive Selection Pop-over Highlighter & Margin Quotes Toolbar */}
       {selectionTooltip && (
-        <div
-          style={{
-            position: 'fixed',
-            left: `${selectionTooltip.x}px`,
-            top: `${selectionTooltip.y}px`,
-            transform: 'translate(-50%, -100%)',
-            zIndex: 9999,
-          }}
-          className="bg-bg-primary/95 backdrop-blur-md border border-border-default shadow-2xl rounded-xl p-1.5 flex items-center gap-1.5 animate-scale-in select-none text-xs"
-        >
-          {/* Highlight Color Pickers */}
-          <div className="flex items-center gap-1 pr-1.5 border-r border-border-default">
-            <button
-              type="button"
-              onClick={() => handleQuickHighlight('Yellow', '🟡')}
-              className="w-5 h-5 rounded-full bg-yellow-400/80 hover:bg-yellow-400 border border-yellow-300 transition-transform hover:scale-110 cursor-pointer"
-              title="Highlight in Yellow"
-            />
-            <button
-              type="button"
-              onClick={() => handleQuickHighlight('Green', '🟢')}
-              className="w-5 h-5 rounded-full bg-emerald-400/80 hover:bg-emerald-400 border border-emerald-300 transition-transform hover:scale-110 cursor-pointer"
-              title="Highlight in Green"
-            />
-            <button
-              type="button"
-              onClick={() => handleQuickHighlight('Blue', '🔵')}
-              className="w-5 h-5 rounded-full bg-sky-400/80 hover:bg-sky-400 border border-sky-300 transition-transform hover:scale-110 cursor-pointer"
-              title="Highlight in Blue"
-            />
-            <button
-              type="button"
-              onClick={() => handleQuickHighlight('Purple', '🟣')}
-              className="w-5 h-5 rounded-full bg-purple-400/80 hover:bg-purple-400 border border-purple-300 transition-transform hover:scale-110 cursor-pointer"
-              title="Highlight in Purple"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <button
-            type="button"
-            onClick={handleAddMarginNoteFromSelection}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-text-primary hover:bg-bg-tertiary font-medium cursor-pointer transition-colors"
-            title="Attach quote to margin notes"
-          >
-            <Quote size={13} className="text-accent" />
-            <span>Note</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAskAiFromSelection}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-text-primary hover:bg-bg-tertiary font-medium cursor-pointer transition-colors"
-            title="Ask AI Assistant to explain this passage"
-          >
-            <Bot size={13} className="text-purple-400" />
-            <span>Ask AI</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopyCitationQuote}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer transition-colors"
-            title="Copy quote with academic citation"
-          >
-            <Copy size={13} />
-          </button>
-        </div>
+        <HighlightFloatingToolbar
+          selectedText={selectionTooltip.text}
+          position={{ x: selectionTooltip.x, y: selectionTooltip.y }}
+          onHighlight={handleCreateHighlight}
+          onClose={() => setSelectionTooltip(null)}
+        />
       )}
 
       {/* Mobile Floating Action Tray (when workspace drawer is closed) */}
       {!isSidebarOpen && (
-        <div className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-bg-secondary/95 backdrop-blur-md border border-border-default rounded-2xl shadow-2xl p-1.5 flex items-center justify-around gap-1.5 text-xs animate-slide-in">
+        <div className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-bg-secondary/95 backdrop-blur-md border border-border-default rounded-2xl shadow-2xl p-1.5 flex items-center justify-around gap-1 text-xs animate-slide-in">
           <button
             type="button"
             onClick={() => {
               setActiveTab('ai')
               setIsSidebarOpen(true)
             }}
-            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-accent cursor-pointer transition-all shadow-sm"
+            className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-accent cursor-pointer transition-all shadow-sm text-[11px]"
           >
-            <Bot size={15} /> AI Chat
+            <Bot size={14} /> AI
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('highlights')
+              setIsSidebarOpen(true)
+            }}
+            className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-yellow-300 cursor-pointer transition-all shadow-sm text-[11px]"
+          >
+            <Highlighter size={14} /> Highlights ({highlights.length})
           </button>
           <button
             type="button"
@@ -1902,9 +1937,9 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               setActiveTab('notes')
               setIsSidebarOpen(true)
             }}
-            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-text-primary cursor-pointer transition-all shadow-sm"
+            className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-text-primary cursor-pointer transition-all shadow-sm text-[11px]"
           >
-            <MessageSquare size={15} className="text-amber-400" /> Notes ({notes.length})
+            <MessageSquare size={14} className="text-amber-400" /> Notes ({notes.length})
           </button>
           <button
             type="button"
@@ -1912,9 +1947,9 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               setActiveTab('survey')
               setIsSidebarOpen(true)
             }}
-            className="flex-1 py-2 px-2 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1.5 font-semibold text-text-primary cursor-pointer transition-all shadow-sm"
+            className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-text-primary cursor-pointer transition-all shadow-sm text-[11px]"
           >
-            <FileCheck size={15} className="text-purple-400" /> Survey
+            <FileCheck size={14} className="text-purple-400" /> Survey
           </button>
         </div>
       )}

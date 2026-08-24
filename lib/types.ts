@@ -83,6 +83,7 @@ export interface Paper {
   tags?: Tag[]
   collections?: Collection[]
   notes?: Note[]
+  highlights?: Highlight[]
   user?: { id: string; name: string; systemRole: SystemRole; email?: string }
   assignments?: Assignment[]
   shares?: PaperShare[]
@@ -167,6 +168,48 @@ export interface Note {
   content: string
   isPrivate?: boolean
   paperId: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Highlight & Marginal Annotation ────────────────────────
+export type HighlightColor = 'YELLOW' | 'GREEN' | 'ROSE' | 'PURPLE'
+export type HighlightCategory = 'METHODOLOGY' | 'CONTRIBUTION' | 'LIMITATION' | 'FEEDBACK'
+
+export interface HighlightComment {
+  id: string
+  highlightId: string
+  userId: string
+  user?: {
+    id: string
+    name: string
+    email?: string
+    systemRole: SystemRole
+    image?: string | null
+  }
+  content: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface Highlight {
+  id: string
+  paperId: string
+  userId: string
+  user?: {
+    id: string
+    name: string
+    email?: string
+    systemRole: SystemRole
+    image?: string | null
+  }
+  text: string
+  color: HighlightColor
+  category: HighlightCategory
+  pageNumber?: number | null
+  position?: string | null
+  isPrivate: boolean
+  comments?: HighlightComment[]
   createdAt: string
   updatedAt: string
 }
