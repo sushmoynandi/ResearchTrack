@@ -23,6 +23,15 @@ export interface User {
   image?: string | null
   institution?: string | null
   department?: string | null
+  bio?: string | null
+  githubUrl?: string | null
+  linkedinUrl?: string | null
+  googleScholarUrl?: string | null
+  orcidUrl?: string | null
+  twitterUrl?: string | null
+  websiteUrl?: string | null
+  huggingFaceUrl?: string | null
+  researchGateUrl?: string | null
   systemRole: SystemRole
   provider: AuthProvider
   isGuest: boolean

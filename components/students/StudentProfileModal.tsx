@@ -24,7 +24,17 @@ import {
   ClipboardList,
   ShieldCheck,
   Info,
+  Globe,
 } from 'lucide-react'
+import {
+  GithubIcon,
+  HuggingFaceIcon,
+  LinkedInIcon,
+  GoogleScholarIcon,
+  OrcidIcon,
+  TwitterXIcon,
+  ResearchGateIcon,
+} from '@/components/ui/Icons'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -38,6 +48,15 @@ export interface StudentProfileData {
   image: string | null
   institution: string | null
   department: string | null
+  bio?: string | null
+  githubUrl?: string | null
+  linkedinUrl?: string | null
+  googleScholarUrl?: string | null
+  orcidUrl?: string | null
+  twitterUrl?: string | null
+  websiteUrl?: string | null
+  huggingFaceUrl?: string | null
+  researchGateUrl?: string | null
   systemRole: string
   isActive: boolean
   createdAt: string
@@ -333,6 +352,115 @@ export function StudentProfileModal({
               )}
             </div>
           </div>
+
+          {/* Student Bio */}
+          {student.bio && (
+            <p className="text-xs text-text-secondary leading-relaxed pt-2 border-t border-border-default/60">
+              {student.bio}
+            </p>
+          )}
+
+          {/* Social Media & Academic Links */}
+          {(student.githubUrl || student.linkedinUrl || student.googleScholarUrl || student.orcidUrl || student.huggingFaceUrl || student.researchGateUrl || student.twitterUrl || student.websiteUrl) && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-default/60">
+              {student.githubUrl && (
+                <a
+                  href={student.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-bg-primary hover:bg-bg-tertiary border border-border-default text-text-secondary hover:text-text-primary text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <GithubIcon size={12} />
+                  <span>GitHub</span>
+                  <ExternalLink size={9} className="text-text-tertiary" />
+                </a>
+              )}
+              {student.linkedinUrl && (
+                <a
+                  href={student.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <LinkedInIcon size={12} />
+                  <span>LinkedIn</span>
+                  <ExternalLink size={9} className="text-blue-400/60" />
+                </a>
+              )}
+              {student.googleScholarUrl && (
+                <a
+                  href={student.googleScholarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <GoogleScholarIcon size={12} />
+                  <span>Scholar</span>
+                  <ExternalLink size={9} className="text-sky-400/60" />
+                </a>
+              )}
+              {student.orcidUrl && (
+                <a
+                  href={student.orcidUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <OrcidIcon size={12} />
+                  <span>ORCID</span>
+                  <ExternalLink size={9} className="text-emerald-400/60" />
+                </a>
+              )}
+              {student.huggingFaceUrl && (
+                <a
+                  href={student.huggingFaceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <HuggingFaceIcon size={12} />
+                  <span>Hugging Face</span>
+                  <ExternalLink size={9} className="text-amber-400/60" />
+                </a>
+              )}
+              {student.researchGateUrl && (
+                <a
+                  href={student.researchGateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <ResearchGateIcon size={12} />
+                  <span>ResearchGate</span>
+                  <ExternalLink size={9} className="text-teal-400/60" />
+                </a>
+              )}
+              {student.twitterUrl && (
+                <a
+                  href={student.twitterUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-bg-primary hover:bg-bg-tertiary border border-border-default text-text-secondary hover:text-text-primary text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <TwitterXIcon size={12} />
+                  <span>X (Twitter)</span>
+                  <ExternalLink size={9} className="text-text-tertiary" />
+                </a>
+              )}
+              {student.websiteUrl && (
+                <a
+                  href={student.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 text-[11px] flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <Globe size={12} />
+                  <span>Portfolio</span>
+                  <ExternalLink size={9} className="text-purple-400/60" />
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ─── SECTION 1: Academic Supervision & Lab Affiliation Details ─── */}

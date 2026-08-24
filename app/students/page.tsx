@@ -37,6 +37,13 @@ import {
   Info,
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import {
+  GithubIcon,
+  LinkedInIcon,
+  GoogleScholarIcon,
+  OrcidIcon,
+  HuggingFaceIcon,
+} from '@/components/ui/Icons'
 import type { Paper } from '@/lib/types'
 
 type StudentData = StudentProfileData
@@ -575,6 +582,67 @@ export default function StudentsPage() {
                         <GraduationCap size={12} className="text-purple-400 shrink-0" />
                         <span>{student.department || student.institution || 'Student Researcher'}</span>
                       </p>
+
+                      {/* Social & Academic Profile Badges */}
+                      {(student.githubUrl || student.linkedinUrl || student.googleScholarUrl || student.orcidUrl || student.huggingFaceUrl) && (
+                        <div className="flex items-center gap-1.5 pt-1">
+                          {student.githubUrl && (
+                            <a
+                              href={student.githubUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-text-tertiary hover:text-text-primary transition-colors p-0.5"
+                              title="GitHub Profile"
+                            >
+                              <GithubIcon size={12} />
+                            </a>
+                          )}
+                          {student.linkedinUrl && (
+                            <a
+                              href={student.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400/70 hover:text-blue-400 transition-colors p-0.5"
+                              title="LinkedIn Profile"
+                            >
+                              <LinkedInIcon size={12} />
+                            </a>
+                          )}
+                          {student.googleScholarUrl && (
+                            <a
+                              href={student.googleScholarUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sky-400/70 hover:text-sky-400 transition-colors p-0.5"
+                              title="Google Scholar Profile"
+                            >
+                              <GoogleScholarIcon size={12} />
+                            </a>
+                          )}
+                          {student.orcidUrl && (
+                            <a
+                              href={student.orcidUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald-400/70 hover:text-emerald-400 transition-colors p-0.5"
+                              title="ORCID iD"
+                            >
+                              <OrcidIcon size={12} />
+                            </a>
+                          )}
+                          {student.huggingFaceUrl && (
+                            <a
+                              href={student.huggingFaceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-amber-400/70 hover:text-amber-400 transition-colors p-0.5"
+                              title="Hugging Face Models"
+                            >
+                              <HuggingFaceIcon size={12} />
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -39,7 +39,20 @@ import {
   UserCog,
   Clock,
   XCircle,
+  Globe,
+  Link2,
+  ExternalLink,
+  Share2,
 } from 'lucide-react'
+import {
+  GithubIcon,
+  HuggingFaceIcon,
+  LinkedInIcon,
+  GoogleScholarIcon,
+  OrcidIcon,
+  TwitterXIcon,
+  ResearchGateIcon,
+} from '@/components/ui/Icons'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -86,6 +99,17 @@ export default function ProfilePage() {
   const [name, setName] = useState('')
   const [institution, setInstitution] = useState('')
   const [department, setDepartment] = useState('')
+  const [bio, setBio] = useState('')
+
+  // Academic & Social Media Profiles
+  const [githubUrl, setGithubUrl] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [googleScholarUrl, setGoogleScholarUrl] = useState('')
+  const [orcidUrl, setOrcidUrl] = useState('')
+  const [twitterUrl, setTwitterUrl] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [huggingFaceUrl, setHuggingFaceUrl] = useState('')
+  const [researchGateUrl, setResearchGateUrl] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
 
   // Profile photo
@@ -174,8 +198,35 @@ export default function ProfilePage() {
       setName(user.name || '')
       setInstitution(user.institution || '')
       setDepartment(user.department || '')
+      setBio(user.bio || '')
+      setGithubUrl(user.githubUrl || '')
+      setLinkedinUrl(user.linkedinUrl || '')
+      setGoogleScholarUrl(user.googleScholarUrl || '')
+      setOrcidUrl(user.orcidUrl || '')
+      setTwitterUrl(user.twitterUrl || '')
+      setWebsiteUrl(user.websiteUrl || '')
+      setHuggingFaceUrl(user.huggingFaceUrl || '')
+      setResearchGateUrl(user.researchGateUrl || '')
       checkPushStatus()
       loadRoleRequests()
+
+      // Fetch fresh profile data
+      fetch('/api/user/profile')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            if (data.bio) setBio(data.bio)
+            if (data.githubUrl) setGithubUrl(data.githubUrl)
+            if (data.linkedinUrl) setLinkedinUrl(data.linkedinUrl)
+            if (data.googleScholarUrl) setGoogleScholarUrl(data.googleScholarUrl)
+            if (data.orcidUrl) setOrcidUrl(data.orcidUrl)
+            if (data.twitterUrl) setTwitterUrl(data.twitterUrl)
+            if (data.websiteUrl) setWebsiteUrl(data.websiteUrl)
+            if (data.huggingFaceUrl) setHuggingFaceUrl(data.huggingFaceUrl)
+            if (data.researchGateUrl) setResearchGateUrl(data.researchGateUrl)
+          }
+        })
+        .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -336,11 +387,24 @@ export default function ProfilePage() {
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, institution, department }),
+        body: JSON.stringify({
+          name,
+          institution,
+          department,
+          bio,
+          githubUrl,
+          linkedinUrl,
+          googleScholarUrl,
+          orcidUrl,
+          twitterUrl,
+          websiteUrl,
+          huggingFaceUrl,
+          researchGateUrl,
+        }),
       })
 
       if (res.ok) {
-        addToast('success', 'Profile updated successfully')
+        addToast('success', 'Profile and social links updated successfully')
         await refreshUser()
       } else {
         const err = await res.json()
@@ -628,6 +692,112 @@ export default function ProfilePage() {
                 {user.department && <span> · {user.department}</span>}
               </p>
             )}
+
+            {bio && (
+              <p className="text-xs text-text-secondary leading-relaxed pt-1 max-w-2xl font-sans">
+                {bio}
+              </p>
+            )}
+
+            {/* Social Links Row */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              {githubUrl && (
+                <a
+                  href={githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-default text-text-secondary hover:text-text-primary text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <GithubIcon size={13} />
+                  <span>GitHub</span>
+                  <ExternalLink size={10} className="text-text-tertiary" />
+                </a>
+              )}
+              {linkedinUrl && (
+                <a
+                  href={linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <LinkedInIcon size={13} />
+                  <span>LinkedIn</span>
+                  <ExternalLink size={10} className="text-blue-400/60" />
+                </a>
+              )}
+              {googleScholarUrl && (
+                <a
+                  href={googleScholarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <GoogleScholarIcon size={13} />
+                  <span>Scholar</span>
+                  <ExternalLink size={10} className="text-sky-400/60" />
+                </a>
+              )}
+              {orcidUrl && (
+                <a
+                  href={orcidUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <OrcidIcon size={13} />
+                  <span>ORCID</span>
+                  <ExternalLink size={10} className="text-emerald-400/60" />
+                </a>
+              )}
+              {huggingFaceUrl && (
+                <a
+                  href={huggingFaceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <HuggingFaceIcon size={13} />
+                  <span>Hugging Face</span>
+                  <ExternalLink size={10} className="text-amber-400/60" />
+                </a>
+              )}
+              {researchGateUrl && (
+                <a
+                  href={researchGateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <ResearchGateIcon size={13} />
+                  <span>ResearchGate</span>
+                  <ExternalLink size={10} className="text-teal-400/60" />
+                </a>
+              )}
+              {twitterUrl && (
+                <a
+                  href={twitterUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-default text-text-secondary hover:text-text-primary text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <TwitterXIcon size={13} />
+                  <span>X (Twitter)</span>
+                  <ExternalLink size={10} className="text-text-tertiary" />
+                </a>
+              )}
+              {websiteUrl && (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 text-xs flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <Globe size={13} />
+                  <span>Portfolio</span>
+                  <ExternalLink size={10} className="text-purple-400/60" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -637,11 +807,11 @@ export default function ProfilePage() {
         <div className="flex items-center gap-2 border-b border-border-default pb-3">
           <UserIcon size={18} className="text-accent" />
           <h3 className="text-base font-semibold text-text-primary font-display">
-            Personal Information &amp; Research Affiliation
+            Personal Information &amp; Academic Affiliation
           </h3>
         </div>
 
-        <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-2xl">
+        <form onSubmit={handleUpdateProfile} className="space-y-5 max-w-3xl">
           <Input
             label="Full Name *"
             value={name}
@@ -665,9 +835,124 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div className="pt-2">
+          {/* Research Bio */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-text-primary">Research Bio &amp; Focus Areas</label>
+            <textarea
+              placeholder="e.g. PhD Student investigating parameter-efficient fine-tuning (LoRA), LLM reasoning alignment, and multimodal transformers..."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              className="w-full bg-bg-primary border border-border-default rounded-xl p-3 text-xs text-text-primary focus:outline-none focus:border-accent resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Social Media & Academic Profiles Section */}
+          <div className="pt-4 border-t border-border-default space-y-4">
+            <div className="flex items-center gap-2">
+              <Share2 size={16} className="text-accent" />
+              <h4 className="text-sm font-semibold text-text-primary font-display">
+                Academic &amp; Social Media Profiles
+              </h4>
+            </div>
+            <p className="text-xs text-text-secondary">
+              Connect your research presence to showcase your repositories, Google Scholar citations, models, and networks.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <GithubIcon size={14} className="text-text-primary" /> GitHub Profile URL
+                </label>
+                <Input
+                  placeholder="https://github.com/username"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <LinkedInIcon size={14} className="text-blue-400" /> LinkedIn Profile URL
+                </label>
+                <Input
+                  placeholder="https://linkedin.com/in/username"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <GoogleScholarIcon size={14} className="text-sky-400" /> Google Scholar URL
+                </label>
+                <Input
+                  placeholder="https://scholar.google.com/citations?user=..."
+                  value={googleScholarUrl}
+                  onChange={(e) => setGoogleScholarUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <OrcidIcon size={14} className="text-emerald-400" /> ORCID iD URL
+                </label>
+                <Input
+                  placeholder="https://orcid.org/0000-0000-0000-0000"
+                  value={orcidUrl}
+                  onChange={(e) => setOrcidUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <HuggingFaceIcon size={14} className="text-amber-400" /> Hugging Face Profile URL
+                </label>
+                <Input
+                  placeholder="https://huggingface.co/username"
+                  value={huggingFaceUrl}
+                  onChange={(e) => setHuggingFaceUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <ResearchGateIcon size={14} className="text-teal-400" /> ResearchGate Profile URL
+                </label>
+                <Input
+                  placeholder="https://researchgate.net/profile/username"
+                  value={researchGateUrl}
+                  onChange={(e) => setResearchGateUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <TwitterXIcon size={14} className="text-text-primary" /> X / Twitter Profile URL
+                </label>
+                <Input
+                  placeholder="https://x.com/username"
+                  value={twitterUrl}
+                  onChange={(e) => setTwitterUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                  <Globe size={14} className="text-purple-400" /> Personal Website / Lab Portfolio
+                </label>
+                <Input
+                  placeholder="https://yourname.com"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3">
             <Button type="submit" loading={savingProfile}>
-              Save Profile Changes
+              Save Profile &amp; Social Links
             </Button>
           </div>
         </form>

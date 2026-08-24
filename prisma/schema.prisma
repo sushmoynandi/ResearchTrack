@@ -38,6 +38,17 @@ model User {
   isGuest      Boolean      @default(false)
   isActive     Boolean      @default(true)
 
+  // Profile & Social Media Links
+  bio              String?      @db.Text
+  githubUrl        String?
+  linkedinUrl      String?
+  googleScholarUrl String?
+  orcidUrl         String?
+  twitterUrl       String?
+  websiteUrl       String?
+  huggingFaceUrl   String?
+  researchGateUrl  String?
+
   // Two-factor, open to any account. Both ways of receiving a code can be set
   // up side by side — `twoFactorSecret` holds the authenticator app's key and
   // `twoFactorEmailReady` records that emailed codes have been proven to
