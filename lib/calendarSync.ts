@@ -140,7 +140,9 @@ export function getGoogleCalendarUrl(event: CalendarEventParams): string {
 
   let details = event.description || ''
   if (event.url && !details.includes(event.url)) {
-    details += `\n\nMeeting Link: ${event.url}`
+    const isPaper = event.url.includes('/papers/') || (event.title && event.title.toLowerCase().includes('reading'))
+    const linkLabel = isPaper ? 'Paper Link' : 'Meeting Link'
+    details += `\n\n${linkLabel}: ${event.url}`
   }
 
   const params = new URLSearchParams({
@@ -163,7 +165,9 @@ export function getOutlookCalendarUrl(event: CalendarEventParams): string {
 
   let body = event.description || ''
   if (event.url && !body.includes(event.url)) {
-    body += `\n\nMeeting Link: ${event.url}`
+    const isPaper = event.url.includes('/papers/') || (event.title && event.title.toLowerCase().includes('reading'))
+    const linkLabel = isPaper ? 'Paper Link' : 'Meeting Link'
+    body += `\n\n${linkLabel}: ${event.url}`
   }
 
   const params = new URLSearchParams({
