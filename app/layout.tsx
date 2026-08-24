@@ -5,6 +5,8 @@ import "./globals.css";
 import { AgentationProvider } from "@/components/AgentationProvider";
 import { AppShell } from "@/components/layout/AppShell";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { THEME_COOKIE, parseThemeCookie } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,8 +34,13 @@ export const metadata: Metadata = {
   },
 };
 
+// The colour the phone paints around the page. Two entries so a light-mode
+// phone doesn't frame a light page in a dark bar.
 export const viewport: Viewport = {
-  themeColor: "#06b6d4",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f9fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#101319" },
+  ],
 };
 
 export default async function RootLayout({
@@ -52,8 +59,18 @@ export default async function RootLayout({
       cookieStore.get("papertrack_session")?.value
   );
 
+  // The saved light/dark choice, also read here on the server. Stamping it onto
+  // <html> in the first response is what stops the page flashing the wrong
+  // theme for a frame before JavaScript loads. Someone who has never chosen
+  // gets "dark", which is how the app has always looked.
+  const theme = parseThemeCookie(cookieStore.get(THEME_COOKIE)?.value);
+
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="en"
+      data-theme={theme}
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+    >
       {/* suppressHydrationWarning: browser extensions (password managers,
           grammar checkers, dark-mode tools) add their own attributes to
           <body> before React hydrates, which otherwise reports as a
@@ -62,9 +79,11 @@ export default async function RootLayout({
         className="font-[family-name:var(--font-body)] antialiased"
         suppressHydrationWarning
       >
-        <AppShell hasSession={hasSession}>{children}</AppShell>
-        <OfflineBanner />
-        <AgentationProvider />
+        <ThemeProvider initialTheme={theme}>
+          <AppShell hasSession={hasSession}>{children}</AppShell>
+          <OfflineBanner />
+          <AgentationProvider />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -545,7 +545,7 @@ export default function StudentsPage() {
                             ? 'bg-emerald-400'
                             : health === 'TASKS_DUE'
                             ? 'bg-amber-400 animate-pulse'
-                            : 'bg-slate-500'
+                            : 'bg-text-tertiary'
                         }`}
                         title={`Status: ${health}`}
                       />

@@ -1016,7 +1016,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       {/* Main Split-Screen Layout */}
       <div className="flex-1 flex min-h-0 relative">
         {/* Left Side: Viewer (PDF or Structured Article) */}
-        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center min-w-0 relative overflow-hidden">
+        <div className="flex-1 bg-[var(--reader-canvas)] flex flex-col items-center justify-center min-w-0 relative overflow-hidden">
           {viewMode === 'article' ? (
             /* Structured Article Reader */
             <div className="w-full h-full bg-bg-primary flex min-h-0 overflow-hidden">

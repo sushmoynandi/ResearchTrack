@@ -109,7 +109,7 @@ function WelcomeForm() {
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            'radial-gradient(36rem 28rem at 50% 18%, hsl(190 70% 50% / 0.13), transparent 68%)',
+            'radial-gradient(36rem 28rem at 50% 18%, var(--auth-glow-a), transparent 68%)',
         }}
       />
 

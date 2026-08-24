@@ -9,6 +9,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { UserMenu } from '@/components/auth/UserMenu'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useSidebar } from './SidebarContext'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import type { Paper } from '@/lib/types'
 
 const pageTitles: Record<string, string> = {
@@ -153,6 +154,10 @@ export function Header() {
                 </button>
               </>
             )}
+
+            {/* Light / dark switch — hidden on the narrowest screens, where
+                the same control lives inside the profile menu instead. */}
+            <ThemeToggle className="hidden sm:inline-flex" />
 
             {/* Real-time Notifications Bell */}
             <NotificationBell />

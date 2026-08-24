@@ -145,7 +145,7 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
               </th>
 
               {/* 3. Frozen Paper Title */}
-              <th className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky top-0 left-[230px] z-40 bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_rgba(0,0,0,0.35)]">
+              <th className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky top-0 left-[230px] z-40 bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_var(--elevation-edge)]">
                 Paper Title
               </th>
 
@@ -260,7 +260,7 @@ export function LiteratureReviewTable({ papers }: LiteratureReviewTableProps) {
                     </td>
 
                     {/* 3. Frozen Paper Title */}
-                    <td className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky left-[230px] z-20 bg-bg-secondary group-hover:bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_rgba(0,0,0,0.35)] font-semibold">
+                    <td className="p-3 w-[260px] min-w-[260px] max-w-[260px] sticky left-[230px] z-20 bg-bg-secondary group-hover:bg-bg-tertiary border-b border-r-2 border-border-default shadow-[4px_0_8px_-2px_var(--elevation-edge)] font-semibold">
                       <Link href={`/papers/${paper.slug || paper.id}`} className="hover:text-accent transition-colors line-clamp-2">
                         {rev.selectedPaperTitle || paper.title}
                       </Link>
