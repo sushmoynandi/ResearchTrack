@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { sendMeetingScheduledEmail } from '@/lib/email'
+import { generateIcsContent, getGoogleCalendarUrl } from '@/lib/calendarSync'
 
 interface RouteParams {
   params: Promise<{ id: string; groupId: string }>
@@ -142,19 +144,63 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       message: `You are scheduled to present "${session.paper.title}" for ${group.name} on ${new Date(scheduledAt).toLocaleDateString()}.`,
       type: 'ASSIGNMENT',
       link: `/papers/${session.paper.slug || paperId}/present`,
+    }).catch(() => {})
+
+    const groupUserIds = group.members.map((m) => m.userId)
+    const groupUsers = await prisma.user.findMany({
+      where: { id: { in: groupUserIds } },
+      select: { id: true, name: true, email: true },
     })
 
-    // Notify all other members
-    for (const member of group.members) {
-      if (member.userId !== presenterId && member.userId !== user.id) {
+    const slidesUrl = `${request.nextUrl.origin}/papers/${session.paper.slug || paperId}/present`
+    const dateFormatted = new Date(scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    
+    const icalContent = generateIcsContent({
+      title: `🔬 Lab Journal Club: ${session.paper.title}`,
+      description: [
+        `Paper Title: ${session.paper.title}`,
+        `Authors: ${session.paper.authors}`,
+        `Presenter: ${session.presenter.name} (${session.presenter.email})`,
+        notes ? `\nSeminar Focus & Pre-reading Guidance:\n${notes}` : '',
+        `\nLaunch Presentation Slides: ${slidesUrl}`,
+      ].filter(Boolean).join('\n'),
+      startDate: new Date(scheduledAt),
+      location: 'Lab Journal Club Seminar Room',
+      url: slidesUrl,
+      alarms: [60, 30, 10],
+    })
+
+    const googleCalUrl = getGoogleCalendarUrl({
+      title: `🔬 Lab Journal Club: ${session.paper.title}`,
+      description: `Presenter: ${session.presenter.name}\nPaper: ${session.paper.title}`,
+      startDate: new Date(scheduledAt),
+      location: 'Lab Journal Club Seminar Room',
+      url: slidesUrl,
+      alarms: [60, 30, 10],
+    })
+
+    for (const member of groupUsers) {
+      if (member.id !== user.id && member.id !== presenterId) {
         await createNotification({
-          userId: member.userId,
+          userId: member.id,
           title: `Upcoming Journal Club: ${group.name} 🗓️`,
-          message: `${session.presenter.name} is presenting "${session.paper.title}" on ${new Date(scheduledAt).toLocaleDateString()}.`,
+          message: `${session.presenter.name} is presenting "${session.paper.title}" on ${dateFormatted}.`,
           type: 'SYSTEM',
           link: `/labs/${group.lab.slug}`,
-        })
+        }).catch(() => {})
       }
+
+      sendMeetingScheduledEmail({
+        toEmail: member.email,
+        recipientName: member.name,
+        organizerName: member.id === presenterId ? user.name : session.presenter.name,
+        meetingTitle: `Lab Journal Club: ${session.paper.title}`,
+        scheduledTimeFormatted: dateFormatted,
+        actionItems: notes || `Presenter: ${session.presenter.name}`,
+        meetingUrl: slidesUrl,
+        googleCalendarUrl: googleCalUrl,
+        icalContent,
+      }).catch(() => {})
     }
 
     return NextResponse.json(session, { status: 201 })

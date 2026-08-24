@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { sendMeetingScheduledEmail } from '@/lib/email'
+import { generateIcsContent, getGoogleCalendarUrl } from '@/lib/calendarSync'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -198,7 +200,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    // Dispatch notifications to all invited members
+    // Dispatch notifications & automated emails to all invited members
     const meetingDateStr =
       body.formattedTime ||
       parsedStartTime.toLocaleString(undefined, {
@@ -217,15 +219,62 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       meeting.location ? ` at ${meeting.location}` : ''
     }.`
 
-    for (const memberId of targetUserIds) {
-      if (memberId !== user.id) {
+    const invitedUsers = await prisma.user.findMany({
+      where: { id: { in: targetUserIds } },
+      select: { id: true, name: true, email: true },
+    })
+
+    const targetMeetingUrl = meeting.meetingUrl || `${request.nextUrl.origin}/labs/${lab.slug}`
+    const icalContent = generateIcsContent({
+      title: `🔬 ${meeting.title}`,
+      description: [
+        `Meeting: ${meeting.title}`,
+        `Scope: ${targetGroupName ? `Sub-Group (${targetGroupName})` : 'Lab-Wide Sync'}`,
+        `Host: ${meeting.host.name} (${meeting.host.email})`,
+        meeting.meetingUrl ? `Join Link: ${meeting.meetingUrl}` : '',
+        meeting.location ? `Location: ${meeting.location}` : '',
+        meeting.description ? `Overview: ${meeting.description}` : '',
+        meeting.agenda ? `\nAgenda & Discussion Topics:\n${meeting.agenda}` : '',
+        `\nLab Portal: ${request.nextUrl.origin}/labs/${lab.slug}`,
+      ].filter(Boolean).join('\n'),
+      startDate: meeting.startTime,
+      endDate: meeting.endTime || undefined,
+      location: meeting.location || meeting.meetingUrl || 'Virtual Lab Hub',
+      url: targetMeetingUrl,
+      alarms: [60, 30, 10],
+    })
+
+    const googleCalUrl = getGoogleCalendarUrl({
+      title: `🔬 ${meeting.title}`,
+      description: meeting.description || 'Lab Sync',
+      startDate: meeting.startTime,
+      endDate: meeting.endTime || undefined,
+      location: meeting.location || meeting.meetingUrl || 'Virtual Lab Hub',
+      url: targetMeetingUrl,
+      alarms: [60, 30, 10],
+    })
+
+    for (const member of invitedUsers) {
+      if (member.id !== user.id) {
         await createNotification({
-          userId: memberId,
+          userId: member.id,
           title: notifTitle,
           message: notifMessage,
           type: 'SYSTEM',
           link: `/labs/${lab.slug}`,
-        })
+        }).catch(() => {})
+
+        sendMeetingScheduledEmail({
+          toEmail: member.email,
+          recipientName: member.name,
+          organizerName: user.name,
+          meetingTitle: meeting.title,
+          scheduledTimeFormatted: meetingDateStr,
+          actionItems: meeting.agenda || undefined,
+          meetingUrl: targetMeetingUrl,
+          googleCalendarUrl: googleCalUrl,
+          icalContent,
+        }).catch(() => {})
       }
     }
 
