@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { sendPaperAssignedEmail } from '@/lib/email'
+import { getGoogleCalendarUrl } from '@/lib/calendarSync'
 
 // GET /api/assignments — Get assignments scoped to user role
 export async function GET(request: NextRequest) {
@@ -375,13 +377,26 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Send real-time notification to assigned student
-    await createNotification({
-      userId: studentId,
-      title: 'New Paper Assigned',
-      message: `${user.name} assigned you: "${paper.title}"`,
-      type: 'ASSIGNMENT',
-      link: `/papers/${paper.slug || paperId}`,
+    // Send automated email notification to assigned student
+    const paperUrl = `${request.nextUrl.origin}/papers/${assignment.paper.slug || assignment.paper.id}`
+    const googleCalUrl = getGoogleCalendarUrl({
+      title: `📖 Reading Deadline: ${assignment.paper.title}`,
+      description: `Supervisory Reading Sprint for: ${assignment.paper.title}\nAuthors: ${assignment.paper.authors}\nSupervisor: ${assignment.assignedBy.name}`,
+      startDate: assignment.dueDate || new Date(),
+      url: paperUrl,
+      alarms: [60, 30, 10],
+    })
+
+    sendPaperAssignedEmail({
+      toEmail: assignment.student.email,
+      studentName: assignment.student.name,
+      supervisorName: assignment.assignedBy.name,
+      paperTitle: assignment.paper.title,
+      authors: assignment.paper.authors,
+      dueDateFormatted: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+      note: assignment.note || undefined,
+      paperUrl,
+      googleCalendarUrl: googleCalUrl,
     }).catch(() => {})
 
     return NextResponse.json(assignment, { status: 201 })

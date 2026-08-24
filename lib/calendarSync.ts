@@ -39,17 +39,25 @@ export function generateVEventBlock(event: CalendarEventParams): string {
 
   const cleanTitle = (event.title || 'Research Session').replace(/,/g, '\\,')
 
-  // Multi-stage reminder notifications (60m, 30m, 10m before event)
+  // Multi-stage reminder notifications (60m, 30m, 10m before event: Popup Push + Mandatory Email)
   const alarmMinutes = event.alarms ?? [60, 30, 10]
-  const alarmBlocks = alarmMinutes.map((mins) =>
+  const alarmBlocks = alarmMinutes.flatMap((mins) => [
     [
       'BEGIN:VALARM',
       'ACTION:DISPLAY',
       `DESCRIPTION:Reminder: ${mins} minutes before ${cleanTitle}`,
       `TRIGGER:-PT${mins}M`,
       'END:VALARM',
-    ].join('\r\n')
-  )
+    ].join('\r\n'),
+    [
+      'BEGIN:VALARM',
+      'ACTION:EMAIL',
+      `SUMMARY:Mandatory Reminder: ${mins} minutes before ${cleanTitle}`,
+      `DESCRIPTION:Reminder alert for ${cleanTitle}`,
+      `TRIGGER:-PT${mins}M`,
+      'END:VALARM',
+    ].join('\r\n'),
+  ])
 
   const lines = [
     'BEGIN:VEVENT',

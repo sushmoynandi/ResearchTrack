@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { sendMeetingScheduledEmail } from '@/lib/email'
+import { generateIcsContent, getGoogleCalendarUrl } from '@/lib/calendarSync'
 
 // GET /api/meetings — Fetch 1-on-1 meetings for current user
 export async function GET(request: NextRequest) {
@@ -130,6 +132,44 @@ export async function POST(request: NextRequest) {
       type: 'SYSTEM',
       link: '/meetings',
     })
+
+    // Send mandatory email notification
+    const recipient = user.id === targetStudentId ? meeting.supervisor : meeting.student
+    const meetingUrl = `${request.nextUrl.origin}/meetings`
+    const icalContent = generateIcsContent({
+      title: meeting.title,
+      description: [
+        `Session: ${meeting.title}`,
+        `Host / Supervisor: ${meeting.supervisor.name} (${meeting.supervisor.email})`,
+        `Student Researcher: ${meeting.student.name} (${meeting.student.email})`,
+        meeting.actionItems ? `\nAgenda & Discussion Topics:\n${meeting.actionItems}` : '',
+        `\nMeeting Workspace: ${meetingUrl}`,
+      ].filter(Boolean).join('\n'),
+      startDate: meeting.scheduledAt,
+      location: '1-on-1 Research Check-in Hub',
+      url: meetingUrl,
+      alarms: [60, 30, 10],
+    })
+
+    const googleCalUrl = getGoogleCalendarUrl({
+      title: meeting.title,
+      description: `1-on-1 Check-in with ${user.name}`,
+      startDate: meeting.scheduledAt,
+      url: meetingUrl,
+      alarms: [60, 30, 10],
+    })
+
+    sendMeetingScheduledEmail({
+      toEmail: recipient.email,
+      recipientName: recipient.name,
+      organizerName: user.name,
+      meetingTitle: meeting.title,
+      scheduledTimeFormatted: displayTime,
+      actionItems: meeting.actionItems || undefined,
+      meetingUrl,
+      googleCalendarUrl: googleCalUrl,
+      icalContent,
+    }).catch(() => {})
 
     return NextResponse.json(meeting, { status: 201 })
   } catch (error) {
