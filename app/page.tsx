@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/Badge'
 import { LabReadingVelocityWidget } from '@/components/analytics/LabReadingVelocityWidget'
 import { StudentContributionHeatmap } from '@/components/analytics/StudentContributionHeatmap'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { LandingPage } from '@/components/landing/LandingPage'
 import type { Paper } from '@/lib/types'
 
 interface DashboardData {
@@ -91,7 +92,20 @@ interface DashboardData {
   }[]
 }
 
-export default function DashboardPage() {
+/**
+ * "/" shows one of two pages: the public landing page for a visitor who isn't
+ * signed in, and the dashboard for everyone who is. AppShell knows about this
+ * too — it leaves signed-out visitors here instead of sending them to /login.
+ */
+export default function HomePage() {
+  const { signedOut } = useAuth()
+
+  if (signedOut) return <LandingPage />
+
+  return <DashboardPage />
+}
+
+function DashboardPage() {
   const router = useRouter()
   const { user, isStudent, isSupervisor, isAdmin } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)

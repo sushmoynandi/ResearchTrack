@@ -12,6 +12,13 @@ interface AuthContextType {
    * redirects on "no user" must wait for this instead.
    */
   sessionChecked: boolean
+  /**
+   * True once we know for certain that nobody is signed in. That is either the
+   * server having answered, or there being no session cookie to answer about —
+   * the second case lets a public page render on the first paint instead of
+   * sitting behind a spinner.
+   */
+  signedOut: boolean
   token: string | null
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -26,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   sessionChecked: false,
+  signedOut: false,
   token: null,
   logout: async () => {},
   refreshUser: async () => {},
@@ -36,7 +44,14 @@ const AuthContext = createContext<AuthContextType>({
   hasRole: () => false,
 })
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+  hasSessionCookie = false,
+}: {
+  children: React.ReactNode
+  /** Read from the session cookie on the server by the root layout. */
+  hasSessionCookie?: boolean
+}) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -224,6 +239,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return roles.includes(user.systemRole)
   }, [user])
 
+  const signedOut = !user && (!hasSessionCookie || sessionChecked)
+
   const isStudent = user?.systemRole === 'STUDENT'
   const isSupervisor = user?.systemRole === 'SUPERVISOR'
   const isAdmin = user?.systemRole === 'ADMIN'
@@ -233,6 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       sessionChecked,
+      signedOut,
       token,
       logout,
       refreshUser,

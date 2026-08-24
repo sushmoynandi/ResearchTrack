@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AgentationProvider } from "@/components/AgentationProvider";
@@ -35,11 +36,22 @@ export const viewport: Viewport = {
   themeColor: "#06b6d4",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Whether a session cookie is even present, read on the server. Without it
+  // the app can only find out who you are after it has loaded and asked, which
+  // meant a visitor landing on "/" watched a spinner before the landing page
+  // appeared. No cookie means definitely signed out, so that page can be sent
+  // straight down in the first response.
+  const cookieStore = await cookies();
+  const hasSession = Boolean(
+    cookieStore.get("researchtrack_session")?.value ||
+      cookieStore.get("papertrack_session")?.value
+  );
+
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       {/* suppressHydrationWarning: browser extensions (password managers,
@@ -50,7 +62,7 @@ export default function RootLayout({
         className="font-[family-name:var(--font-body)] antialiased"
         suppressHydrationWarning
       >
-        <AppShell>{children}</AppShell>
+        <AppShell hasSession={hasSession}>{children}</AppShell>
         <OfflineBanner />
         <AgentationProvider />
       </body>
