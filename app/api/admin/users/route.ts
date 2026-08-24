@@ -82,6 +82,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Prevent sole admin from demoting or deactivating themselves
+    if (id === user.id && ((systemRole && systemRole !== 'ADMIN') || isActive === false)) {
+      const otherAdmins = await prisma.user.count({
+        where: { systemRole: 'ADMIN', isActive: true, id: { not: user.id } },
+      })
+      if (otherAdmins === 0) {
+        return NextResponse.json(
+          { error: 'Cannot demote or deactivate the sole remaining administrator account' },
+          { status: 400 }
+        )
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (systemRole) updateData.systemRole = systemRole
     if (supervisorId !== undefined) updateData.supervisorId = supervisorId || null

@@ -67,9 +67,12 @@ export async function requireUser(request?: Request): Promise<SessionUser> {
  * and back in — and, worse, someone demoted keeps their old powers for a month.
  */
 export async function requireRole(
-  ...roles: SystemRole[]
+  ...args: (SystemRole | Request | undefined)[]
 ): Promise<SessionUser> {
-  const user = await requireUser()
+  const req = args.find((a): a is Request => a instanceof Request || (typeof a === 'object' && a !== null && 'headers' in a))
+  const roles = args.filter((a): a is SystemRole => typeof a === 'string') as SystemRole[]
+
+  const user = await requireUser(req)
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },
@@ -80,24 +83,24 @@ export async function requireRole(
     throw new Error('Unauthorized')
   }
 
-  if (!roles.includes(account.systemRole)) {
+  if (roles.length > 0 && !roles.includes(account.systemRole as SystemRole)) {
     throw new Error(`Forbidden: requires ${roles.join(' or ')} role`)
   }
 
   // Hand back the role the database actually holds
-  return { ...user, systemRole: account.systemRole }
+  return { ...user, systemRole: account.systemRole as SystemRole }
 }
 
 /**
  * Check if the current user has supervisor-level access (SUPERVISOR or ADMIN).
  */
-export async function requireSupervisorOrAdmin(): Promise<SessionUser> {
-  return requireRole('SUPERVISOR', 'ADMIN')
+export async function requireSupervisorOrAdmin(request?: Request): Promise<SessionUser> {
+  return requireRole(request, 'SUPERVISOR', 'ADMIN')
 }
 
 /**
  * Check if the current user is an admin.
  */
-export async function requireAdmin(): Promise<SessionUser> {
-  return requireRole('ADMIN')
+export async function requireAdmin(request?: Request): Promise<SessionUser> {
+  return requireRole(request, 'ADMIN')
 }

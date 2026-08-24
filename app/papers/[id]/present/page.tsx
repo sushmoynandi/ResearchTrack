@@ -29,6 +29,7 @@ import {
   Database,
   GitBranch,
   ShieldCheck,
+  ShieldAlert,
   Flame,
   LayoutGrid,
 } from 'lucide-react'
@@ -75,6 +76,9 @@ export default function JournalClubPresentationPage() {
   const [savingNote, setSavingNote] = useState(false)
   const [liveNotes, setLiveNotes] = useState<{ id: string; content: string; createdAt: string; userName?: string }[]>([])
 
+  const [isAccessDenied, setIsAccessDenied] = useState(false)
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('')
+
   const containerRef = useRef<HTMLDivElement>(null)
   const paperId = params.id as string
 
@@ -84,6 +88,7 @@ export default function JournalClubPresentationPage() {
       if (res.ok) {
         const data = await res.json()
         setPaper(data)
+        setIsAccessDenied(false)
         if (data.notes) {
           setLiveNotes(
             data.notes.map((n: any) => ({
@@ -94,6 +99,12 @@ export default function JournalClubPresentationPage() {
             }))
           )
         }
+      } else if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}))
+        setIsAccessDenied(true)
+        setAccessDeniedMessage(
+          errData.error || 'You do not have permission to access this private paper presentation.'
+        )
       } else {
         addToast('error', 'Paper not found')
         router.push('/papers')
@@ -228,6 +239,31 @@ export default function JournalClubPresentationPage() {
         <div className="w-full max-w-4xl space-y-6 text-center">
           <Skeleton variant="rect" height="48px" width="50%" className="mx-auto" />
           <Skeleton variant="card" height="400px" />
+        </div>
+      </div>
+    )
+  }
+
+  if (isAccessDenied) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center p-8">
+        <div className="max-w-xl w-full glass-card p-10 text-center space-y-5 border-rose-500/30">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/15 text-rose-400 flex items-center justify-center mx-auto">
+            <ShieldAlert size={32} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-text-primary font-display">Access Denied</h2>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              {accessDeniedMessage || 'You do not have permission to access this private paper presentation.'}
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link href="/papers">
+              <Button variant="primary" size="sm" icon={<ArrowLeft size={14} />}>
+                Back to Paper Library
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     )
