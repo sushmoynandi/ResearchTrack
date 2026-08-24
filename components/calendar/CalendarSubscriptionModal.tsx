@@ -147,35 +147,35 @@ export function CalendarSubscriptionModal({ isOpen, onClose }: CalendarSubscript
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <a
-              href={data?.googleCalendarSubscribeUrl || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={!data ? 'pointer-events-none opacity-60' : ''}
+            <Button
+              variant="primary"
+              className="w-full justify-center h-12 shadow-md gap-2"
+              icon={<Calendar size={16} />}
+              disabled={!data}
+              onClick={() => {
+                if (data?.googleCalendarSubscribeUrl) {
+                  window.open(data.googleCalendarSubscribeUrl, '_blank', 'noopener,noreferrer')
+                }
+              }}
             >
-              <Button
-                variant="primary"
-                className="w-full justify-center h-12 shadow-md gap-2"
-                icon={<Calendar size={16} />}
-              >
-                <span>Add to Google Calendar</span>
-                <ExternalLink size={13} className="opacity-70" />
-              </Button>
-            </a>
+              <span>Add to Google Calendar</span>
+              <ExternalLink size={13} className="opacity-70" />
+            </Button>
 
-            <a
-              href={data?.webcalUrl || '#'}
-              className={!data ? 'pointer-events-none opacity-60' : ''}
+            <Button
+              variant="secondary"
+              className="w-full justify-center h-12 gap-2"
+              icon={<Sparkles size={16} className="text-accent" />}
+              disabled={!data}
+              onClick={() => {
+                if (data?.webcalUrl) {
+                  window.location.href = data.webcalUrl
+                }
+              }}
             >
-              <Button
-                variant="secondary"
-                className="w-full justify-center h-12 gap-2"
-                icon={<Sparkles size={16} className="text-accent" />}
-              >
-                <span>Add to Apple / Outlook (webcal)</span>
-                <ExternalLink size={13} className="opacity-70" />
-              </Button>
-            </a>
+              <span>Add to Apple / Outlook (webcal)</span>
+              <ExternalLink size={13} className="opacity-70" />
+            </Button>
           </div>
         </div>
 
