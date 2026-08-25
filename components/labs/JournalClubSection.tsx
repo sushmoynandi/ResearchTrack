@@ -24,6 +24,7 @@ import {
   FileText,
   RotateCcw,
   SlidersHorizontal,
+  Video,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -98,6 +99,8 @@ export function JournalClubSection({
   const [selectedPaperId, setSelectedPaperId] = useState('')
   const [selectedPresenterId, setSelectedPresenterId] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
+  const [seminarScope, setSeminarScope] = useState<'SEMINAR_LAB' | 'SEMINAR_GROUP' | 'SEMINAR_INDIVIDUAL'>('SEMINAR_GROUP')
+  const [meetingUrl, setMeetingUrl] = useState('')
   const [sessionNotes, setSessionNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -165,6 +168,8 @@ export function JournalClubSection({
           paperId: selectedPaperId,
           presenterId: selectedPresenterId,
           scheduledAt,
+          seminarScope,
+          meetingUrl: meetingUrl.trim() || undefined,
           notes: sessionNotes,
         }),
       })
@@ -653,6 +658,59 @@ export function JournalClubSection({
           size="lg"
         >
           <form onSubmit={handleCreateSession} className="space-y-4 pt-2">
+            {/* Seminar Scope Selection */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-text-secondary">
+                Seminar Scope &amp; Audience *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSeminarScope('SEMINAR_LAB')}
+                  className={`p-2.5 rounded-xl border text-xs text-left font-medium transition-all cursor-pointer ${
+                    seminarScope === 'SEMINAR_LAB'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold shadow-xs'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>🏛️ Lab-Wide</span>
+                  </div>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">Whole Lab Seminar</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSeminarScope('SEMINAR_GROUP')}
+                  className={`p-2.5 rounded-xl border text-xs text-left font-medium transition-all cursor-pointer ${
+                    seminarScope === 'SEMINAR_GROUP'
+                      ? 'bg-accent/15 border-accent text-text-primary font-bold shadow-xs'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>🔬 Sub-Group</span>
+                  </div>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">{groupName} Cluster</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSeminarScope('SEMINAR_INDIVIDUAL')}
+                  className={`p-2.5 rounded-xl border text-xs text-left font-medium transition-all cursor-pointer ${
+                    seminarScope === 'SEMINAR_INDIVIDUAL'
+                      ? 'bg-purple-500/15 border-purple-500 text-purple-300 font-bold shadow-xs'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>👤 Individual</span>
+                  </div>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">1-on-1 Presentation</p>
+                </button>
+              </div>
+            </div>
+
             {/* Paper Selector with Search */}
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-text-secondary">
@@ -757,10 +815,24 @@ export function JournalClubSection({
               </div>
             </div>
 
+            {/* Virtual Meeting Link */}
+            <div>
+              <label className="block text-xs font-semibold text-text-secondary mb-1.5 flex items-center gap-1.5">
+                <Video size={13} className="text-accent" /> 4. Virtual Meeting Link (Optional)
+              </label>
+              <input
+                type="url"
+                placeholder="e.g. https://meet.google.com/abc-defg-hij or Zoom / Teams URL"
+                value={meetingUrl}
+                onChange={(e) => setMeetingUrl(e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+              />
+            </div>
+
             {/* Seminar Guidance & Agenda */}
             <div>
               <label className="block text-xs font-semibold text-text-secondary mb-1.5">
-                4. Discussion Focus &amp; Pre-Reading Guidance (Optional)
+                5. Discussion Focus &amp; Pre-Reading Guidance (Optional)
               </label>
               <textarea
                 rows={3}

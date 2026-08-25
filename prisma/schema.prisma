@@ -643,6 +643,7 @@ model JournalClubSession {
   presenter   User          @relation(fields: [presenterId], references: [id])
   scheduledAt DateTime
   status      String        @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  meetingUrl  String?
   notes       String?       @db.Text
   createdAt   DateTime      @default(now())
 }

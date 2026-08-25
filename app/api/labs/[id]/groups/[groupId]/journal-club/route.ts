@@ -89,7 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId, groupId } = await params
     const body = await request.json()
-    const { paperId, presenterId, scheduledAt, notes } = body
+    const { paperId, presenterId, scheduledAt, notes, seminarScope = 'SEMINAR_GROUP', meetingUrl } = body
 
     if (!paperId || !presenterId || !scheduledAt) {
       return NextResponse.json({ error: 'Paper, Presenter, and Date are required' }, { status: 400 })
@@ -110,6 +110,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         paperId,
         presenterId,
         scheduledAt: new Date(scheduledAt),
+        meetingUrl: meetingUrl?.trim() || null,
         notes: notes?.trim() || null,
         status: 'SCHEDULED',
       },
@@ -153,29 +154,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     const slidesUrl = `${request.nextUrl.origin}/papers/${session.paper.slug || paperId}/present`
+    const targetMeetingLink = session.meetingUrl || slidesUrl
     const dateFormatted = new Date(scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
     
+    let seminarTitlePrefix = '🎤 Lab Presentation Seminar'
+    let targetLabOrGroupName = `${group.name} Seminar`
+    if (seminarScope === 'SEMINAR_LAB') {
+      seminarTitlePrefix = '🎤 Lab-Wide Presentation Seminar'
+      targetLabOrGroupName = `${group.lab.name} Lab Seminar`
+    } else if (seminarScope === 'SEMINAR_INDIVIDUAL') {
+      seminarTitlePrefix = '🎤 Individual Presentation Seminar'
+      targetLabOrGroupName = `Individual Presentation Seminar`
+    }
+
     const icalContent = generateIcsContent({
-      title: `🎤 Lab Presentation Seminar: ${session.paper.title}`,
+      title: `${seminarTitlePrefix}: ${session.paper.title}`,
       description: [
         `Paper Title: ${session.paper.title}`,
         `Authors: ${session.paper.authors}`,
         `Presenter: ${session.presenter.name} (${session.presenter.email})`,
+        session.meetingUrl ? `Meeting Link: ${session.meetingUrl}` : '',
         notes ? `\nSeminar Focus & Pre-reading Guidance:\n${notes}` : '',
         `\nLaunch Presentation Slides: ${slidesUrl}`,
       ].filter(Boolean).join('\n'),
       startDate: new Date(scheduledAt),
-      location: 'Lab Presentation Seminar Room',
-      url: slidesUrl,
+      location: session.meetingUrl || 'Lab Presentation Seminar Room',
+      url: targetMeetingLink,
       alarms: [60, 30, 10],
     })
 
     const googleCalUrl = getGoogleCalendarUrl({
-      title: `🎤 Lab Presentation Seminar: ${session.paper.title}`,
-      description: `Presenter: ${session.presenter.name}\nPaper: ${session.paper.title}`,
+      title: `${seminarTitlePrefix}: ${session.paper.title}`,
+      description: `Presenter: ${session.presenter.name}\nPaper: ${session.paper.title}${session.meetingUrl ? `\nMeeting Link: ${session.meetingUrl}` : ''}`,
       startDate: new Date(scheduledAt),
-      location: 'Lab Presentation Seminar Room',
-      url: slidesUrl,
+      location: session.meetingUrl || 'Lab Presentation Seminar Room',
+      url: targetMeetingLink,
       alarms: [60, 30, 10],
     })
 
@@ -197,12 +210,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         presenterName: session.presenter.name,
         meetingTitle: session.paper.title,
         scheduledTimeFormatted: dateFormatted,
-        actionItems: notes || undefined,
-        meetingUrl: slidesUrl,
+        actionItems: [
+          session.meetingUrl ? `🔗 Virtual Meeting Link: ${session.meetingUrl}` : '',
+          notes ? `\n📋 Seminar Focus & Guidance:\n${notes}` : '',
+        ].filter(Boolean).join('\n') || undefined,
+        meetingUrl: targetMeetingLink,
         googleCalendarUrl: googleCalUrl,
         icalContent,
-        scopeType: 'SEMINAR_GROUP',
-        labOrGroupName: `${group.name} Seminar`,
+        scopeType: seminarScope as any,
+        labOrGroupName: targetLabOrGroupName,
       }).catch(() => {})
     }
 
