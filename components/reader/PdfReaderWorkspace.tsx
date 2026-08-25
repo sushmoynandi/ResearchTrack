@@ -1708,8 +1708,8 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                               </span>
                             </div>
 
-                            <div className="whitespace-pre-wrap leading-relaxed text-xs">
-                              {note.content}
+                            <div className="leading-relaxed text-xs">
+                              <MarkdownRenderer content={note.content} />
                             </div>
 
                             <div className="flex items-center justify-between text-[10px] text-text-tertiary pt-1 border-t border-border-default/40">

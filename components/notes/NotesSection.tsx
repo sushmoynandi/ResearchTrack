@@ -24,6 +24,7 @@ import {
   Users,
   Eye,
 } from 'lucide-react'
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import type { Note } from '@/lib/types'
 
 interface NotesSectionProps {
@@ -519,8 +520,8 @@ export function NotesSection({
                           )}
                         </div>
 
-                        <div className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
-                          {note.content}
+                        <div className="text-sm text-text-primary leading-relaxed">
+                          <MarkdownRenderer content={note.content} />
                         </div>
                       </div>
 

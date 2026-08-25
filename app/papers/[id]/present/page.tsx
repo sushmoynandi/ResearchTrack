@@ -44,6 +44,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useToast } from '@/components/ui/Toast'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -1057,9 +1058,9 @@ export default function JournalClubPresentationPage() {
                           })}
                         </span>
                       </div>
-                      <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
-                        {note.content}
-                      </p>
+                      <div className="text-xs text-text-secondary leading-relaxed">
+                        <MarkdownRenderer content={note.content} />
+                      </div>
                     </div>
                   ))
                 ) : (
