@@ -100,7 +100,7 @@ export function JournalClubSection({
   const [availablePapers, setAvailablePapers] = useState<any[]>([])
   const [paperSearch, setPaperSearch] = useState('')
   const [selectedPaperId, setSelectedPaperId] = useState('')
-  const [selectedPresenterId, setSelectedPresenterId] = useState('')
+  const [selectedPresenterIds, setSelectedPresenterIds] = useState<string[]>([])
   const [scheduledAt, setScheduledAt] = useState('')
   const [seminarScope, setSeminarScope] = useState<'SEMINAR_LAB' | 'SEMINAR_GROUP' | 'SEMINAR_INDIVIDUAL'>('SEMINAR_GROUP')
   const [meetingUrl, setMeetingUrl] = useState('')
@@ -128,6 +128,17 @@ export function JournalClubSection({
       : groupMembers
   }, [seminarScope, selectedGroupId, allLabMembers, allLabGroups, groupMembers])
 
+  // Toggle selection of presenters
+  const handleTogglePresenter = (userId: string) => {
+    setSelectedPresenterIds((prev) => {
+      if (prev.includes(userId)) {
+        if (prev.length === 1) return prev // Keep at least 1 presenter
+        return prev.filter((id) => id !== userId)
+      }
+      return [...prev, userId]
+    })
+  }
+
   // Auto-select 1st student researcher of activePresenterCandidates whenever scope/cluster changes
   useEffect(() => {
     if (isCreateModalOpen && activePresenterCandidates.length > 0) {
@@ -136,7 +147,13 @@ export function JournalClubSection({
       )
       const defaultPresenter = student || activePresenterCandidates[0]
       if (defaultPresenter) {
-        setSelectedPresenterId(defaultPresenter.user.id)
+        setSelectedPresenterIds((prev) => {
+          // If no presenter is selected or switching scope, pre-select default student
+          if (prev.length === 0 || !activePresenterCandidates.some(c => prev.includes(c.user.id))) {
+            return [defaultPresenter.user.id]
+          }
+          return prev
+        })
       }
     }
   }, [isCreateModalOpen, seminarScope, selectedGroupId, activePresenterCandidates])
@@ -200,8 +217,8 @@ export function JournalClubSection({
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedPaperId || !selectedPresenterId || !scheduledAt) {
-      addToast('error', 'Please select a paper, presenter, and date.')
+    if (!selectedPaperId || selectedPresenterIds.length === 0 || !scheduledAt) {
+      addToast('error', 'Please select a paper, at least one presenter, and date.')
       return
     }
     setSubmitting(true)
@@ -212,7 +229,8 @@ export function JournalClubSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paperId: selectedPaperId,
-          presenterId: selectedPresenterId,
+          presenterId: selectedPresenterIds[0],
+          presenterIds: selectedPresenterIds,
           scheduledAt,
           seminarScope,
           meetingUrl: meetingUrl.trim() || undefined,
@@ -839,25 +857,25 @@ export function JournalClubSection({
 
             {/* Presenter & Date Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Designated Presenter Select Box */}
+            {/* Designated Presenters Select Box */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-text-secondary flex items-center justify-between">
-                <span>2. Designated Presenter *</span>
-                <span className="text-[10px] text-text-tertiary font-mono">
-                  {activePresenterCandidates.length} Members Available
+                <span>2. Designated Presenters (Select Multiple) *</span>
+                <span className="text-[10px] text-accent font-mono font-bold bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                  {selectedPresenterIds.length} Selected
                 </span>
               </label>
 
               <div className="max-h-48 overflow-y-auto space-y-1.5 border border-border-default rounded-xl p-2 bg-bg-secondary">
                 {activePresenterCandidates.map((m: any, idx: number) => {
-                  const isSelected = selectedPresenterId === m.user.id
+                  const isSelected = selectedPresenterIds.includes(m.user.id)
                   const isStudent = m.user.systemRole === 'STUDENT' || !['SUPERVISOR', 'ADMIN'].includes(m.user.systemRole || '')
                   const isDefault = idx === 0 && isStudent
 
                   return (
                     <div
                       key={m.id}
-                      onClick={() => setSelectedPresenterId(m.user.id)}
+                      onClick={() => handleTogglePresenter(m.user.id)}
                       className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
                         isSelected
                           ? 'bg-accent/15 border-accent text-text-primary font-bold shadow-xs'
@@ -892,7 +910,11 @@ export function JournalClubSection({
                         }`}>
                           {isStudent ? 'Student' : 'Supervisor'}
                         </span>
-                        {isSelected && <CheckCircle2 size={14} className="text-accent" />}
+                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                          isSelected ? 'bg-accent border-accent text-white' : 'border-border-default bg-bg-tertiary'
+                        }`}>
+                          {isSelected && <CheckCircle2 size={13} className="text-white" />}
+                        </div>
                       </div>
                     </div>
                   )

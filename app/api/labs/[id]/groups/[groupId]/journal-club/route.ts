@@ -89,9 +89,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: labId, groupId } = await params
     const body = await request.json()
-    const { paperId, presenterId, scheduledAt, notes, seminarScope = 'SEMINAR_GROUP', meetingUrl } = body
+    const { paperId, presenterId, presenterIds, scheduledAt, notes, seminarScope = 'SEMINAR_GROUP', meetingUrl } = body
 
-    if (!paperId || !presenterId || !scheduledAt) {
+    const targetPresenterIds: string[] = Array.isArray(presenterIds) && presenterIds.length > 0
+      ? presenterIds
+      : [presenterId].filter(Boolean)
+
+    const effectivePrimaryPresenterId = targetPresenterIds[0] || presenterId
+
+    if (!paperId || !effectivePrimaryPresenterId || !scheduledAt) {
       return NextResponse.json({ error: 'Paper, Presenter, and Date are required' }, { status: 400 })
     }
 
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         groupId,
         paperId,
-        presenterId,
+        presenterId: effectivePrimaryPresenterId,
         scheduledAt: new Date(scheduledAt),
         meetingUrl: meetingUrl?.trim() || null,
         notes: notes?.trim() || null,
@@ -138,14 +144,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    // Notify the assigned presenter
-    await createNotification({
-      userId: presenterId,
-      title: 'Assigned as Presentation Seminar Presenter 🎤',
-      message: `You are scheduled to present "${session.paper.title}" for ${group.name} on ${new Date(scheduledAt).toLocaleDateString()}.`,
-      type: 'ASSIGNMENT',
-      link: `/papers/${session.paper.slug || paperId}/present`,
-    }).catch(() => {})
+    // Fetch all designated presenters
+    const presenters = await prisma.user.findMany({
+      where: { id: { in: targetPresenterIds } },
+      select: { id: true, name: true, email: true },
+    })
+    const presenterNames = presenters.length > 0
+      ? presenters.map((p) => p.name).join(', ')
+      : session.presenter.name
+
+    // Notify all assigned presenters
+    for (const pId of targetPresenterIds) {
+      await createNotification({
+        userId: pId,
+        title: 'Assigned as Presentation Seminar Presenter 🎤',
+        message: `You are scheduled as co-presenter for "${session.paper.title}" for ${group.name} on ${new Date(scheduledAt).toLocaleDateString()}.`,
+        type: 'ASSIGNMENT',
+        link: `/papers/${session.paper.slug || paperId}/present`,
+      }).catch(() => {})
+    }
 
     const groupUserIds = group.members.map((m) => m.userId)
     const groupUsers = await prisma.user.findMany({
@@ -172,7 +189,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       description: [
         `Paper Title: ${session.paper.title}`,
         `Authors: ${session.paper.authors}`,
-        `Presenter: ${session.presenter.name} (${session.presenter.email})`,
+        `Presenters: ${presenterNames}`,
         session.meetingUrl ? `Meeting Link: ${session.meetingUrl}` : '',
         notes ? `\nSeminar Focus & Pre-reading Guidance:\n${notes}` : '',
         `\nLaunch Presentation Slides: ${slidesUrl}`,
@@ -185,7 +202,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const googleCalUrl = getGoogleCalendarUrl({
       title: `${seminarTitlePrefix}: ${session.paper.title}`,
-      description: `Presenter: ${session.presenter.name}\nPaper: ${session.paper.title}${session.meetingUrl ? `\nMeeting Link: ${session.meetingUrl}` : ''}`,
+      description: `Presenters: ${presenterNames}\nPaper: ${session.paper.title}${session.meetingUrl ? `\nMeeting Link: ${session.meetingUrl}` : ''}`,
       startDate: new Date(scheduledAt),
       location: session.meetingUrl || 'Lab Presentation Seminar Room',
       url: targetMeetingLink,
@@ -193,11 +210,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     for (const member of groupUsers) {
-      if (member.id !== user.id && member.id !== presenterId) {
+      if (member.id !== user.id && !targetPresenterIds.includes(member.id)) {
         await createNotification({
           userId: member.id,
           title: `Upcoming Presentation Seminar: ${group.name} 🗓️`,
-          message: `${session.presenter.name} is presenting "${session.paper.title}" on ${dateFormatted}.`,
+          message: `${presenterNames} is presenting "${session.paper.title}" on ${dateFormatted}.`,
           type: 'SYSTEM',
           link: `/labs/${group.lab.slug}`,
         }).catch(() => {})
@@ -207,7 +224,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         toEmail: member.email,
         recipientName: member.name,
         organizerName: user.name,
-        presenterName: session.presenter.name,
+        presenterName: presenterNames,
         meetingTitle: session.paper.title,
         scheduledTimeFormatted: dateFormatted,
         actionItems: [
