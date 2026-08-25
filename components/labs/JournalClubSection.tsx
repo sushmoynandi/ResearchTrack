@@ -25,6 +25,12 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Video,
+  Upload,
+  FileUp,
+  Link2,
+  Eye,
+  Download,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -81,6 +87,87 @@ function getCleanSessionNotes(notes: string | null): string | null {
   if (!notes) return null
   const cleaned = notes.replace(/\[Presenters: [^\]]+\]\n?/, '').trim()
   return cleaned || null
+}
+
+// ─── IndexedDB Helpers for Client-Side Presentation File Storage ───
+const SLIDES_DB_NAME = 'SeminarPresentationSlides'
+const SLIDES_STORE_NAME = 'slides'
+
+function openSlidesDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(SLIDES_DB_NAME, 1)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(SLIDES_STORE_NAME)) {
+        db.createObjectStore(SLIDES_STORE_NAME, { keyPath: 'sessionId' })
+      }
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function saveSlideToLocal(sessionId: string, file: File): Promise<void> {
+  const db = await openSlidesDB()
+  const arrayBuffer = await file.arrayBuffer()
+  const tx = db.transaction(SLIDES_STORE_NAME, 'readwrite')
+  tx.objectStore(SLIDES_STORE_NAME).put({
+    sessionId,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+    data: arrayBuffer,
+    uploadedAt: new Date().toISOString(),
+  })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+async function getSlideFromLocal(sessionId: string): Promise<{ fileName: string; fileType: string; fileSize: number; data: ArrayBuffer; uploadedAt: string } | null> {
+  const db = await openSlidesDB()
+  const tx = db.transaction(SLIDES_STORE_NAME, 'readonly')
+  const request = tx.objectStore(SLIDES_STORE_NAME).get(sessionId)
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result || null)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function deleteSlideFromLocal(sessionId: string): Promise<void> {
+  const db = await openSlidesDB()
+  const tx = db.transaction(SLIDES_STORE_NAME, 'readwrite')
+  tx.objectStore(SLIDES_STORE_NAME).delete(sessionId)
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+function getGoogleDriveEmbedUrl(url: string): string | null {
+  // Match Google Drive file links: /file/d/FILE_ID/...
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/)
+  if (fileMatch) {
+    return `https://drive.google.com/file/d/${fileMatch[1]}/preview`
+  }
+  // Match Google Slides: /presentation/d/FILE_ID/...
+  const slidesMatch = url.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/)
+  if (slidesMatch) {
+    return `https://docs.google.com/presentation/d/${slidesMatch[1]}/embed?start=false&loop=false&delayms=3000`
+  }
+  // Match Google Docs: /document/d/FILE_ID/...
+  const docsMatch = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/)
+  if (docsMatch) {
+    return `https://docs.google.com/document/d/${docsMatch[1]}/preview`
+  }
+  return null
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
 interface JournalClubSectionProps {
@@ -180,6 +267,125 @@ export function JournalClubSection({
   const [editDate, setEditDate] = useState('')
   const [editStatus, setEditStatus] = useState('SCHEDULED')
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Presentation Slides State (client-side only)
+  const [localSlides, setLocalSlides] = useState<Record<string, { fileName: string; fileSize: number; uploadedAt: string }>>({})
+  const [driveLinks, setDriveLinks] = useState<Record<string, string>>({})
+  const [driveLinkInput, setDriveLinkInput] = useState('')
+  const [driveLinkSessionId, setDriveLinkSessionId] = useState<string | null>(null)
+  const [viewingDriveUrl, setViewingDriveUrl] = useState<string | null>(null)
+  const [viewingDriveTitle, setViewingDriveTitle] = useState('')
+  const [viewingLocalSlide, setViewingLocalSlide] = useState<string | null>(null)
+  const [localSlideObjectUrl, setLocalSlideObjectUrl] = useState<string | null>(null)
+
+  // Load saved local slides metadata and Google Drive links from localStorage on mount
+  useEffect(() => {
+    // Load drive links from localStorage
+    try {
+      const savedDriveLinks = localStorage.getItem('seminar_drive_links')
+      if (savedDriveLinks) setDriveLinks(JSON.parse(savedDriveLinks))
+    } catch {}
+  }, [])
+
+  // Load local slides metadata whenever sessions change
+  useEffect(() => {
+    if (sessions.length === 0) return
+    const loadLocalSlides = async () => {
+      const meta: Record<string, { fileName: string; fileSize: number; uploadedAt: string }> = {}
+      for (const s of sessions) {
+        try {
+          const slide = await getSlideFromLocal(s.id)
+          if (slide) {
+            meta[s.id] = { fileName: slide.fileName, fileSize: slide.fileSize, uploadedAt: slide.uploadedAt }
+          }
+        } catch {}
+      }
+      setLocalSlides(meta)
+    }
+    loadLocalSlides()
+  }, [sessions])
+
+  // Handle uploading a presentation file to IndexedDB (client-side only)
+  const handleUploadSlide = async (sessionId: string, file: File) => {
+    try {
+      await saveSlideToLocal(sessionId, file)
+      setLocalSlides((prev) => ({
+        ...prev,
+        [sessionId]: { fileName: file.name, fileSize: file.size, uploadedAt: new Date().toISOString() },
+      }))
+      addToast('success', `Slides "${file.name}" saved to your browser (not uploaded to server).`)
+    } catch {
+      addToast('error', 'Failed to save slides to browser storage.')
+    }
+  }
+
+  // Handle removing local slide
+  const handleRemoveLocalSlide = async (sessionId: string) => {
+    try {
+      await deleteSlideFromLocal(sessionId)
+      setLocalSlides((prev) => {
+        const next = { ...prev }
+        delete next[sessionId]
+        return next
+      })
+      addToast('success', 'Local slides removed from browser.')
+    } catch {}
+  }
+
+  // Handle downloading local slide
+  const handleDownloadLocalSlide = async (sessionId: string) => {
+    try {
+      const slide = await getSlideFromLocal(sessionId)
+      if (!slide) return
+      const blob = new Blob([slide.data], { type: slide.fileType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = slide.fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      addToast('error', 'Failed to download slides.')
+    }
+  }
+
+  // Handle viewing local slide in modal
+  const handleViewLocalSlide = async (sessionId: string, title: string) => {
+    try {
+      const slide = await getSlideFromLocal(sessionId)
+      if (!slide) return
+      const blob = new Blob([slide.data], { type: slide.fileType })
+      const url = URL.createObjectURL(blob)
+      setLocalSlideObjectUrl(url)
+      setViewingLocalSlide(title)
+    } catch {
+      addToast('error', 'Failed to load slides for preview.')
+    }
+  }
+
+  // Save Google Drive link
+  const handleSaveDriveLink = (sessionId: string, url: string) => {
+    const updated = { ...driveLinks, [sessionId]: url }
+    setDriveLinks(updated)
+    try {
+      localStorage.setItem('seminar_drive_links', JSON.stringify(updated))
+    } catch {}
+    setDriveLinkSessionId(null)
+    setDriveLinkInput('')
+    addToast('success', 'Google Drive link saved.')
+  }
+
+  // Remove Google Drive link
+  const handleRemoveDriveLink = (sessionId: string) => {
+    const updated = { ...driveLinks }
+    delete updated[sessionId]
+    setDriveLinks(updated)
+    try {
+      localStorage.setItem('seminar_drive_links', JSON.stringify(updated))
+    } catch {}
+  }
 
   const fetchSessions = async () => {
     try {
@@ -623,6 +829,193 @@ export function JournalClubSection({
                       </div>
                     )
                   })()}
+                </div>
+
+                {/* ─── Presentation Slides (Client-Side) ─── */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-text-secondary flex items-center gap-1">
+                      <FileUp size={12} className="text-accent" /> Presentation Slides
+                    </span>
+                    <span className="text-[9px] text-text-tertiary italic">Saved in your browser only</span>
+                  </div>
+
+                  {/* Show uploaded local file */}
+                  {localSlides[s.id] && (
+                    <div className="p-2.5 rounded-xl bg-bg-tertiary border border-border-default flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText size={14} className="text-accent shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-text-primary truncate">{localSlides[s.id].fileName}</p>
+                          <p className="text-[10px] text-text-tertiary">{formatFileSize(localSlides[s.id].fileSize)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleViewLocalSlide(s.id, s.paper.title)}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="Preview Slides"
+                        >
+                          <Eye size={13} className="text-accent" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadLocalSlide(s.id)}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="Download Slides"
+                        >
+                          <Download size={13} className="text-text-secondary" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLocalSlide(s.id)}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="Remove Slides"
+                        >
+                          <X size={13} className="text-rose-400" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show Google Drive link */}
+                  {driveLinks[s.id] && (
+                    <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Link2 size={14} className="text-blue-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-blue-300 truncate">Google Drive Slides</p>
+                          <p className="text-[10px] text-text-tertiary truncate">{driveLinks[s.id]}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const embedUrl = getGoogleDriveEmbedUrl(driveLinks[s.id])
+                            if (embedUrl) {
+                              setViewingDriveUrl(embedUrl)
+                              setViewingDriveTitle(s.paper.title)
+                            } else {
+                              window.open(driveLinks[s.id], '_blank')
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="View in App"
+                        >
+                          <Eye size={13} className="text-blue-400" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.open(driveLinks[s.id], '_blank')}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="Open in Google Drive"
+                        >
+                          <ExternalLink size={13} className="text-text-secondary" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDriveLink(s.id)}
+                          className="p-1.5 rounded-lg hover:bg-bg-elevated transition-colors cursor-pointer"
+                          title="Remove Link"
+                        >
+                          <X size={13} className="text-rose-400" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload / Link Actions */}
+                  {!localSlides[s.id] && !driveLinks[s.id] && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Upload File (Browser Only) */}
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-tertiary border border-border-default text-[11px] font-medium text-text-secondary hover:text-text-primary hover:border-accent/40 cursor-pointer transition-colors">
+                        <Upload size={12} />
+                        Upload Slides (PDF/PPT)
+                        <input
+                          type="file"
+                          accept=".pdf,.ppt,.pptx,.key"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleUploadSlide(s.id, file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+
+                      {/* Google Drive Link */}
+                      {driveLinkSessionId === s.id ? (
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <input
+                            type="url"
+                            placeholder="Paste Google Drive / Slides link..."
+                            value={driveLinkInput}
+                            onChange={(e) => setDriveLinkInput(e.target.value)}
+                            className="flex-1 min-w-0 bg-bg-tertiary border border-border-default rounded-lg px-2.5 py-1.5 text-[11px] text-text-primary focus:outline-none focus:border-accent"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (driveLinkInput.trim()) handleSaveDriveLink(s.id, driveLinkInput.trim())
+                            }}
+                            disabled={!driveLinkInput.trim()}
+                            className="px-2.5 py-1.5 rounded-lg bg-accent text-white text-[11px] font-bold cursor-pointer disabled:opacity-40"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setDriveLinkSessionId(null); setDriveLinkInput('') }}
+                            className="p-1 rounded cursor-pointer"
+                          >
+                            <X size={13} className="text-text-tertiary" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDriveLinkSessionId(s.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-tertiary border border-border-default text-[11px] font-medium text-text-secondary hover:text-text-primary hover:border-blue-500/40 cursor-pointer transition-colors"
+                        >
+                          <Link2 size={12} />
+                          Add Google Drive Link
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Additional actions when files exist */}
+                  {(localSlides[s.id] || driveLinks[s.id]) && !(localSlides[s.id] && driveLinks[s.id]) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {!localSlides[s.id] && (
+                        <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default text-[10px] font-medium text-text-tertiary hover:text-text-secondary cursor-pointer transition-colors">
+                          <Upload size={11} /> Also Upload Local
+                          <input
+                            type="file"
+                            accept=".pdf,.ppt,.pptx,.key"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleUploadSlide(s.id, file)
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
+                      )}
+                      {!driveLinks[s.id] && (
+                        <button
+                          type="button"
+                          onClick={() => setDriveLinkSessionId(s.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default text-[10px] font-medium text-text-tertiary hover:text-text-secondary cursor-pointer transition-colors"
+                        >
+                          <Link2 size={11} /> Also Add Drive Link
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Row: Actions Bar */}
@@ -1087,6 +1480,70 @@ export function JournalClubSection({
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* ─── Google Drive Embedded Viewer Modal ─── */}
+      {viewingDriveUrl && (
+        <Modal
+          isOpen={Boolean(viewingDriveUrl)}
+          onClose={() => { setViewingDriveUrl(null); setViewingDriveTitle('') }}
+          title={`📊 Presentation: ${viewingDriveTitle}`}
+          description="Viewing Google Drive presentation inside the app."
+          size="lg"
+        >
+          <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-border-default bg-black">
+            <iframe
+              src={viewingDriveUrl}
+              className="w-full h-full"
+              allowFullScreen
+              allow="autoplay"
+              title="Google Drive Presentation"
+            />
+          </div>
+          <div className="flex items-center justify-between pt-3">
+            <span className="text-[10px] text-text-tertiary italic">Embedded from Google Drive • Content not stored on our servers</span>
+            <Button size="xs" variant="ghost" onClick={() => { setViewingDriveUrl(null); setViewingDriveTitle('') }}>
+              Close
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── Local Slide Preview Modal ─── */}
+      {viewingLocalSlide && localSlideObjectUrl && (
+        <Modal
+          isOpen={Boolean(viewingLocalSlide)}
+          onClose={() => {
+            if (localSlideObjectUrl) URL.revokeObjectURL(localSlideObjectUrl)
+            setViewingLocalSlide(null)
+            setLocalSlideObjectUrl(null)
+          }}
+          title={`📄 Slides Preview: ${viewingLocalSlide}`}
+          description="Viewing locally stored presentation file from your browser."
+          size="lg"
+        >
+          <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-border-default bg-black">
+            <iframe
+              src={localSlideObjectUrl}
+              className="w-full h-full"
+              title="Local Slide Preview"
+            />
+          </div>
+          <div className="flex items-center justify-between pt-3">
+            <span className="text-[10px] text-text-tertiary italic">Stored in your browser only (IndexedDB) • Not uploaded to any server</span>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                if (localSlideObjectUrl) URL.revokeObjectURL(localSlideObjectUrl)
+                setViewingLocalSlide(null)
+                setLocalSlideObjectUrl(null)
+              }}
+            >
+              Close
+            </Button>
+          </div>
         </Modal>
       )}
     </div>
