@@ -91,7 +91,7 @@ export default function PaperReaderPage() {
   if (!paper) return null
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PdfReaderWorkspace paper={paper} />
     </div>
   )
