@@ -782,157 +782,172 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         isFullscreen ? 'fixed inset-0 z-50 h-screen rounded-none' : ''
       }`}
     >
-      {/* Top Action Header */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 px-4 py-3 bg-bg-secondary border-b border-border-default shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href={`/papers/${paper.id}`}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-text-primary border border-border-default transition-colors shrink-0"
-          >
-            <ArrowLeft size={13} /> Details
-          </Link>
-
-        <div className="truncate">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-accent">Paper workspace</p>
-            <h2 className="text-sm font-bold text-text-primary truncate">
-              {paper.title}
-            </h2>
-            <p className="text-[10px] text-text-tertiary truncate">
-              {paper.authors} {paper.publicationYear ? `(${paper.publicationYear})` : ''}
-            </p>
-          </div>
-        </div>
-
-        {/* Source Selector & Viewer Controls */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* View Mode Toggle: PDF vs Full-Text Article */}
-          <div className="flex items-center bg-bg-tertiary p-1 rounded-lg border border-border-default text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setViewMode('pdf')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition-all cursor-pointer ${
-                viewMode === 'pdf' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
-              }`}
+      {/* Top Action Header - Hidden during Fullscreen */}
+      {!isFullscreen && (
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 px-4 py-3 bg-bg-secondary border-b border-border-default shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href={`/papers/${paper.id}`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-text-primary border border-border-default transition-colors shrink-0"
             >
-              <FileText size={13} /> PDF
-            </button>
-            {fullTextSections.length > 0 && (
+              <ArrowLeft size={13} /> Details
+            </Link>
+
+          <div className="truncate">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-accent">Paper workspace</p>
+              <h2 className="text-sm font-bold text-text-primary truncate">
+                {paper.title}
+              </h2>
+              <p className="text-[10px] text-text-tertiary truncate">
+                {paper.authors} {paper.publicationYear ? `(${paper.publicationYear})` : ''}
+              </p>
+            </div>
+          </div>
+
+          {/* Source Selector & Viewer Controls */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* View Mode Toggle: PDF vs Full-Text Article */}
+            <div className="flex items-center bg-bg-tertiary p-1 rounded-lg border border-border-default text-xs font-medium">
               <button
                 type="button"
-                onClick={() => setViewMode('article')}
+                onClick={() => setViewMode('pdf')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded transition-all cursor-pointer ${
-                  viewMode === 'article' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                  viewMode === 'pdf' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-              <BookOpen size={13} /> Article
-                <span className="ml-0.5 px-1 py-0.2 text-[9px] bg-white/20 rounded font-mono font-bold">
-                  {fullTextSections.length}
-                </span>
+                <FileText size={13} /> PDF
               </button>
-            )}
-          </div>
-
-          {/* PDF Source Picker when in PDF Mode */}
-          {viewMode === 'pdf' && availableSources.length > 1 && (
-            <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-lg border border-border-default text-[11px] font-mono">
-              {availableSources.map((src) => (
+              {fullTextSections.length > 0 && (
                 <button
-                  key={src.id}
                   type="button"
-                  onClick={() => setSelectedSourceId(src.id)}
-                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    activeSource?.id === src.id
-                      ? 'bg-accent text-white font-bold shadow-sm'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                  onClick={() => setViewMode('article')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded transition-all cursor-pointer ${
+                    viewMode === 'article' ? 'bg-accent text-white font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  {src.label}
+                <BookOpen size={13} /> Article
+                  <span className="ml-0.5 px-1 py-0.2 text-[9px] bg-white/20 rounded font-mono font-bold">
+                    {fullTextSections.length}
+                  </span>
                 </button>
-              ))}
+              )}
             </div>
-          )}
 
-          {/* Client-Side Local PDF File Picker (Zero Server & DB Storage) */}
-          <input
-            type="file"
-            ref={clientFileInputRef}
-            onChange={handleClientFileChange}
-            accept="application/pdf"
-            className="hidden"
-          />
+            {/* PDF Source Picker when in PDF Mode */}
+            {viewMode === 'pdf' && availableSources.length > 1 && (
+              <div className="flex items-center gap-1 bg-bg-tertiary p-1 rounded-lg border border-border-default text-[11px] font-mono">
+                {availableSources.map((src) => (
+                  <button
+                    key={src.id}
+                    type="button"
+                    onClick={() => setSelectedSourceId(src.id)}
+                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                      activeSource?.id === src.id
+                        ? 'bg-accent text-white font-bold shadow-sm'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                    }`}
+                  >
+                    {src.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Client-Side Local PDF File Picker (Zero Server & DB Storage) */}
+            <input
+              type="file"
+              ref={clientFileInputRef}
+              onChange={handleClientFileChange}
+              accept="application/pdf"
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => clientFileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default hover:border-accent/40 transition-all cursor-pointer"
+              title="Open any local PDF file from your device (100% Browser Client Storage, 0 KB Database / Server)"
+            >
+              <FolderOpen size={13} className="text-accent" />
+              <span className="hidden sm:inline">Open Local PDF</span>
+            </button>
+
+            {clientPdfName && (
+              <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/30 text-[10px] font-mono text-accent">
+                <HardDrive size={11} />
+                <span>Browser Storage Only</span>
+                <button
+                  type="button"
+                  onClick={handleRemoveClientPdf}
+                  className="hover:text-rose-400 p-0.5 ml-0.5 cursor-pointer"
+                  title="Remove client browser PDF"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
+
+            {pdfUrl && (
+              <>
+                <a
+                  href={activeSource?.url || pdfUrl}
+                  target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
+                  rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
+                  className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors flex items-center gap-1 text-xs"
+                  title="Open original document in new tab"
+                >
+                  <ExternalLink size={14} />
+                </a>
+                <a
+                  href={
+                    pdfUrl.startsWith('blob:')
+                      ? pdfUrl
+                      : pdfUrl.startsWith('http') && !pdfUrl.includes('arxiv.org')
+                      ? `/api/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`
+                      : pdfUrl
+                  }
+                  download={pdfUrl.startsWith('blob:') ? clientPdfName || 'paper.pdf' : undefined}
+                  target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
+                  rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
+                  className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors"
+                  title="Download PDF"
+                >
+                  <Download size={14} />
+                </a>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors cursor-pointer"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Reader'}
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer"
+            >
+              {isSidebarOpen ? 'Hide workspace' : 'Open workspace'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Exit Fullscreen Button on hover when in Fullscreen */}
+      {isFullscreen && (
+        <div className="absolute top-3 right-3 z-50 opacity-40 hover:opacity-100 transition-opacity">
           <button
             type="button"
-            onClick={() => clientFileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default hover:border-accent/40 transition-all cursor-pointer"
-            title="Open any local PDF file from your device (100% Browser Client Storage, 0 KB Database / Server)"
+            onClick={() => setIsFullscreen(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-secondary/90 backdrop-blur shadow-lg border border-border-default text-xs font-semibold text-text-primary hover:text-accent transition-all cursor-pointer"
           >
-            <FolderOpen size={13} className="text-accent" />
-            <span className="hidden sm:inline">Open Local PDF</span>
-          </button>
-
-          {clientPdfName && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/30 text-[10px] font-mono text-accent">
-              <HardDrive size={11} />
-              <span>Browser Storage Only</span>
-              <button
-                type="button"
-                onClick={handleRemoveClientPdf}
-                className="hover:text-rose-400 p-0.5 ml-0.5 cursor-pointer"
-                title="Remove client browser PDF"
-              >
-                <X size={10} />
-              </button>
-            </div>
-          )}
-
-          {pdfUrl && (
-            <>
-              <a
-                href={activeSource?.url || pdfUrl}
-                target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
-                rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
-                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors flex items-center gap-1 text-xs"
-                title="Open original document in new tab"
-              >
-                <ExternalLink size={14} />
-              </a>
-              <a
-                href={
-                  pdfUrl.startsWith('blob:')
-                    ? pdfUrl
-                    : pdfUrl.startsWith('http') && !pdfUrl.includes('arxiv.org')
-                    ? `/api/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`
-                    : pdfUrl
-                }
-                download={pdfUrl.startsWith('blob:') ? clientPdfName || 'paper.pdf' : undefined}
-                target={pdfUrl.startsWith('blob:') ? undefined : '_blank'}
-                rel={pdfUrl.startsWith('blob:') ? undefined : 'noopener noreferrer'}
-                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors"
-                title="Download PDF"
-              >
-                <Download size={14} />
-              </a>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Reader'}
-          >
-            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer"
-          >
-            {isSidebarOpen ? 'Hide workspace' : 'Open workspace'}
+            <Minimize2 size={13} /> Exit Fullscreen
           </button>
         </div>
-      </div>
+      )}
 
       {/* Reading progress and focused next action */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-bg-secondary/70 border-b border-border-default text-xs shrink-0">
