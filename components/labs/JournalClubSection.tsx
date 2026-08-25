@@ -94,6 +94,9 @@ export function JournalClubSection({
 
   // Create Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [allLabMembers, setAllLabMembers] = useState<any[]>([])
+  const [allLabGroups, setAllLabGroups] = useState<any[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState(groupId)
   const [availablePapers, setAvailablePapers] = useState<any[]>([])
   const [paperSearch, setPaperSearch] = useState('')
   const [selectedPaperId, setSelectedPaperId] = useState('')
@@ -103,6 +106,40 @@ export function JournalClubSection({
   const [meetingUrl, setMeetingUrl] = useState('')
   const [sessionNotes, setSessionNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Compute active presenter candidates based on selected Scope & Cluster
+  const activePresenterCandidates: { id: string; user: { id: string; name: string; email: string; systemRole?: string; department?: string } }[] = useMemo(() => {
+    if (seminarScope === 'SEMINAR_LAB') {
+      return allLabMembers.length > 0
+        ? allLabMembers.map((m) => ({ id: m.id, user: m.user }))
+        : groupMembers
+    }
+
+    if (seminarScope === 'SEMINAR_GROUP') {
+      const selectedGroup = allLabGroups.find((g) => g.id === selectedGroupId)
+      if (selectedGroup && selectedGroup.members?.length > 0) {
+        return selectedGroup.members.map((m: any) => ({ id: m.id, user: m.user }))
+      }
+      return groupMembers
+    }
+
+    return allLabMembers.length > 0
+      ? allLabMembers.map((m) => ({ id: m.id, user: m.user }))
+      : groupMembers
+  }, [seminarScope, selectedGroupId, allLabMembers, allLabGroups, groupMembers])
+
+  // Auto-select 1st student researcher of activePresenterCandidates whenever scope/cluster changes
+  useEffect(() => {
+    if (isCreateModalOpen && activePresenterCandidates.length > 0) {
+      const student = activePresenterCandidates.find(
+        (m: any) => m.user.systemRole === 'STUDENT' || !['SUPERVISOR', 'ADMIN'].includes(m.user.systemRole || '')
+      )
+      const defaultPresenter = student || activePresenterCandidates[0]
+      if (defaultPresenter) {
+        setSelectedPresenterId(defaultPresenter.user.id)
+      }
+    }
+  }, [isCreateModalOpen, seminarScope, selectedGroupId, activePresenterCandidates])
 
   // Edit / Notes Modal State
   const [editingSession, setEditingSession] = useState<JournalClubSessionItem | null>(null)
@@ -134,6 +171,18 @@ export function JournalClubSection({
 
   const handleOpenCreateModal = async () => {
     setIsCreateModalOpen(true)
+    setSelectedGroupId(groupId)
+
+    // Fetch lab profile to load all lab members & sub-groups
+    try {
+      const labRes = await fetch(`/api/labs/${labId}`)
+      if (labRes.ok) {
+        const labData = await labRes.json()
+        setAllLabMembers(labData.members || [])
+        setAllLabGroups(labData.groups || [])
+      }
+    } catch {}
+
     try {
       const res = await fetch('/api/papers?_t=' + Date.now())
       if (res.ok) {
@@ -143,9 +192,6 @@ export function JournalClubSection({
         if (papersList.length > 0 && !selectedPaperId) {
           setSelectedPaperId(papersList[0].id)
         }
-      }
-      if (groupMembers.length > 0 && !selectedPresenterId) {
-        setSelectedPresenterId(groupMembers[0].user.id)
       }
     } catch {
       // silent
@@ -658,10 +704,10 @@ export function JournalClubSection({
           size="lg"
         >
           <form onSubmit={handleCreateSession} className="space-y-4 pt-2">
-            {/* Seminar Scope Selection */}
-            <div className="space-y-1.5">
+            {/* Seminar Scope & Cluster Audience Selection */}
+            <div className="space-y-2">
               <label className="block text-xs font-semibold text-text-secondary">
-                Seminar Scope &amp; Audience *
+                Seminar Scope &amp; Cluster Audience *
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
@@ -676,7 +722,7 @@ export function JournalClubSection({
                   <div className="flex items-center gap-1.5 font-bold">
                     <span>🏛️ Lab-Wide</span>
                   </div>
-                  <p className="text-[10px] text-text-tertiary mt-0.5">Whole Lab Seminar</p>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">Whole Lab Members</p>
                 </button>
 
                 <button
@@ -709,6 +755,42 @@ export function JournalClubSection({
                   <p className="text-[10px] text-text-tertiary mt-0.5">1-on-1 Presentation</p>
                 </button>
               </div>
+
+              {/* Cluster Selector Dropdown / Display */}
+              {seminarScope === 'SEMINAR_LAB' && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-center justify-between">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    🏛️ Cluster Audience: Entire Laboratory (All {activePresenterCandidates.length} Members Invited)
+                  </span>
+                </div>
+              )}
+
+              {seminarScope === 'SEMINAR_GROUP' && allLabGroups.length > 0 && (
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-text-secondary">
+                    Select Cluster Sub-Group *
+                  </label>
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                    className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    {allLabGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        🔬 {g.name} Cluster ({g.members?.length || 0} members)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {seminarScope === 'SEMINAR_INDIVIDUAL' && (
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-xs text-purple-200 flex items-center justify-between">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    👤 Cluster Audience: Individual 1-on-1 Presentation
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Paper Selector with Search */}
@@ -767,11 +849,15 @@ export function JournalClubSection({
                   className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
                   required
                 >
-                  {groupMembers.map((m) => (
-                    <option key={m.id} value={m.user.id}>
-                      {m.user.name} ({m.user.email})
-                    </option>
-                  ))}
+                  {activePresenterCandidates.map((m: any, idx: number) => {
+                    const isStudent = m.user.systemRole === 'STUDENT' || !['SUPERVISOR', 'ADMIN'].includes(m.user.systemRole || '')
+                    return (
+                      <option key={m.id} value={m.user.id}>
+                        {idx === 0 && isStudent ? `⭐ (Default ${seminarScope === 'SEMINAR_LAB' ? 'Lab' : 'Sub-Group'} Student) ` : ''}
+                        {m.user.name} — {isStudent ? 'Student Researcher' : m.user.systemRole || 'Member'} ({m.user.email})
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 
