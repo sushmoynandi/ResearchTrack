@@ -12,17 +12,19 @@ import { Atom } from 'lucide-react'
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar()
+  const pathname = usePathname()
+  const isReaderOrPresent = Boolean(pathname?.includes('/reader') || pathname?.includes('/present'))
 
   return (
     <div
       className={`
         min-h-screen transition-all duration-300 ease-smooth
-        md:ml-[260px] pb-20 md:pb-0
         ${isCollapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'}
+        pb-20 md:pb-0
       `}
     >
       <Header />
-      <main className="p-3.5 sm:p-6">{children}</main>
+      <main className={isReaderOrPresent ? 'p-2 sm:p-4' : 'p-3.5 sm:p-6'}>{children}</main>
     </div>
   )
 }
