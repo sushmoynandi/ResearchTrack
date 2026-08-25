@@ -299,7 +299,7 @@ export function JournalClubSection({
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-lg md:text-xl font-bold text-text-primary font-display flex items-center gap-2">
-              <Sparkles size={20} className="text-accent" /> {groupName} Journal Club &amp; Seminars
+              <Sparkles size={20} className="text-accent" /> {groupName} Lab Presentation Seminars
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-accent/10 text-accent border border-accent/20">
               Interactive Seminar Suite
@@ -624,7 +624,7 @@ export function JournalClubSection({
         <div className="p-12 text-center text-xs text-text-tertiary space-y-3 glass-card border border-dashed border-border-default rounded-2xl">
           <Calendar size={32} className="mx-auto opacity-30 text-accent" />
           <p className="text-sm font-semibold text-text-secondary">
-            {searchQuery ? 'No seminars matching your search criteria.' : 'No journal club seminars scheduled yet.'}
+            {searchQuery ? 'No seminars matching your search criteria.' : 'No presentation seminars scheduled yet.'}
           </p>
           <p className="text-xs text-text-tertiary max-w-md mx-auto">
             Schedule regular rotational peer presentations to build deep literature synthesis and collective research expertise.
@@ -648,7 +648,7 @@ export function JournalClubSection({
         <Modal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          title={`Schedule Journal Club Seminar: ${groupName}`}
+          title={`Schedule Lab Presentation Seminar: ${groupName}`}
           description="Assign a literature paper, designated student presenter, presentation date, and seminar focus."
           size="lg"
         >

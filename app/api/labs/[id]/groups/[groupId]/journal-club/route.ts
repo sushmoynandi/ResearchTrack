@@ -140,7 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Notify the assigned presenter
     await createNotification({
       userId: presenterId,
-      title: 'Assigned as Journal Club Presenter 🎤',
+      title: 'Assigned as Presentation Seminar Presenter 🎤',
       message: `You are scheduled to present "${session.paper.title}" for ${group.name} on ${new Date(scheduledAt).toLocaleDateString()}.`,
       type: 'ASSIGNMENT',
       link: `/papers/${session.paper.slug || paperId}/present`,
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const dateFormatted = new Date(scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
     
     const icalContent = generateIcsContent({
-      title: `🔬 Lab Journal Club: ${session.paper.title}`,
+      title: `🎤 Lab Presentation Seminar: ${session.paper.title}`,
       description: [
         `Paper Title: ${session.paper.title}`,
         `Authors: ${session.paper.authors}`,
@@ -165,16 +165,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         `\nLaunch Presentation Slides: ${slidesUrl}`,
       ].filter(Boolean).join('\n'),
       startDate: new Date(scheduledAt),
-      location: 'Lab Journal Club Seminar Room',
+      location: 'Lab Presentation Seminar Room',
       url: slidesUrl,
       alarms: [60, 30, 10],
     })
 
     const googleCalUrl = getGoogleCalendarUrl({
-      title: `🔬 Lab Journal Club: ${session.paper.title}`,
+      title: `🎤 Lab Presentation Seminar: ${session.paper.title}`,
       description: `Presenter: ${session.presenter.name}\nPaper: ${session.paper.title}`,
       startDate: new Date(scheduledAt),
-      location: 'Lab Journal Club Seminar Room',
+      location: 'Lab Presentation Seminar Room',
       url: slidesUrl,
       alarms: [60, 30, 10],
     })
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (member.id !== user.id && member.id !== presenterId) {
         await createNotification({
           userId: member.id,
-          title: `Upcoming Journal Club: ${group.name} 🗓️`,
+          title: `Upcoming Presentation Seminar: ${group.name} 🗓️`,
           message: `${session.presenter.name} is presenting "${session.paper.title}" on ${dateFormatted}.`,
           type: 'SYSTEM',
           link: `/labs/${group.lab.slug}`,
@@ -193,15 +193,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sendMeetingScheduledEmail({
         toEmail: member.email,
         recipientName: member.name,
-        organizerName: member.id === presenterId ? user.name : session.presenter.name,
-        meetingTitle: `Lab Journal Club: ${session.paper.title}`,
+        organizerName: user.name,
+        presenterName: session.presenter.name,
+        meetingTitle: session.paper.title,
         scheduledTimeFormatted: dateFormatted,
-        actionItems: notes || `Presenter: ${session.presenter.name}`,
+        actionItems: notes || undefined,
         meetingUrl: slidesUrl,
         googleCalendarUrl: googleCalUrl,
         icalContent,
-        scopeType: 'JOURNAL_CLUB',
-        labOrGroupName: group.name,
+        scopeType: 'SEMINAR_GROUP',
+        labOrGroupName: `${group.name} Seminar`,
       }).catch(() => {})
     }
 

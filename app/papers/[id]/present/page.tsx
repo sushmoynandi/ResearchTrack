@@ -316,7 +316,7 @@ export default function JournalClubPresentationPage() {
           </Link>
 
           <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-accent/15 text-accent border border-accent/30 flex items-center gap-1.5">
-            <Sparkles size={13} /> Journal Club Seminar Mode
+            <Sparkles size={13} /> Lab Presentation Seminar Mode
           </span>
         </div>
 

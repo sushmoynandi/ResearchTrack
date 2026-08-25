@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
       for (const jc of journalClubSessions) {
         const slidesUrl = `${request.nextUrl.origin}/papers/${jc.paper.slug || jc.paper.id}/present`
         events.push({
-          title: `🔬 Lab Journal Club: ${jc.paper.title}`,
+          title: `🎤 Lab Presentation Seminar: ${jc.paper.title}`,
           description: [
             `Paper Title: ${jc.paper.title}`,
             `Authors: ${jc.paper.authors}`,
@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
             .join('\n'),
           startDate: new Date(jc.scheduledAt),
           endDate: new Date(new Date(jc.scheduledAt).getTime() + 60 * 60 * 1000),
-          location: 'Lab Journal Club Seminar Room',
+          location: 'Lab Presentation Seminar Room',
           url: slidesUrl,
           attendeeEmail: user.email,
           alarms: [60, 30, 10],

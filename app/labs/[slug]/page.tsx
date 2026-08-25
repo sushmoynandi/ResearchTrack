@@ -371,9 +371,9 @@ export default function LabDetailPage() {
             },
             { id: 'tasks', label: 'Tasks & Deliverables', icon: CheckSquare },
             { id: 'noticeboard', label: 'Lab Notices & Deadlines', icon: Megaphone },
-            { id: 'meetings', label: 'Meetings & Syncs', icon: Video },
+            { id: 'meetings', label: 'Meetings', icon: Video },
             { id: 'starter-packs', label: 'Starter Packs', icon: BookOpen },
-            { id: 'journal-club', label: 'Journal Club', icon: Calendar },
+            { id: 'journal-club', label: 'Presentation Seminars', icon: Calendar },
             { id: 'members', label: `Members (${lab.members.length})`, icon: Users },
             ...(isLabLead
               ? [{ id: 'requests', label: `Join Requests (${lab.joinRequests.length})`, icon: ShieldAlert }]
@@ -550,7 +550,7 @@ export default function LabDetailPage() {
         />
       )}
 
-      {/* Tab 3: Meetings & Syncs */}
+      {/* Tab 3: Meetings */}
       {activeTab === 'meetings' && (
         <LabMeetingsBoard
           labId={lab.id}
@@ -636,8 +636,8 @@ export default function LabDetailPage() {
           ) : (
             <div className="glass-card p-12 text-center text-xs text-text-tertiary">
               {isStudent
-                ? 'You have not been assigned to a research sub-group yet to access journal club seminars.'
-                : 'Create a research sub-group first to schedule weekly journal club seminars.'}
+                ? 'You have not been assigned to a research sub-group yet to access presentation seminars.'
+                : 'Create a research sub-group first to schedule weekly presentation seminars.'}
             </div>
           )}
         </div>

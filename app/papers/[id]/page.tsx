@@ -719,7 +719,7 @@ export default function PaperDetailPage() {
                 href={`/papers/${paper.slug || paper.id}/present`}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
               >
-                <Sparkles size={13} className="text-purple-400" /> Journal Club
+                <Sparkles size={13} className="text-purple-400" /> Presentation Seminar
               </Link>
               <button
                 type="button"

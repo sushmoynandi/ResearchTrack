@@ -1070,7 +1070,7 @@ export default function ProfilePage() {
                 Live Google &amp; Apple Calendar Auto-Sync
               </h3>
               <p className="text-xs text-text-secondary">
-                Synchronize 1-on-1 advisor meetings, reading deadlines, and lab journal club seminars with automatic 1h, 30m, and 10m reminder alarms.
+                Synchronize 1-on-1 advisor meetings, reading deadlines, and lab presentation seminars with automatic 1h, 30m, and 10m reminder alarms.
               </p>
             </div>
           </div>
