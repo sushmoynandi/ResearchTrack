@@ -17,6 +17,7 @@ import {
   Save,
   Check,
   Edit2,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -216,6 +217,43 @@ export default function MeetingsPage() {
   }
 
   const activeMeeting = meetings.find((m) => m.id === activeMeetingId)
+
+  // Delete Meeting State
+  const [deletingMeeting, setDeletingMeeting] = useState(false)
+
+  const handleDeleteMeeting = async () => {
+    if (!activeMeetingId || !activeMeeting) return
+    const confirmDelete = window.confirm(`Are you sure you want to remove the 1-on-1 meeting "${activeMeeting.title}"?`)
+    if (!confirmDelete) return
+
+    setDeletingMeeting(true)
+    try {
+      const res = await fetch(`/api/meetings?id=${activeMeetingId}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        addToast('success', 'Meeting removed successfully')
+        const remaining = meetings.filter((m) => m.id !== activeMeetingId)
+        setMeetings(remaining)
+        if (remaining.length > 0) {
+          selectMeeting(remaining[0])
+        } else {
+          setActiveMeetingId(null)
+          setStudentNotes('')
+          setSupervisorNotes('')
+          setActionItemsText('')
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        addToast('error', err.error || 'Failed to delete meeting')
+      }
+    } catch {
+      addToast('error', 'Network error deleting meeting')
+    } finally {
+      setDeletingMeeting(false)
+    }
+  }
 
   const handleOpenEdit = () => {
     if (!activeMeeting) return
@@ -425,6 +463,17 @@ export default function MeetingsPage() {
                   <Button size="xs" variant="primary" onClick={handleSaveNotes} loading={savingNotes} icon={<Save size={13} />}>
                     Save Notes
                   </Button>
+                  {/* Both student and supervisor can delete 1-on-1 meeting */}
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    onClick={handleDeleteMeeting}
+                    loading={deletingMeeting}
+                    icon={<Trash2 size={13} />}
+                    title="Delete 1-on-1 meeting"
+                  >
+                    Delete
+                  </Button>
                 </div>
               </div>
 
@@ -479,11 +528,14 @@ export default function MeetingsPage() {
                   <h4 className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5">
                     <ClipboardList size={14} className="text-accent" /> Action Items &amp; Next Week Deliverables
                   </h4>
-                  <Link href="/assignments">
-                    <Button size="xs" variant="secondary" icon={<ArrowRight size={12} />}>
-                      Assign Paper Task
-                    </Button>
-                  </Link>
+                  {/* Only Supervisors & Admins can assign papers */}
+                  {(isSupervisor || isAdmin) && (
+                    <Link href="/assignments">
+                      <Button size="xs" variant="secondary" icon={<ArrowRight size={12} />}>
+                        Assign Paper Task
+                      </Button>
+                    </Link>
+                  )}
                 </div>
 
                 <textarea

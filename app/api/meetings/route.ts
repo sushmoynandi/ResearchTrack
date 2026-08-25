@@ -277,3 +277,55 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update meeting' }, { status: 500 })
   }
 }
+
+// DELETE /api/meetings — Delete a 1-on-1 meeting (both student and supervisor have access to delete)
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Meeting ID is required' }, { status: 400 })
+    }
+
+    const existing = await prisma.meeting.findUnique({
+      where: { id },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
+    }
+
+    // Both student participant, supervisor participant, and Admin can delete
+    const isParticipant = existing.studentId === user.id || existing.supervisorId === user.id
+    const isAdmin = user.systemRole === 'ADMIN'
+
+    if (!isParticipant && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden: You are not a participant of this meeting' }, { status: 403 })
+    }
+
+    await prisma.meeting.delete({
+      where: { id },
+    })
+
+    // Notify the other participant that the meeting was removed/cancelled
+    const notifyTarget = user.id === existing.studentId ? existing.supervisorId : existing.studentId
+    await createNotification({
+      userId: notifyTarget,
+      title: '1-on-1 Meeting Deleted 🗑️',
+      message: `${user.name} removed the scheduled 1-on-1 meeting: "${existing.title}".`,
+      type: 'SYSTEM',
+      link: '/meetings',
+    }).catch(() => {})
+
+    return NextResponse.json({ success: true, message: 'Meeting deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting meeting:', error)
+    return NextResponse.json({ error: 'Failed to delete meeting' }, { status: 500 })
+  }
+}
