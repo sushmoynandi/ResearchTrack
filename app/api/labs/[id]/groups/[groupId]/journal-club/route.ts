@@ -147,11 +147,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Fetch all designated presenters
     const presenters = await prisma.user.findMany({
       where: { id: { in: targetPresenterIds } },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, department: true },
     })
+    const presenterNamesWithDept = presenters.length > 0
+      ? presenters.map((p) => `${p.name}${p.department ? ` (${p.department})` : ''}`).join(', ')
+      : session.presenter.name
+
     const presenterNames = presenters.length > 0
       ? presenters.map((p) => p.name).join(', ')
       : session.presenter.name
+
+    // Store metadata tag in notes for multi-presenter display
+    if (targetPresenterIds.length > 1) {
+      const formattedNotes = `[Presenters: ${presenterNamesWithDept}]${notes?.trim() ? '\n' + notes.trim() : ''}`
+      await prisma.journalClubSession.update({
+        where: { id: session.id },
+        data: { notes: formattedNotes },
+      }).catch(() => {})
+      session.notes = formattedNotes
+    }
 
     // Notify all assigned presenters
     for (const pId of targetPresenterIds) {

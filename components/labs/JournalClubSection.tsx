@@ -67,6 +67,22 @@ interface JournalClubSessionItem {
   }
 }
 
+function getSessionPresentersText(session: JournalClubSessionItem): string {
+  if (session.notes && session.notes.includes('[Presenters: ')) {
+    const match = session.notes.match(/\[Presenters: ([^\]]+)\]/)
+    if (match && match[1]) {
+      return match[1]
+    }
+  }
+  return `${session.presenter.name}${session.presenter.department ? ` (${session.presenter.department})` : ''}`
+}
+
+function getCleanSessionNotes(notes: string | null): string | null {
+  if (!notes) return null
+  const cleaned = notes.replace(/\[Presenters: [^\]]+\]\n?/, '').trim()
+  return cleaned || null
+}
+
 interface JournalClubSectionProps {
   labId: string
   groupId: string
@@ -527,19 +543,20 @@ export function JournalClubSection({
                   </div>
 
                   {/* Presenter Pill */}
-                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default text-xs">
-                    <div className="w-5 h-5 rounded-full bg-accent/20 text-accent font-bold text-[10px] flex items-center justify-center">
-                      {s.presenter.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-text-secondary">
-                      Presenter: <strong className="text-text-primary">{s.presenter.name}</strong>
-                    </span>
-                    {s.presenter.department && (
-                      <span className="text-[10px] text-text-tertiary font-mono hidden sm:inline">
-                        ({s.presenter.department})
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const presentersText = getSessionPresentersText(s)
+                    const isMultiple = presentersText.includes(',')
+                    return (
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-bg-tertiary border border-border-default text-xs max-w-full">
+                        <div className="w-5 h-5 rounded-full bg-accent/20 text-accent font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {s.presenter.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-text-secondary truncate">
+                          Presenter{isMultiple ? 's' : ''}: <strong className="text-text-primary">{presentersText}</strong>
+                        </span>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Middle Row: Paper Information */}
@@ -592,16 +609,20 @@ export function JournalClubSection({
                   </div>
 
                   {/* Discussion Prep Notes */}
-                  {s.notes && (
-                    <div className="p-3 rounded-xl bg-bg-tertiary/70 border border-border-default/60 text-xs text-text-secondary space-y-1">
-                      <div className="flex items-center justify-between text-text-tertiary text-[11px] font-semibold">
-                        <span className="flex items-center gap-1">
-                          <MessageSquare size={12} className="text-accent" /> Seminar Focus &amp; Pre-Reading Guidance:
-                        </span>
+                  {(() => {
+                    const cleanNotes = getCleanSessionNotes(s.notes)
+                    if (!cleanNotes) return null
+                    return (
+                      <div className="p-3 rounded-xl bg-bg-tertiary/70 border border-border-default/60 text-xs text-text-secondary space-y-1">
+                        <div className="flex items-center justify-between text-text-tertiary text-[11px] font-semibold">
+                          <span className="flex items-center gap-1">
+                            <MessageSquare size={12} className="text-accent" /> Seminar Focus &amp; Pre-Reading Guidance:
+                          </span>
+                        </div>
+                        <p className="italic text-text-secondary whitespace-pre-wrap">{cleanNotes}</p>
                       </div>
-                      <p className="italic text-text-secondary whitespace-pre-wrap">{s.notes}</p>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
 
                 {/* Bottom Row: Actions Bar */}
