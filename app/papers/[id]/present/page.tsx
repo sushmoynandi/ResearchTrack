@@ -1151,63 +1151,81 @@ export default function JournalClubPresentationPage() {
 
               {/* Presentation Viewer Area */}
               {driveLink ? (
-                <div ref={slideViewerRef} className={`space-y-3 ${isSlideViewerFullscreen ? 'p-4 bg-black min-h-screen flex flex-col justify-between' : ''}`}>
-                  <div className="flex items-center justify-between text-xs text-text-secondary bg-bg-tertiary/60 p-2.5 rounded-xl border border-border-default flex-wrap gap-2">
-                    <span className="flex items-center gap-1.5 font-semibold text-blue-300">
-                      <Link2 size={14} /> Embedded Google Drive Presentation
-                    </span>
+                <div ref={slideViewerRef} className={`space-y-3 relative ${isSlideViewerFullscreen ? 'p-0 m-0 bg-black w-screen h-screen fixed inset-0 z-50 overflow-hidden' : ''}`}>
+                  {/* Top Bar - Hidden when in Full Screen */}
+                  {!isSlideViewerFullscreen && (
+                    <div className="flex items-center justify-between text-xs text-text-secondary bg-bg-tertiary/60 p-2.5 rounded-xl border border-border-default flex-wrap gap-2">
+                      <span className="flex items-center gap-1.5 font-semibold text-blue-300">
+                        <Link2 size={14} /> Embedded Google Drive Presentation
+                      </span>
 
-                    {/* Navigation and Fullscreen Controls for PPT / PDF */}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={prevPdfPage}
-                        icon={<ChevronLeft size={12} />}
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={nextPdfPage}
-                      >
-                        Next <ChevronRight size={12} className="ml-0.5" />
-                      </Button>
+                      {/* Navigation and Fullscreen Controls for PPT / PDF */}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={prevPdfPage}
+                          icon={<ChevronLeft size={12} />}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={nextPdfPage}
+                        >
+                          Next <ChevronRight size={12} className="ml-0.5" />
+                        </Button>
 
-                      {/* Fullscreen Toggle */}
-                      <Button
-                        size="xs"
-                        variant="primary"
-                        onClick={toggleSlideViewerFullscreen}
-                        icon={isSlideViewerFullscreen ? <Minimize size={12} /> : <Maximize size={12} />}
-                      >
-                        {isSlideViewerFullscreen ? 'Exit Full Screen' : 'Full Screen View'}
-                      </Button>
+                        {/* Fullscreen Toggle */}
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          onClick={toggleSlideViewerFullscreen}
+                          icon={<Maximize size={12} />}
+                        >
+                          Full Screen View
+                        </Button>
 
-                      <a
-                        href={driveLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-primary transition-colors ml-1"
-                      >
-                        <ExternalLink size={11} /> Open Drive
-                      </a>
-                      <button
-                        type="button"
-                        onClick={handleRemovePaperDriveLink}
-                        className="text-rose-400 hover:text-rose-300 text-[11px] font-medium ml-1"
-                      >
-                        Remove
-                      </button>
+                        <a
+                          href={driveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-primary transition-colors ml-1"
+                        >
+                          <ExternalLink size={11} /> Open Drive
+                        </a>
+                        <button
+                          type="button"
+                          onClick={handleRemovePaperDriveLink}
+                          className="text-rose-400 hover:text-rose-300 text-[11px] font-medium ml-1"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Floating Exit Button visible only during Full Screen on hover */}
+                  {isSlideViewerFullscreen && (
+                    <div className="absolute top-4 right-4 z-50 opacity-30 hover:opacity-100 transition-opacity">
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        onClick={toggleSlideViewerFullscreen}
+                        icon={<Minimize size={12} />}
+                        className="bg-bg-secondary/90 backdrop-blur shadow-lg border border-border-default text-text-primary"
+                      >
+                        Exit Full Screen (Esc)
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Embedded Iframe Container */}
-                  <div className={`w-full rounded-2xl overflow-hidden border border-border-default bg-black shadow-lg ${isSlideViewerFullscreen ? 'flex-1 h-[calc(100vh-100px)] aspect-auto' : 'aspect-[16/10]'}`}>
+                  <div className={`w-full overflow-hidden bg-black ${isSlideViewerFullscreen ? 'h-screen w-screen border-none rounded-none' : 'aspect-[16/10] rounded-2xl border border-border-default shadow-lg'}`}>
                     <iframe
                       src={getGoogleDriveEmbedUrl(driveLink) || driveLink}
-                      className="w-full h-full"
+                      className="w-full h-full border-0"
                       allowFullScreen
                       allow="autoplay"
                       title="Google Drive Embedded Presentation"
@@ -1215,61 +1233,79 @@ export default function JournalClubPresentationPage() {
                   </div>
                 </div>
               ) : localSlideObjectUrl && localSlide ? (
-                <div ref={slideViewerRef} className={`space-y-3 ${isSlideViewerFullscreen ? 'p-4 bg-black min-h-screen flex flex-col justify-between' : ''}`}>
-                  <div className="flex items-center justify-between text-xs text-text-secondary bg-bg-tertiary/60 p-2.5 rounded-xl border border-border-default flex-wrap gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText size={14} className="text-accent" />
-                      <span className="font-semibold text-text-primary truncate">{localSlide.fileName}</span>
-                      <span className="text-[10px] text-text-tertiary">({formatFileSize(localSlide.fileSize)})</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
-                        Page {pdfPageNumber}
-                      </span>
+                <div ref={slideViewerRef} className={`space-y-3 relative ${isSlideViewerFullscreen ? 'p-0 m-0 bg-black w-screen h-screen fixed inset-0 z-50 overflow-hidden' : ''}`}>
+                  {/* Top Bar - Hidden when in Full Screen */}
+                  {!isSlideViewerFullscreen && (
+                    <div className="flex items-center justify-between text-xs text-text-secondary bg-bg-tertiary/60 p-2.5 rounded-xl border border-border-default flex-wrap gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText size={14} className="text-accent" />
+                        <span className="font-semibold text-text-primary truncate">{localSlide.fileName}</span>
+                        <span className="text-[10px] text-text-tertiary">({formatFileSize(localSlide.fileSize)})</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                          Page {pdfPageNumber}
+                        </span>
+                      </div>
+
+                      {/* Navigation and Fullscreen Controls for PDF */}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={prevPdfPage}
+                          disabled={pdfPageNumber <= 1}
+                          icon={<ChevronLeft size={12} />}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={nextPdfPage}
+                        >
+                          Next <ChevronRight size={12} className="ml-0.5" />
+                        </Button>
+
+                        {/* Full Screen Toggle */}
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          onClick={toggleSlideViewerFullscreen}
+                          icon={<Maximize size={12} />}
+                        >
+                          Full Screen View
+                        </Button>
+
+                        <button
+                          type="button"
+                          onClick={handleRemovePaperSlide}
+                          className="text-rose-400 hover:text-rose-300 text-[11px] font-medium ml-1"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
+                  )}
 
-                    {/* Navigation and Fullscreen Controls for PDF */}
-                    <div className="flex items-center gap-2">
+                  {/* Floating Exit Button visible only during Full Screen on hover */}
+                  {isSlideViewerFullscreen && (
+                    <div className="absolute top-4 right-4 z-50 opacity-30 hover:opacity-100 transition-opacity">
                       <Button
                         size="xs"
                         variant="secondary"
-                        onClick={prevPdfPage}
-                        disabled={pdfPageNumber <= 1}
-                        icon={<ChevronLeft size={12} />}
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={nextPdfPage}
-                      >
-                        Next <ChevronRight size={12} className="ml-0.5" />
-                      </Button>
-
-                      {/* Full Screen Toggle */}
-                      <Button
-                        size="xs"
-                        variant="primary"
                         onClick={toggleSlideViewerFullscreen}
-                        icon={isSlideViewerFullscreen ? <Minimize size={12} /> : <Maximize size={12} />}
+                        icon={<Minimize size={12} />}
+                        className="bg-bg-secondary/90 backdrop-blur shadow-lg border border-border-default text-text-primary"
                       >
-                        {isSlideViewerFullscreen ? 'Exit Full Screen' : 'Full Screen View'}
+                        Exit Full Screen (Esc)
                       </Button>
-
-                      <button
-                        type="button"
-                        onClick={handleRemovePaperSlide}
-                        className="text-rose-400 hover:text-rose-300 text-[11px] font-medium ml-1"
-                      >
-                        Remove
-                      </button>
                     </div>
-                  </div>
+                  )}
 
                   {/* Embedded PDF Iframe Container */}
-                  <div className={`w-full rounded-2xl overflow-hidden border border-border-default bg-black shadow-lg ${isSlideViewerFullscreen ? 'flex-1 h-[calc(100vh-100px)] aspect-auto' : 'aspect-[16/10]'}`}>
+                  <div className={`w-full overflow-hidden bg-black ${isSlideViewerFullscreen ? 'h-screen w-screen border-none rounded-none' : 'aspect-[16/10] rounded-2xl border border-border-default shadow-lg'}`}>
                     <iframe
                       src={`${localSlideObjectUrl}#page=${pdfPageNumber}&toolbar=1&navpanes=0`}
-                      className="w-full h-full"
+                      className="w-full h-full border-0"
                       title="Local Slide Presentation Preview"
                     />
                   </div>
