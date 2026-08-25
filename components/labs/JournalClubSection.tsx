@@ -670,20 +670,20 @@ export function JournalClubSection({
                   </div>
 
                   {/* Management & Status Controls */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Edit Notes & Details */}
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => handleOpenEditModal(s)}
-                      icon={<Edit3 size={12} />}
-                      title="Edit Seminar Notes / Schedule"
-                    >
-                      Edit Details
-                    </Button>
+                  {isLeadOrSupervisor && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Edit Notes & Details */}
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => handleOpenEditModal(s)}
+                        icon={<Edit3 size={12} />}
+                        title="Edit Seminar Notes / Schedule"
+                      >
+                        Edit Details
+                      </Button>
 
-                    {/* Mark Completed Toggle */}
-                    {isLeadOrSupervisor && (
+                      {/* Mark Completed Toggle */}
                       <Button
                         size="xs"
                         variant="secondary"
@@ -692,10 +692,8 @@ export function JournalClubSection({
                       >
                         {isCompleted ? 'Re-open' : 'Mark Done'}
                       </Button>
-                    )}
 
-                    {/* Cancel / Delete */}
-                    {isLeadOrSupervisor && (
+                      {/* Cancel / Delete */}
                       <Button
                         size="xs"
                         variant="ghost"
@@ -703,8 +701,8 @@ export function JournalClubSection({
                         icon={<Trash2 size={12} className="text-rose-400" />}
                         title="Cancel Seminar Session"
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )

@@ -268,6 +268,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id: labId } = await params
+    const lab = await prisma.lab.findFirst({
+      where: { OR: [{ id: labId }, { slug: labId }] },
+      select: { leadId: true },
+    })
+
+    const isLeadOrSupervisor = user.id === lab?.leadId || user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN'
+    if (!isLeadOrSupervisor) {
+      return NextResponse.json({ error: 'Forbidden: Students are not permitted to edit presentation seminars' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { sessionId, status, notes, scheduledAt, presenterId, paperId } = body
 
@@ -321,6 +332,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: labId } = await params
+    const lab = await prisma.lab.findFirst({
+      where: { OR: [{ id: labId }, { slug: labId }] },
+      select: { leadId: true },
+    })
+
+    const isLeadOrSupervisor = user.id === lab?.leadId || user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN'
+    if (!isLeadOrSupervisor) {
+      return NextResponse.json({ error: 'Forbidden: Students are not permitted to delete presentation seminars' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
