@@ -916,13 +916,14 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               </>
             )}
 
+            {/* Always Visible Fullscreen Reader Toggle */}
             <button
               type="button"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors cursor-pointer"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Reader'}
+              onClick={() => setIsFullscreen(true)}
+              className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-bg-tertiary border border-border-default transition-colors cursor-pointer flex items-center justify-center"
+              title="Fullscreen Reader"
             >
-              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              <Maximize2 size={14} />
             </button>
 
             <button
@@ -936,21 +937,8 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
         </div>
       )}
 
-      {/* Floating Exit Fullscreen Button on hover when in Fullscreen */}
-      {isFullscreen && (
-        <div className="absolute top-3 right-3 z-50 opacity-40 hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(false)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-secondary/90 backdrop-blur shadow-lg border border-border-default text-xs font-semibold text-text-primary hover:text-accent transition-all cursor-pointer"
-          >
-            <Minimize2 size={13} /> Exit Fullscreen
-          </button>
-        </div>
-      )}
-
       {/* Reading progress and focused next action */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-bg-secondary/70 border-b border-border-default text-xs shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-bg-secondary/90 border-b border-border-default text-xs shrink-0 z-10">
         {/* Left: Active Session Timer & Streak */}
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border-default font-mono">
@@ -994,7 +982,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           <span className="font-mono text-text-tertiary w-8 text-right">{readingProgress}%</span>
         </label>
 
-        {/* Right: 1-Click Status Transition Button */}
+        {/* Right: 1-Click Status Transition Button & Fullscreen Controls */}
         <div className="flex items-center gap-2">
           {readingStatus === 'COMPLETED' ? (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-success/15 text-success border border-success/30 font-semibold text-xs">
@@ -1025,6 +1013,18 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             <option value="COMPLETED">✅ Completed</option>
             <option value="ARCHIVED">📦 Archived</option>
           </select>
+
+          {/* Exit Fullscreen Button neatly positioned on the right */}
+          {isFullscreen && (
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-xs font-semibold transition-all cursor-pointer shadow-xs ml-1"
+              title="Exit Fullscreen Mode (Esc)"
+            >
+              <Minimize2 size={13} /> Exit Fullscreen
+            </button>
+          )}
         </div>
       </div>
 
