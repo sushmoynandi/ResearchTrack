@@ -839,27 +839,66 @@ export function JournalClubSection({
 
             {/* Presenter & Date Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
-                  2. Designated Presenter *
-                </label>
-                <select
-                  value={selectedPresenterId}
-                  onChange={(e) => setSelectedPresenterId(e.target.value)}
-                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                  required
-                >
-                  {activePresenterCandidates.map((m: any, idx: number) => {
-                    const isStudent = m.user.systemRole === 'STUDENT' || !['SUPERVISOR', 'ADMIN'].includes(m.user.systemRole || '')
-                    return (
-                      <option key={m.id} value={m.user.id}>
-                        {idx === 0 && isStudent ? `⭐ (Default ${seminarScope === 'SEMINAR_LAB' ? 'Lab' : 'Sub-Group'} Student) ` : ''}
-                        {m.user.name} — {isStudent ? 'Student Researcher' : m.user.systemRole || 'Member'} ({m.user.email})
-                      </option>
-                    )
-                  })}
-                </select>
+            {/* Designated Presenter Select Box */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-text-secondary flex items-center justify-between">
+                <span>2. Designated Presenter *</span>
+                <span className="text-[10px] text-text-tertiary font-mono">
+                  {activePresenterCandidates.length} Members Available
+                </span>
+              </label>
+
+              <div className="max-h-48 overflow-y-auto space-y-1.5 border border-border-default rounded-xl p-2 bg-bg-secondary">
+                {activePresenterCandidates.map((m: any, idx: number) => {
+                  const isSelected = selectedPresenterId === m.user.id
+                  const isStudent = m.user.systemRole === 'STUDENT' || !['SUPERVISOR', 'ADMIN'].includes(m.user.systemRole || '')
+                  const isDefault = idx === 0 && isStudent
+
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => setSelectedPresenterId(m.user.id)}
+                      className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? 'bg-accent/15 border-accent text-text-primary font-bold shadow-xs'
+                          : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary hover:border-accent/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                          isSelected ? 'bg-accent text-white' : 'bg-bg-elevated text-text-secondary border border-border-default'
+                        }`}>
+                          {m.user.name.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate font-semibold">{m.user.name}</span>
+                            {isDefault && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                ⭐ Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-text-tertiary truncate">{m.user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                          isStudent
+                            ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                            : 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                        }`}>
+                          {isStudent ? 'Student' : 'Supervisor'}
+                        </span>
+                        {isSelected && <CheckCircle2 size={14} className="text-accent" />}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
+            </div>
 
               <div>
                 <label className="block text-xs font-semibold text-text-secondary mb-1.5">
