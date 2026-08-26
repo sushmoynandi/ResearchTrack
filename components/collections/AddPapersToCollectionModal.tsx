@@ -53,7 +53,7 @@ export function AddPapersToCollectionModal({
     async function loadPapers() {
       setLoading(true)
       try {
-        const res = await fetch('/api/papers?scope=own')
+        const res = await fetch('/api/papers?scope=all')
         if (res.ok) {
           const data = await res.json()
           setPapers(data)

@@ -35,6 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       include: {
         user: { select: { supervisorId: true } },
         assignments: { select: { studentId: true } },
+        shares: { select: { sharedWithId: true } },
       },
     })
 
@@ -48,8 +49,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       user.systemRole === 'SUPERVISOR' &&
       (paper.userId === user.id || paper.user.supervisorId === user.id)
     const isAssigned = paper.assignments.some((assignment) => assignment.studentId === user.id)
+    const isShared = paper.shares.some((share) => share.sharedWithId === user.id)
 
-    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned) {
+    if (!isOwner && !isAdmin && !isSupervisor && !isAssigned && !isShared) {
       return NextResponse.json({ error: 'Unauthorized to add this paper' }, { status: 403 })
     }
 
