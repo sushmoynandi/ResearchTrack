@@ -1443,19 +1443,52 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   </button>
                 </div>
 
-                {/* Prompt Snippet Pills */}
-                <div className="flex flex-wrap gap-1.5 shrink-0">
-                  {AI_SNIPPETS.map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => handleSendAi(s.prompt)}
-                      disabled={aiLoading}
-                      className="px-2 py-1 rounded-md text-[11px] bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default transition-all font-medium cursor-pointer disabled:opacity-50"
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+                {/* Prompt Snippet Pills & Serial Q1-Q9 Buttons */}
+                <div className="space-y-1.5 shrink-0">
+                  <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono">
+                    <span>QUICK SYNTHESIS PROMPTS:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_SNIPPETS.map((s) => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => handleSendAi(s.prompt)}
+                        disabled={aiLoading}
+                        className="px-2 py-1 rounded-md text-[11px] bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default transition-all font-medium cursor-pointer disabled:opacity-50"
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono pt-1">
+                    <span>ASK STRUCTURED QUESTIONS (Q1–Q9):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { num: 'Q1', title: 'Problem & Importance', prompt: 'Answer Literature Extraction Q1: What problem do the authors address and why is it important?' },
+                      { num: 'Q2', title: 'Data & Benchmarks', prompt: 'Answer Literature Extraction Q2: What data is used (source, size, timeframe, splits, collection process, ethics or consent)?' },
+                      { num: 'Q3', title: 'Features & Inputs', prompt: 'Answer Literature Extraction Q3: What features or inputs are used, and how were they selected or engineered?' },
+                      { num: 'Q4', title: 'Methods & Pipeline', prompt: 'Answer Literature Extraction Q4: What methods or models are applied, and what is the overall pipeline?' },
+                      { num: 'Q5', title: 'Baselines', prompt: 'Answer Literature Extraction Q5: What baselines are used for comparison, and why were they chosen?' },
+                      { num: 'Q6', title: 'Evaluation', prompt: 'Answer Literature Extraction Q6: How is performance evaluated (metrics, experimental setup, statistical tests, user studies if applicable)?' },
+                      { num: 'Q7', title: 'Key Results', prompt: 'Answer Literature Extraction Q7: What are the key results with numbers, and how do they compare to baselines or prior work?' },
+                      { num: 'Q8', title: 'Limitations', prompt: 'Answer Literature Extraction Q8: What are the limitations and potential biases?' },
+                      { num: 'Q9', title: 'Artifacts', prompt: 'Answer Literature Extraction Q9: Is code, data, or other artifacts available to enable replication?' },
+                    ].map((q) => (
+                      <button
+                        key={q.num}
+                        type="button"
+                        onClick={() => handleSendAi(q.prompt)}
+                        disabled={aiLoading}
+                        title={q.prompt}
+                        className="px-2 py-0.5 rounded text-[11px] bg-accent/10 hover:bg-accent hover:text-white text-accent border border-accent/20 transition-all font-mono font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Ask {q.num}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Chat Stream Box */}
@@ -1884,12 +1917,27 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                         key={q.key}
                         className="p-3 rounded-xl bg-bg-primary border border-border-default hover:border-accent/40 transition-colors space-y-2"
                       >
-                        <label className="text-[11px] font-semibold text-text-primary flex items-start gap-2 leading-snug">
-                          <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold shrink-0 mt-0.5">
-                            {q.num}
-                          </span>
-                          <span className="flex-1 text-text-primary">{q.fullQuestion}</span>
-                        </label>
+                        <div className="flex items-start justify-between gap-2">
+                          <label className="text-[11px] font-semibold text-text-primary flex items-start gap-2 leading-snug flex-1">
+                            <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold shrink-0 mt-0.5">
+                              {q.num}
+                            </span>
+                            <span className="flex-1 text-text-primary">{q.fullQuestion}</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('ai')
+                              handleSendAi(`Answer Literature Extraction ${q.num}: ${q.fullQuestion}`)
+                            }}
+                            className="px-2 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-[10px] font-mono font-bold shrink-0 flex items-center gap-1 transition-all cursor-pointer"
+                            title={`Ask AI to answer ${q.num}`}
+                          >
+                            <Bot size={11} />
+                            <span>Ask {q.num}</span>
+                          </button>
+                        </div>
                         
                         <textarea
                           value={detailedText}
