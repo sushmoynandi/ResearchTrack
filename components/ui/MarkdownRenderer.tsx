@@ -1,22 +1,36 @@
 'use client'
 
 import React from 'react'
-import { ExternalLink, Check, Copy } from 'lucide-react'
+import katex from 'katex'
+import { ExternalLink } from 'lucide-react'
 
 interface MarkdownRendererProps {
   content: string
   className?: string
 }
 
+function renderMathToHtml(math: string, displayMode: boolean = false): string {
+  try {
+    return katex.renderToString(math.trim(), {
+      displayMode,
+      throwOnError: false,
+      output: 'htmlAndMathml',
+      strict: false,
+    })
+  } catch {
+    return math
+  }
+}
+
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
   // Parse markdown blocks
   const renderFormattedText = (text: string) => {
-    // 1. Process inline bold, italics, code, links, and LaTeX math
+    // 1. Process inline bold, italics, code, links, and LaTeX math ($...$ or \(...\))
     const parts: React.ReactNode[] = []
     let cursor = 0
 
-    // Regex for bold **text**, italic *text*, inline code `code`, markdown link [text](url), and inline math $math$
-    const tokenRegex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|\$[^$]+\$)/g
+    // Match bold, italic, code, links, block/inline math
+    const tokenRegex = /(\$\$(?:[^\$]|\\[\s\S])+?\$\$|\\\[(?:[\s\S]*?)\\\]|\$(?:[^\$\n]|\\[\s\S])+?\$|\\\((?:[\s\S]*?)\\\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
     let match: RegExpExecArray | null
 
     while ((match = tokenRegex.exec(text)) !== null) {
@@ -25,7 +39,38 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       }
 
       const matchText = match[0]
-      if (matchText.startsWith('**') && matchText.endsWith('**')) {
+
+      // Block math: $$ ... $$ or \[ ... \]
+      if ((matchText.startsWith('$$') && matchText.endsWith('$$') && matchText.length >= 4) ||
+          (matchText.startsWith('\\[') && matchText.endsWith('\\]'))) {
+        const mathContent = matchText.startsWith('$$') 
+          ? matchText.slice(2, -2) 
+          : matchText.slice(2, -2)
+        const html = renderMathToHtml(mathContent, true)
+        parts.push(
+          <div
+            key={match.index}
+            className="my-3 p-3 overflow-x-auto text-center bg-bg-tertiary/40 rounded-xl border border-border-default shadow-xs"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )
+      }
+      // Inline math: $ ... $ or \( ... \)
+      else if ((matchText.startsWith('$') && matchText.endsWith('$') && matchText.length >= 2) ||
+               (matchText.startsWith('\\(') && matchText.endsWith('\\)'))) {
+        const mathContent = matchText.startsWith('$') 
+          ? matchText.slice(1, -1) 
+          : matchText.slice(2, -2)
+        const html = renderMathToHtml(mathContent, false)
+        parts.push(
+          <span
+            key={match.index}
+            className="inline-block px-1 py-0.5 rounded bg-accent/5 font-mono text-[12px] text-text-primary align-middle"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )
+      }
+      else if (matchText.startsWith('**') && matchText.endsWith('**')) {
         parts.push(
           <strong key={match.index} className="font-semibold text-text-primary">
             {matchText.slice(2, -2)}
@@ -45,15 +90,6 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
           >
             {matchText.slice(1, -1)}
           </code>
-        )
-      } else if (matchText.startsWith('$') && matchText.endsWith('$')) {
-        parts.push(
-          <span
-            key={match.index}
-            className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20 font-mono text-[11px] text-accent font-semibold inline-block my-0.5"
-          >
-            {matchText.slice(1, -1)}
-          </span>
         )
       } else if (matchText.startsWith('[') && matchText.includes('](')) {
         const linkMatch = matchText.match(/\[([^\]]+)\]\(([^)]+)\)/)

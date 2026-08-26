@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { AgentationProvider } from "@/components/AgentationProvider";
 import { AppShell } from "@/components/layout/AppShell";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
