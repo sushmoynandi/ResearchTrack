@@ -1768,11 +1768,16 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
             {/* TAB 3: Survey Matrix Quick-Fill */}
             {activeTab === 'survey' && (
-              <div className="flex-1 flex flex-col p-4 space-y-3 min-h-0 overflow-y-auto">
+              <div className="flex-1 flex flex-col p-4 space-y-3.5 min-h-0 overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-border-default pb-2">
-                  <h4 className="text-xs font-bold text-text-primary">
-                    Live Survey Matrix Quick-Fill
-                  </h4>
+                  <div>
+                    <h4 className="text-xs font-bold text-text-primary">
+                      Structured Literature Matrix (Q1–Q9)
+                    </h4>
+                    <p className="text-[10px] text-text-tertiary">
+                      Live extraction and paper synthesis matrix for your research lab.
+                    </p>
+                  </div>
                   <Button
                     size="xs"
                     variant="primary"
@@ -1785,125 +1790,150 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Assigned Reviewer *
-                    </label>
-                    <input
-                      value={litReview.assignedPerson || ''}
-                      onChange={(e) => setLitReview({ ...litReview, assignedPerson: e.target.value })}
-                      placeholder="e.g. Dr. Alex Morgan"
-                      className="w-full h-8 px-2.5 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
+                  {/* General Meta Fields */}
+                  <div className="grid grid-cols-1 gap-2 p-2.5 rounded-xl bg-bg-primary border border-border-default">
+                    <div>
+                      <label className="text-[11px] font-semibold text-text-secondary block mb-1">
+                        Assigned Reviewer
+                      </label>
+                      <input
+                        value={litReview.assignedPerson || ''}
+                        onChange={(e) => setLitReview({ ...litReview, assignedPerson: e.target.value })}
+                        placeholder="e.g. Dr. Alex Morgan / Student Researcher"
+                        className="w-full h-7 px-2.5 rounded bg-bg-tertiary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-text-secondary block mb-1">
+                        Research Gap &amp; Primary Motivation
+                      </label>
+                      <textarea
+                        value={litReview.researchGap || ''}
+                        onChange={(e) => setLitReview({ ...litReview, researchGap: e.target.value })}
+                        placeholder="Core unaddressed problem or gap in literature..."
+                        rows={2}
+                        className="w-full p-2 rounded bg-bg-tertiary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Research Gap *
-                    </label>
-                    <textarea
-                      value={litReview.researchGap || ''}
-                      onChange={(e) => setLitReview({ ...litReview, researchGap: e.target.value })}
-                      placeholder="Identified research gap..."
-                      rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
-                  </div>
+                  {/* Serial Q1 to Q9 Structured Questionnaire */}
+                  {[
+                    {
+                      key: 'q1ProblemImportance',
+                      num: 'Q1',
+                      title: 'Problem & Importance',
+                      desc: 'What problem do the authors address and why is it important?',
+                      placeholder: 'Describe the core motivation, scientific/industrial significance, and main bottleneck...',
+                    },
+                    {
+                      key: 'q2DataDetails',
+                      num: 'Q2',
+                      title: 'Data & Benchmarks',
+                      desc: 'What data is used (source, size, timeframe, splits, collection process, ethics or consent)?',
+                      placeholder: 'Detail dataset provenance, training/test splits, token counts, curation process, consent...',
+                    },
+                    {
+                      key: 'q3FeaturesInputs',
+                      num: 'Q3',
+                      title: 'Features & Input Representations',
+                      desc: 'What features or inputs are used, and how were they selected or engineered?',
+                      placeholder: 'Specify token representations, embeddings, modalities, pre-processing filters...',
+                    },
+                    {
+                      key: 'q4MethodsPipeline',
+                      num: 'Q4',
+                      title: 'Methods & Overall Pipeline',
+                      desc: 'What methods or models are applied, and what is the overall pipeline?',
+                      placeholder: 'Explain core algorithmic mechanisms, model architecture, loss formulation, optimization...',
+                    },
+                    {
+                      key: 'q5Baselines',
+                      num: 'Q5',
+                      title: 'Baselines for Comparison',
+                      desc: 'What baselines are used for comparison, and why were they chosen?',
+                      placeholder: 'List standard SOTA baselines compared against and rationale for selection...',
+                    },
+                    {
+                      key: 'q6Evaluation',
+                      num: 'Q6',
+                      title: 'Performance Evaluation & Metrics',
+                      desc: 'How is performance evaluated (metrics, experimental setup, statistical tests)?',
+                      placeholder: 'Describe benchmarks, evaluation metrics (accuracy, BLEU, latency), statistical tests...',
+                    },
+                    {
+                      key: 'q7KeyResults',
+                      num: 'Q7',
+                      title: 'Key Results with Numbers',
+                      desc: 'What are the key results with numbers, and how do they compare to baselines or prior work?',
+                      placeholder: 'State numerical findings, percentage improvements over baselines, headline scores...',
+                    },
+                    {
+                      key: 'q8LimitationsBiases',
+                      num: 'Q8',
+                      title: 'Limitations & Potential Biases',
+                      desc: 'What are the limitations and potential biases?',
+                      placeholder: 'Discuss computational cost, memory footprint, data bias, failure modes, degradation...',
+                    },
+                    {
+                      key: 'q9ArtifactsReplication',
+                      num: 'Q9',
+                      title: 'Artifacts & Replication Assets',
+                      desc: 'Is code, data, or other artifacts available to enable replication?',
+                      placeholder: 'Document links to open-source GitHub repositories, model weights, training scripts...',
+                    },
+                  ].map((q) => {
+                    const answerObj = (litReview[q.key as keyof LiteratureReviewData] as any) || {}
+                    const detailedText = typeof answerObj === 'string' ? answerObj : answerObj?.detailedAnswer || ''
+                    const summaryText = typeof answerObj === 'object' ? answerObj?.shortSummary || '' : ''
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Q1: Problem &amp; Importance *
-                    </label>
-                    <textarea
-                      value={litReview.q1ProblemImportance?.detailedAnswer || ''}
-                      onChange={(e) =>
-                        setLitReview({
-                          ...litReview,
-                          q1ProblemImportance: {
-                            detailedAnswer: e.target.value,
-                            shortSummary: litReview.q1ProblemImportance?.shortSummary || '',
-                          },
-                        })
-                      }
-                      placeholder="Q1 Detailed response..."
-                      rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
-                  </div>
+                    return (
+                      <div
+                        key={q.key}
+                        className="p-3 rounded-xl bg-bg-primary border border-border-default hover:border-accent/40 transition-colors space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold">
+                              {q.num}
+                            </span>
+                            <span>{q.title}</span>
+                          </label>
+                        </div>
+                        <p className="text-[10px] text-text-tertiary leading-tight">{q.desc}</p>
+                        
+                        <textarea
+                          value={detailedText}
+                          onChange={(e) =>
+                            setLitReview({
+                              ...litReview,
+                              [q.key]: {
+                                ...(typeof answerObj === 'object' ? answerObj : {}),
+                                detailedAnswer: e.target.value,
+                                shortSummary: summaryText,
+                              },
+                            })
+                          }
+                          placeholder={q.placeholder}
+                          rows={2}
+                          className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs outline-none focus:border-accent resize-y"
+                        />
+                      </div>
+                    )
+                  })}
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Q4: Methods &amp; Pipeline *
-                    </label>
-                    <textarea
-                      value={litReview.q4MethodsPipeline?.detailedAnswer || ''}
-                      onChange={(e) =>
-                        setLitReview({
-                          ...litReview,
-                          q4MethodsPipeline: {
-                            detailedAnswer: e.target.value,
-                            shortSummary: litReview.q4MethodsPipeline?.shortSummary || '',
-                          },
-                        })
-                      }
-                      placeholder="Q4 Detailed response..."
-                      rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Q7: Key Results &amp; Numbers *
-                    </label>
-                    <textarea
-                      value={litReview.q7KeyResults?.detailedAnswer || ''}
-                      onChange={(e) =>
-                        setLitReview({
-                          ...litReview,
-                          q7KeyResults: {
-                            detailedAnswer: e.target.value,
-                            shortSummary: litReview.q7KeyResults?.shortSummary || '',
-                          },
-                        })
-                      }
-                      placeholder="Q7 Detailed response..."
-                      rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Q8: Limitations &amp; Biases *
-                    </label>
-                    <textarea
-                      value={litReview.q8LimitationsBiases?.detailedAnswer || ''}
-                      onChange={(e) =>
-                        setLitReview({
-                          ...litReview,
-                          q8LimitationsBiases: {
-                            detailedAnswer: e.target.value,
-                            shortSummary: litReview.q8LimitationsBiases?.shortSummary || '',
-                          },
-                        })
-                      }
-                      placeholder="Q8 Detailed response..."
-                      rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary block mb-1">
-                      Final OutCome *
+                  {/* Final Verdict & OutCome */}
+                  <div className="p-3 rounded-xl bg-bg-primary border border-border-default space-y-1.5">
+                    <label className="text-[11px] font-bold text-text-primary block">
+                      Final Outcome &amp; Lab Recommendation
                     </label>
                     <textarea
                       value={litReview.outcome || ''}
                       onChange={(e) => setLitReview({ ...litReview, outcome: e.target.value })}
-                      placeholder="Final OutCome verdict..."
+                      placeholder="Overall takeaway, lab adoption recommendation, or thesis relevance..."
                       rows={2}
-                      className="w-full p-2 rounded bg-bg-primary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
+                      className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-text-primary text-xs outline-none focus:border-accent"
                     />
                   </div>
                 </div>
