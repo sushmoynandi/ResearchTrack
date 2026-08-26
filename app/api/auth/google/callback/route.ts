@@ -49,7 +49,7 @@ function getRedirectUri(request: NextRequest) {
 }
 
 function safeRedirect(target: string | undefined): string {
-  if (!target || !target.startsWith('/') || target.startsWith('//')) return '/'
+  if (!target || !target.startsWith('/') || target.startsWith('//')) return '/dashboard'
   return target
 }
 
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
   // that first — `proxy.ts` enforces the same rule on every other page.
   const needsProfile = !user.institution?.trim() || !user.department?.trim()
   const destination = needsProfile
-    ? `/welcome${redirectTarget !== '/' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`
+    ? `/welcome${redirectTarget !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`
     : user.systemRole === 'ADMIN'
       ? '/admin/users'
       : redirectTarget

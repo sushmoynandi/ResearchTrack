@@ -24,7 +24,8 @@ function isClientUpToDate(client: any): boolean {
       'labTask' in client &&
       'roleChangeRequest' in client &&
       'passwordResetOtp' in client &&
-      'twoFactorOtp' in client
+      'twoFactorOtp' in client &&
+      'helpVideo' in client
   )
 }
 

@@ -77,7 +77,13 @@ export default async function RootLayout({
           <body> before React hydrates, which otherwise reports as a
           hydration mismatch here in RootLayout. */}
       <body
-        className="font-[family-name:var(--font-body)] antialiased"
+        // font-sans, not font-[family-name:var(--font-body)]. globals.css
+        // already maps --font-sans onto --font-body in its @theme block, so the
+        // two produce identical CSS — but the arbitrary-value form has to be
+        // escaped character by character in the generated stylesheet, and that
+        // escaping is what came out mangled ("Unexpected token Delim") and
+        // failed the build.
+        className="font-sans antialiased"
         suppressHydrationWarning
       >
         <ThemeProvider initialTheme={theme}>

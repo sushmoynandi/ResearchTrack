@@ -4,44 +4,45 @@ import { prisma } from './prisma'
 import type { SystemRole } from './types'
 
 export async function getCurrentUser(request?: Request): Promise<SessionUser | null> {
-  let token: string | undefined
+  const candidates: string[] = []
 
-  // 1. Check Authorization header if request object provided
+  const add = (value?: string | null) => {
+    const token = value?.trim()
+    if (token && token.length > 10 && !candidates.includes(token)) candidates.push(token)
+  }
+
+  // 1. Authorization header on the request object, if one was passed
   if (request) {
     const authHeader = request.headers.get('authorization')
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7).trim()
-    }
+    if (authHeader?.startsWith('Bearer ')) add(authHeader.substring(7))
   }
 
-  // 2. Check next/headers for Authorization header
-  if (!token) {
-    try {
-      const headerStore = await headers()
-      const authHeader = headerStore.get('authorization')
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7).trim()
-      }
-    } catch {
-      // non-blocking
-    }
+  // 2. Authorization header via next/headers
+  try {
+    const headerStore = await headers()
+    const authHeader = headerStore.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) add(authHeader.substring(7))
+  } catch {
+    // non-blocking
   }
 
-  // 3. Check cookies from next/headers
-  if (!token) {
-    try {
-      const cookieStore = await cookies()
-      const rawCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value || cookieStore.get('papertrack_session')?.value
-      if (rawCookie && rawCookie.trim().length > 10) {
-        token = rawCookie.trim()
-      }
-    } catch {
-      // non-blocking
-    }
+  // 3. Session cookie
+  try {
+    const cookieStore = await cookies()
+    add(cookieStore.get(AUTH_COOKIE_NAME)?.value)
+    add(cookieStore.get('papertrack_session')?.value)
+  } catch {
+    // non-blocking
   }
 
-  // 4. Verify token if found
-  if (token && token.length > 10) {
+  // Every credential the request carried is tried, not just the first one
+  // found. The browser sends both — a Bearer header from localStorage and the
+  // session cookie — and the header used to win outright: if localStorage held
+  // a token that no longer verified, the request was refused even though the
+  // cookie beside it was perfectly good. Reloading the page then looked exactly
+  // like being signed out. Each token is verified on its own, so accepting the
+  // second one gives away nothing the first didn't already have to earn.
+  for (const token of candidates) {
     const session = await verifySessionToken(token)
     if (session) return session
   }

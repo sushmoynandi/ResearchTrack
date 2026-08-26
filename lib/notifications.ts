@@ -28,7 +28,7 @@ export async function sendPushNotification(
     const stringifiedPayload = JSON.stringify({
       title: payload.title,
       message: payload.message,
-      link: payload.link || '/',
+      link: payload.link || '/dashboard',
       type: payload.type || 'SYSTEM',
       icon: '/icon-192.png',
       badge: '/icon-192.png',

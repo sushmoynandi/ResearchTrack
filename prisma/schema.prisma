@@ -749,3 +749,31 @@ model TwoFactorOtp {
   @@index([userId])
   @@index([email])
 }
+
+// ─── "How to Use" Tutorial Videos ───────────────────────────
+// An administrator uploads a video to YouTube, then pastes the link here.
+// Students and supervisors watch it from the sidebar's How to Use page.
+enum HelpAudience {
+  ALL
+  STUDENT
+  SUPERVISOR
+}
+
+model HelpVideo {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  /// The link exactly as the administrator pasted it (watch, youtu.be, shorts…).
+  youtubeUrl  String
+  /// The 11-character YouTube id parsed out of `youtubeUrl` — what the player embeds.
+  videoId     String
+  audience    HelpAudience @default(ALL)
+  /// Lower numbers show first.
+  sortOrder   Int          @default(0)
+  isPublished Boolean      @default(true)
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([audience, isPublished])
+}

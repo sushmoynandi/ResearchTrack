@@ -32,7 +32,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, sessionChecked, signedOut } = useAuth()
+  const { user, sessionChecked } = useAuth()
   // Pages that render their own full-screen layout — no sidebar, no header.
   // /welcome belongs here too: it's the required profile step, so the rest of
   // the app must not be reachable from it.
@@ -44,12 +44,11 @@ function ShellInner({ children }: { children: React.ReactNode }) {
       pathname?.startsWith('/security-setup')
   )
 
-  // "/" serves two pages: the dashboard once you're signed in, and the public
-  // landing page when you're not. So a signed-out visitor is left there to read
-  // it rather than being bounced to /login, and it renders full-screen — the
-  // sidebar and header belong to the signed-in app.
+  // "/" is the public landing page, and it renders full-screen — the sidebar and
+  // header belong to the signed-in app, which starts at /dashboard. A signed-out
+  // visitor is left there to read it rather than being bounced to /login; a
+  // signed-in one is moved on to their dashboard by the page itself.
   const isHome = pathname === '/'
-  const showLanding = isHome && signedOut
 
   // Wait for the server to say who this is before sending anyone to /login.
   // `loading` turns false as soon as there's nothing saved in the browser to
@@ -62,7 +61,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [sessionChecked, user, isAuthPage, isHome, router])
 
-  if (isAuthPage || showLanding) {
+  if (isAuthPage || isHome) {
     return <main className="min-h-screen bg-bg-primary">{children}</main>
   }
 
