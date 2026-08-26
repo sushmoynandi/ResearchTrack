@@ -70,7 +70,7 @@ interface PdfReaderWorkspaceProps {
   paper: Paper
 }
 
-type SidebarTab = 'ai' | 'highlights' | 'notes' | 'survey'
+type SidebarTab = 'ai' | 'questions' | 'highlights' | 'notes' | 'survey'
 
 interface AiMessage {
   id: string
@@ -295,6 +295,59 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
       addToast('error', 'Failed to load local PDF in browser storage')
     }
   }
+
+  // ─── Resizable Sidebar Drawer State ───
+  const [sidebarWidth, setSidebarWidth] = useState<number>(440)
+  const [isResizing, setIsResizing] = useState(false)
+
+  // Load saved sidebar width from localStorage if available
+  useEffect(() => {
+    try {
+      const savedWidth = localStorage.getItem('paper_reader_sidebar_width')
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10)
+        if (parsed >= 320 && parsed <= 900) {
+          setSidebarWidth(parsed)
+        }
+      }
+    } catch {}
+  }, [])
+
+  // Mouse Drag handlers for resizing sidebar width
+  const handleMouseDownResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const windowWidth = window.innerWidth
+      const newWidth = windowWidth - e.clientX
+      // Bound between 320px and 70% of screen width (max 950px)
+      const minWidth = 320
+      const maxWidth = Math.min(windowWidth * 0.7, 950)
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      try {
+        localStorage.setItem('paper_reader_sidebar_width', sidebarWidth.toString())
+      } catch {}
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing, sidebarWidth])
 
   const handleRemoveClientPdf = async () => {
     await removeClientPdf(paper.id)
@@ -1321,9 +1374,22 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
           )}
         </div>
 
-        {/* Right Side: Collapsible Research Workspace */}
+        {/* Right Side: Collapsible & Resizable Research Workspace */}
         {isSidebarOpen && (
-          <div className="fixed inset-0 z-50 md:relative md:inset-auto md:w-[420px] md:max-w-[45%] flex flex-col bg-bg-secondary border-l border-border-default shrink-0 shadow-2xl md:shadow-lg animate-slide-in min-h-0">
+          <div
+            style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${sidebarWidth}px` : undefined }}
+            className={`fixed inset-0 z-50 md:relative md:inset-auto flex flex-col bg-bg-secondary border-l border-border-default shrink-0 shadow-2xl md:shadow-lg animate-slide-in min-h-0 ${
+              isResizing ? 'select-none pointer-events-none' : ''
+            }`}
+          >
+            {/* Desktop Left-Edge Drag Handle for Resizing Width */}
+            <div
+              onMouseDown={handleMouseDownResize}
+              className="hidden md:flex absolute top-0 bottom-0 -left-1.5 w-3 cursor-col-resize z-30 items-center justify-center group hover:bg-accent/20 transition-colors"
+              title="Drag to resize panel (boro/choto kora)"
+            >
+              <div className="w-1 h-8 rounded-full bg-border-default group-hover:bg-accent group-hover:h-12 transition-all shadow-xs" />
+            </div>
             {/* Mobile Header Bar with Close Button */}
             <div className="md:hidden flex items-center justify-between p-3.5 border-b border-border-default bg-bg-tertiary shrink-0">
               <span className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
@@ -1366,6 +1432,18 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
 
               <button
                 type="button"
+                onClick={() => setActiveTab('questions')}
+                className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'questions'
+                    ? 'border-accent text-accent bg-bg-secondary'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <HelpCircle size={13} className="text-sky-400" /> Questions
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('highlights')}
                 className={`flex-1 flex items-center justify-center gap-1 py-2.5 border-b-2 transition-all cursor-pointer ${
                   activeTab === 'highlights'
@@ -1397,7 +1475,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <FileCheck size={13} className="text-purple-400" /> Q1–Q9
+                <FileCheck size={13} className="text-purple-400" /> Matrix
               </button>
             </div>
 
@@ -1409,6 +1487,128 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   highlights={highlights}
                   onRefresh={fetchHighlights}
                 />
+              </div>
+            )}
+
+            {/* TAB: Dedicated Structured Literature Questions (Q1 to Q9) */}
+            {activeTab === 'questions' && (
+              <div className="flex-1 flex flex-col p-4 space-y-3.5 min-h-0 overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-border-default pb-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                      <HelpCircle size={14} className="text-sky-400" />
+                      <span>Structured Questions (Q1–Q9)</span>
+                    </h4>
+                    <p className="text-[10px] text-text-tertiary">
+                      Instant 1-click AI queries for core scientific literature extraction.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  {[
+                    {
+                      num: 'Q1',
+                      title: 'Problem & Importance',
+                      fullQuestion: 'What problem do the authors address and why is it important?',
+                      desc: 'Core motivation, scientific significance, and primary bottleneck addressed.',
+                    },
+                    {
+                      num: 'Q2',
+                      title: 'Data & Provenance',
+                      fullQuestion: 'What data is used (source, size, timeframe, splits, collection process, ethics or consent)?',
+                      desc: 'Dataset provenance, curation process, splits, and token counts.',
+                    },
+                    {
+                      num: 'Q3',
+                      title: 'Features & Input Representations',
+                      fullQuestion: 'What features or inputs are used, and how were they selected or engineered?',
+                      desc: 'Token representations, modalities, pre-processing filters, and prompt formats.',
+                    },
+                    {
+                      num: 'Q4',
+                      title: 'Methods & Algorithmic Pipeline',
+                      fullQuestion: 'What methods or models are applied, and what is the overall pipeline?',
+                      desc: 'Model architecture, loss formulations, optimization, and inference steps.',
+                    },
+                    {
+                      num: 'Q5',
+                      title: 'Baselines for Comparison',
+                      fullQuestion: 'What baselines are used for comparison, and why were they chosen?',
+                      desc: 'Standard SOTA baseline models compared against and rationale.',
+                    },
+                    {
+                      num: 'Q6',
+                      title: 'Evaluation Setup & Metrics',
+                      fullQuestion: 'How is performance evaluated (metrics, experimental setup, statistical tests, user studies if applicable)?',
+                      desc: 'Evaluation metrics (accuracy, BLEU, latency) and statistical tests.',
+                    },
+                    {
+                      num: 'Q7',
+                      title: 'Key Results & Numbers',
+                      fullQuestion: 'What are the key results with numbers, and how do they compare to baselines or prior work?',
+                      desc: 'Numerical findings, percentage improvements, and ablation insights.',
+                    },
+                    {
+                      num: 'Q8',
+                      title: 'Limitations & Potential Biases',
+                      fullQuestion: 'What are the limitations and potential biases?',
+                      desc: 'Compute cost, data bias, failure modes, and domain degradation.',
+                    },
+                    {
+                      num: 'Q9',
+                      title: 'Artifacts & Replication Assets',
+                      fullQuestion: 'Is code, data, or other artifacts available to enable replication?',
+                      desc: 'GitHub repositories, Hugging Face weights, and scripts availability.',
+                    },
+                  ].map((q) => (
+                    <div
+                      key={q.num}
+                      className="p-3 rounded-xl bg-bg-primary border border-border-default hover:border-accent/50 transition-all space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold">
+                              {q.num}
+                            </span>
+                            <span className="font-bold text-text-primary text-[11px]">{q.title}</span>
+                          </div>
+                          <p className="text-[11px] text-text-secondary leading-snug font-medium">
+                            {q.fullQuestion}
+                          </p>
+                          <p className="text-[10px] text-text-tertiary mt-0.5 leading-tight">
+                            {q.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-border-default/40">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('survey')
+                          }}
+                          className="text-[10px] text-text-tertiary hover:text-accent font-medium cursor-pointer"
+                        >
+                          View in Survey Matrix →
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('ai')
+                            handleSendAi(`Answer Literature Extraction ${q.num}: ${q.fullQuestion}`)
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-accent text-white text-[11px] font-mono font-bold flex items-center gap-1.5 hover:bg-accent-hover transition-all cursor-pointer shadow-xs"
+                        >
+                          <Bot size={12} />
+                          <span>Ask {q.num}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1443,7 +1643,7 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   </button>
                 </div>
 
-                {/* Prompt Snippet Pills & Serial Q1-Q9 Buttons */}
+                {/* Prompt Snippet Pills */}
                 <div className="space-y-1.5 shrink-0">
                   <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono">
                     <span>QUICK SYNTHESIS PROMPTS:</span>
@@ -1458,34 +1658,6 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                         className="px-2 py-1 rounded-md text-[11px] bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default transition-all font-medium cursor-pointer disabled:opacity-50"
                       >
                         {s.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono pt-1">
-                    <span>ASK STRUCTURED QUESTIONS (Q1–Q9):</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {[
-                      { num: 'Q1', title: 'Problem & Importance', prompt: 'Answer Literature Extraction Q1: What problem do the authors address and why is it important?' },
-                      { num: 'Q2', title: 'Data & Benchmarks', prompt: 'Answer Literature Extraction Q2: What data is used (source, size, timeframe, splits, collection process, ethics or consent)?' },
-                      { num: 'Q3', title: 'Features & Inputs', prompt: 'Answer Literature Extraction Q3: What features or inputs are used, and how were they selected or engineered?' },
-                      { num: 'Q4', title: 'Methods & Pipeline', prompt: 'Answer Literature Extraction Q4: What methods or models are applied, and what is the overall pipeline?' },
-                      { num: 'Q5', title: 'Baselines', prompt: 'Answer Literature Extraction Q5: What baselines are used for comparison, and why were they chosen?' },
-                      { num: 'Q6', title: 'Evaluation', prompt: 'Answer Literature Extraction Q6: How is performance evaluated (metrics, experimental setup, statistical tests, user studies if applicable)?' },
-                      { num: 'Q7', title: 'Key Results', prompt: 'Answer Literature Extraction Q7: What are the key results with numbers, and how do they compare to baselines or prior work?' },
-                      { num: 'Q8', title: 'Limitations', prompt: 'Answer Literature Extraction Q8: What are the limitations and potential biases?' },
-                      { num: 'Q9', title: 'Artifacts', prompt: 'Answer Literature Extraction Q9: Is code, data, or other artifacts available to enable replication?' },
-                    ].map((q) => (
-                      <button
-                        key={q.num}
-                        type="button"
-                        onClick={() => handleSendAi(q.prompt)}
-                        disabled={aiLoading}
-                        title={q.prompt}
-                        className="px-2 py-0.5 rounded text-[11px] bg-accent/10 hover:bg-accent hover:text-white text-accent border border-accent/20 transition-all font-mono font-bold cursor-pointer disabled:opacity-50"
-                      >
-                        Ask {q.num}
                       </button>
                     ))}
                   </div>
@@ -2001,6 +2173,16 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
             className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-accent cursor-pointer transition-all shadow-sm text-[11px]"
           >
             <Bot size={14} /> AI
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('questions')
+              setIsSidebarOpen(true)
+            }}
+            className="flex-1 py-2 px-1.5 rounded-xl bg-bg-tertiary hover:bg-bg-elevated flex items-center justify-center gap-1 font-semibold text-sky-400 cursor-pointer transition-all shadow-sm text-[11px]"
+          >
+            <HelpCircle size={14} /> Questions
           </button>
           <button
             type="button"

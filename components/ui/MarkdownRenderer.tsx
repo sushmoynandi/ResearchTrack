@@ -23,14 +23,13 @@ function renderMathToHtml(math: string, displayMode: boolean = false): string {
 }
 
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
-  // Parse markdown blocks
+  // Parse inline formatted text (bold, italic, code, links, inline math)
   const renderFormattedText = (text: string) => {
-    // 1. Process inline bold, italics, code, links, and LaTeX math ($...$ or \(...\))
     const parts: React.ReactNode[] = []
     let cursor = 0
 
-    // Match bold, italic, code, links, block/inline math
-    const tokenRegex = /(\$\$(?:[^\$]|\\[\s\S])+?\$\$|\\\[(?:[\s\S]*?)\\\]|\$(?:[^\$\n]|\\[\s\S])+?\$|\\\((?:[\s\S]*?)\\\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
+    // Match inline math ($...$ or \(...\)), bold, italic, code, links
+    const tokenRegex = /(\$(?:[^\$\n]|\\[\s\S])+?\$|\\\((?:[\s\S]*?)\\\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
     let match: RegExpExecArray | null
 
     while ((match = tokenRegex.exec(text)) !== null) {
@@ -40,24 +39,9 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
 
       const matchText = match[0]
 
-      // Block math: $$ ... $$ or \[ ... \]
-      if ((matchText.startsWith('$$') && matchText.endsWith('$$') && matchText.length >= 4) ||
-          (matchText.startsWith('\\[') && matchText.endsWith('\\]'))) {
-        const mathContent = matchText.startsWith('$$') 
-          ? matchText.slice(2, -2) 
-          : matchText.slice(2, -2)
-        const html = renderMathToHtml(mathContent, true)
-        parts.push(
-          <div
-            key={match.index}
-            className="my-3 p-3 overflow-x-auto text-center bg-bg-tertiary/40 rounded-xl border border-border-default shadow-xs"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        )
-      }
       // Inline math: $ ... $ or \( ... \)
-      else if ((matchText.startsWith('$') && matchText.endsWith('$') && matchText.length >= 2) ||
-               (matchText.startsWith('\\(') && matchText.endsWith('\\)'))) {
+      if ((matchText.startsWith('$') && matchText.endsWith('$') && matchText.length >= 2) ||
+          (matchText.startsWith('\\(') && matchText.endsWith('\\)'))) {
         const mathContent = matchText.startsWith('$') 
           ? matchText.slice(1, -1) 
           : matchText.slice(2, -2)
@@ -69,8 +53,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             dangerouslySetInnerHTML={{ __html: html }}
           />
         )
-      }
-      else if (matchText.startsWith('**') && matchText.endsWith('**')) {
+      } else if (matchText.startsWith('**') && matchText.endsWith('**')) {
         parts.push(
           <strong key={match.index} className="font-semibold text-text-primary">
             {matchText.slice(2, -2)}
@@ -124,204 +107,249 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     return parts.length > 0 ? parts : text
   }
 
-  // Parse lines and blocks
-  const lines = content.split('\n')
+  // 1. First extract top-level multi-line display math blocks: $$ ... $$ or \[ ... \]
+  // so they are not broken apart by line splits
+  const rawSections: { type: 'math' | 'markdown'; content: string }[] = []
+  const blockMathRegex = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])/g
+  let lastIdx = 0
+  let blockMatch: RegExpExecArray | null
+
+  while ((blockMatch = blockMathRegex.exec(content)) !== null) {
+    if (blockMatch.index > lastIdx) {
+      rawSections.push({
+        type: 'markdown',
+        content: content.substring(lastIdx, blockMatch.index),
+      })
+    }
+    const mathRaw = blockMatch[0]
+    const formula = mathRaw.startsWith('$$') ? mathRaw.slice(2, -2) : mathRaw.slice(2, -2)
+    rawSections.push({
+      type: 'math',
+      content: formula,
+    })
+    lastIdx = blockMatch.index + mathRaw.length
+  }
+
+  if (lastIdx < content.length) {
+    rawSections.push({
+      type: 'markdown',
+      content: content.substring(lastIdx),
+    })
+  }
+
+  // Render elements
   const elements: React.ReactNode[] = []
-  let tableRows: string[][] = []
-  let inTable = false
-  let inCodeBlock = false
-  let codeBlockContent: string[] = []
+  let globalElementIdx = 0
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+  for (const section of rawSections) {
+    if (section.type === 'math') {
+      const html = renderMathToHtml(section.content, true)
+      elements.push(
+        <div
+          key={`block-math-${globalElementIdx++}`}
+          className="my-3 p-3 overflow-x-auto text-center bg-bg-tertiary/40 rounded-xl border border-border-default shadow-xs"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )
+      continue
+    }
 
-    // Code block toggle
-    if (line.trim().startsWith('```')) {
+    // Parse markdown lines
+    const lines = section.content.split('\n')
+    let tableRows: string[][] = []
+    let inTable = false
+    let inCodeBlock = false
+    let codeBlockContent: string[] = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+
+      // Code block toggle
+      if (line.trim().startsWith('```')) {
+        if (inCodeBlock) {
+          elements.push(
+            <pre
+              key={`code-${globalElementIdx++}`}
+              className="p-3 my-2 rounded-xl bg-bg-primary border border-border-default font-mono text-xs overflow-x-auto text-text-primary"
+            >
+              <code>{codeBlockContent.join('\n')}</code>
+            </pre>
+          )
+          codeBlockContent = []
+          inCodeBlock = false
+        } else {
+          inCodeBlock = true
+        }
+        continue
+      }
+
       if (inCodeBlock) {
+        codeBlockContent.push(line)
+        continue
+      }
+
+      // Table row detection
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        inTable = true
+        const cells = line
+          .trim()
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim())
+        if (!cells.every((c) => /^:?-+:?$/.test(c))) {
+          tableRows.push(cells)
+        }
+        continue
+      } else if (inTable) {
+        if (tableRows.length > 0) {
+          const headerRow = tableRows[0]
+          const bodyRows = tableRows.slice(1)
+          elements.push(
+            <div key={`table-${globalElementIdx++}`} className="my-3 overflow-x-auto rounded-xl border border-border-default shadow-sm">
+              <table className="w-full text-xs text-left border-collapse">
+                {headerRow && (
+                  <thead>
+                    <tr className="bg-bg-tertiary border-b border-border-default text-text-secondary font-mono">
+                      {headerRow.map((cell, cIdx) => (
+                        <th key={cIdx} className="px-3 py-2 font-semibold">
+                          {renderFormattedText(cell)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
+                <tbody className="divide-y divide-border-default/50 bg-bg-primary/50">
+                  {bodyRows.map((row, rIdx) => (
+                    <tr key={rIdx} className="hover:bg-bg-tertiary/40 transition-colors">
+                      {row.map((cell, cIdx) => (
+                        <td key={cIdx} className="px-3 py-2 text-text-primary">
+                          {renderFormattedText(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+        tableRows = []
+        inTable = false
+      }
+
+      // Empty line
+      if (!line.trim()) {
+        elements.push(<div key={`space-${globalElementIdx++}`} className="h-2" />)
+        continue
+      }
+
+      // Headings
+      if (line.startsWith('### ')) {
         elements.push(
-          <pre
-            key={`code-${i}`}
-            className="p-3 my-2 rounded-xl bg-bg-primary border border-border-default font-mono text-xs overflow-x-auto text-text-primary"
+          <h4 key={`h3-${globalElementIdx++}`} className="text-xs font-bold font-mono uppercase tracking-wider text-accent mt-3 mb-1.5 flex items-center gap-1.5">
+            {renderFormattedText(line.replace('### ', ''))}
+          </h4>
+        )
+        continue
+      }
+      if (line.startsWith('## ')) {
+        elements.push(
+          <h3 key={`h2-${globalElementIdx++}`} className="text-sm font-bold text-text-primary mt-3.5 mb-1.5">
+            {renderFormattedText(line.replace('## ', ''))}
+          </h3>
+        )
+        continue
+      }
+      if (line.startsWith('# ')) {
+        elements.push(
+          <h2 key={`h1-${globalElementIdx++}`} className="text-base font-bold text-text-primary mt-4 mb-2">
+            {renderFormattedText(line.replace('# ', ''))}
+          </h2>
+        )
+        continue
+      }
+
+      // Blockquotes
+      if (line.trim().startsWith('>')) {
+        const quoteText = line.trim().replace(/^>\s*/, '')
+        elements.push(
+          <blockquote
+            key={`quote-${globalElementIdx++}`}
+            className="p-2.5 my-2 rounded-xl bg-accent/5 border-l-3 border-accent text-text-secondary text-xs italic leading-relaxed"
           >
-            <code>{codeBlockContent.join('\n')}</code>
-          </pre>
+            {renderFormattedText(quoteText)}
+          </blockquote>
         )
-        codeBlockContent = []
-        inCodeBlock = false
-      } else {
-        inCodeBlock = true
+        continue
       }
-      continue
-    }
 
-    if (inCodeBlock) {
-      codeBlockContent.push(line)
-      continue
-    }
-
-    // Table row detection
-    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
-      inTable = true
-      const cells = line
-        .trim()
-        .slice(1, -1)
-        .split('|')
-        .map((c) => c.trim())
-      // Check if it's a separator line (e.g. |---|---|)
-      if (!cells.every((c) => /^:?-+:?$/.test(c))) {
-        tableRows.push(cells)
-      }
-      continue
-    } else if (inTable) {
-      // Flush table
-      if (tableRows.length > 0) {
-        const headerRow = tableRows[0]
-        const bodyRows = tableRows.slice(1)
+      // Bullet points
+      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+        const itemText = line.trim().replace(/^[-*]\s+/, '')
         elements.push(
-          <div key={`table-${i}`} className="my-3 overflow-x-auto rounded-xl border border-border-default shadow-sm">
-            <table className="w-full text-xs text-left border-collapse">
-              {headerRow && (
-                <thead>
-                  <tr className="bg-bg-tertiary border-b border-border-default text-text-secondary font-mono">
-                    {headerRow.map((cell, cIdx) => (
-                      <th key={cIdx} className="px-3 py-2 font-semibold">
-                        {renderFormattedText(cell)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-              )}
-              <tbody className="divide-y divide-border-default/50 bg-bg-primary/50">
-                {bodyRows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-bg-tertiary/40 transition-colors">
-                    {row.map((cell, cIdx) => (
-                      <td key={cIdx} className="px-3 py-2 text-text-primary">
-                        {renderFormattedText(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      }
-      tableRows = []
-      inTable = false
-    }
-
-    // Empty line
-    if (!line.trim()) {
-      elements.push(<div key={`space-${i}`} className="h-2" />)
-      continue
-    }
-
-    // Headings
-    if (line.startsWith('### ')) {
-      elements.push(
-        <h4 key={`h3-${i}`} className="text-xs font-bold font-mono uppercase tracking-wider text-accent mt-3 mb-1.5 flex items-center gap-1.5">
-          {renderFormattedText(line.replace('### ', ''))}
-        </h4>
-      )
-      continue
-    }
-    if (line.startsWith('## ')) {
-      elements.push(
-        <h3 key={`h2-${i}`} className="text-sm font-bold text-text-primary mt-3.5 mb-1.5">
-          {renderFormattedText(line.replace('## ', ''))}
-        </h3>
-      )
-      continue
-    }
-    if (line.startsWith('# ')) {
-      elements.push(
-        <h2 key={`h1-${i}`} className="text-base font-bold text-text-primary mt-4 mb-2">
-          {renderFormattedText(line.replace('# ', ''))}
-        </h2>
-      )
-      continue
-    }
-
-    // Blockquotes
-    if (line.trim().startsWith('>')) {
-      const quoteText = line.trim().replace(/^>\s*/, '')
-      elements.push(
-        <blockquote
-          key={`quote-${i}`}
-          className="p-2.5 my-2 rounded-xl bg-accent/5 border-l-3 border-accent text-text-secondary text-xs italic leading-relaxed"
-        >
-          {renderFormattedText(quoteText)}
-        </blockquote>
-      )
-      continue
-    }
-
-    // Bullet points
-    if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-      const itemText = line.trim().replace(/^[-*]\s+/, '')
-      elements.push(
-        <div key={`li-${i}`} className="flex items-start gap-2 text-xs text-text-primary my-1 pl-1">
-          <span className="text-accent text-[13px] leading-none mt-0.5">•</span>
-          <div className="flex-1 leading-relaxed">{renderFormattedText(itemText)}</div>
-        </div>
-      )
-      continue
-    }
-
-    // Numbered list
-    if (/^\d+\.\s+/.test(line.trim())) {
-      const numMatch = line.trim().match(/^(\d+)\.\s+(.*)/)
-      if (numMatch) {
-        elements.push(
-          <div key={`num-${i}`} className="flex items-start gap-2 text-xs text-text-primary my-1 pl-1">
-            <span className="font-mono text-[11px] text-accent font-semibold shrink-0 mt-0.5">{numMatch[1]}.</span>
-            <div className="flex-1 leading-relaxed">{renderFormattedText(numMatch[2])}</div>
+          <div key={`li-${globalElementIdx++}`} className="flex items-start gap-2 text-xs text-text-primary my-1 pl-1">
+            <span className="text-accent text-[13px] leading-none mt-0.5">•</span>
+            <div className="flex-1 leading-relaxed">{renderFormattedText(itemText)}</div>
           </div>
         )
         continue
       }
+
+      // Numbered list
+      if (/^\d+\.\s+/.test(line.trim())) {
+        const numMatch = line.trim().match(/^(\d+)\.\s+(.*)/)
+        if (numMatch) {
+          elements.push(
+            <div key={`num-${globalElementIdx++}`} className="flex items-start gap-2 text-xs text-text-primary my-1 pl-1">
+              <span className="font-mono text-[11px] text-accent font-semibold shrink-0 mt-0.5">{numMatch[1]}.</span>
+              <div className="flex-1 leading-relaxed">{renderFormattedText(numMatch[2])}</div>
+            </div>
+          )
+          continue
+        }
+      }
+
+      // Normal paragraph
+      elements.push(
+        <p key={`p-${globalElementIdx++}`} className="text-xs text-text-primary leading-relaxed my-1">
+          {renderFormattedText(line)}
+        </p>
+      )
     }
 
-    // Normal paragraph
-    elements.push(
-      <p key={`p-${i}`} className="text-xs text-text-primary leading-relaxed my-1">
-        {renderFormattedText(line)}
-      </p>
-    )
-  }
-
-  // Flush trailing table if any
-  if (inTable && tableRows.length > 0) {
-    const headerRow = tableRows[0]
-    const bodyRows = tableRows.slice(1)
-    elements.push(
-      <div key="table-end" className="my-3 overflow-x-auto rounded-xl border border-border-default shadow-sm">
-        <table className="w-full text-xs text-left border-collapse">
-          {headerRow && (
-            <thead>
-              <tr className="bg-bg-tertiary border-b border-border-default text-text-secondary font-mono">
-                {headerRow.map((cell, cIdx) => (
-                  <th key={cIdx} className="px-3 py-2 font-semibold">
-                    {renderFormattedText(cell)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
-          <tbody className="divide-y divide-border-default/50 bg-bg-primary/50">
-            {bodyRows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-bg-tertiary/40 transition-colors">
-                {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="px-3 py-2 text-text-primary">
-                    {renderFormattedText(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    // Flush trailing table
+    if (inTable && tableRows.length > 0) {
+      const headerRow = tableRows[0]
+      const bodyRows = tableRows.slice(1)
+      elements.push(
+        <div key={`table-end-${globalElementIdx++}`} className="my-3 overflow-x-auto rounded-xl border border-border-default shadow-sm">
+          <table className="w-full text-xs text-left border-collapse">
+            {headerRow && (
+              <thead>
+                <tr className="bg-bg-tertiary border-b border-border-default text-text-secondary font-mono">
+                  {headerRow.map((cell, cIdx) => (
+                    <th key={cIdx} className="px-3 py-2 font-semibold">
+                      {renderFormattedText(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody className="divide-y divide-border-default/50 bg-bg-primary/50">
+              {bodyRows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-bg-tertiary/40 transition-colors">
+                  {row.map((cell, cIdx) => (
+                    <td key={cIdx} className="px-3 py-2 text-text-primary">
+                      {renderFormattedText(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
   }
 
   return <div className={`space-y-1 ${className}`}>{elements}</div>
