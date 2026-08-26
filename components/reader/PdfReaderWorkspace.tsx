@@ -1643,26 +1643,6 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                   </button>
                 </div>
 
-                {/* Prompt Snippet Pills */}
-                <div className="space-y-1.5 shrink-0">
-                  <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono">
-                    <span>QUICK SYNTHESIS PROMPTS:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {AI_SNIPPETS.map((s) => (
-                      <button
-                        key={s.label}
-                        type="button"
-                        onClick={() => handleSendAi(s.prompt)}
-                        disabled={aiLoading}
-                        className="px-2 py-1 rounded-md text-[11px] bg-bg-tertiary hover:bg-bg-elevated text-text-secondary hover:text-accent border border-border-default transition-all font-medium cursor-pointer disabled:opacity-50"
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Chat Stream Box */}
                 <div className="flex-1 overflow-y-auto space-y-3 p-3 rounded-xl bg-bg-primary/90 border border-border-default text-xs">
                   {aiMessages.map((msg) => (
