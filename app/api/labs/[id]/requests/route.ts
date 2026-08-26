@@ -88,6 +88,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     })
 
     if (status === 'APPROVED') {
+      const applicant = await prisma.user.findUnique({
+        where: { id: joinReq.userId },
+        select: { systemRole: true, name: true },
+      })
+      const effectiveRole = applicant?.systemRole === 'SUPERVISOR' ? 'CO_LEAD' : (role || 'RESEARCHER')
+
       // Add as LabMember
       await prisma.labMember.upsert({
         where: {
@@ -96,19 +102,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             userId: joinReq.userId,
           },
         },
-        update: { role },
+        update: { role: effectiveRole },
         create: {
           labId: joinReq.labId,
           userId: joinReq.userId,
-          role,
+          role: effectiveRole,
         },
       })
 
-      // Notify accepted student
+      // Notify accepted member
       await createNotification({
         userId: joinReq.userId,
-        title: 'Lab Application Approved! 🎓',
-        message: `Your membership request to join "${joinReq.lab.name}" was approved by ${user.name}!`,
+        title: applicant?.systemRole === 'SUPERVISOR' ? 'Lab Application Approved as Co-Supervisor! 🏛️' : 'Lab Application Approved! 🎓',
+        message: `Your membership request to join "${joinReq.lab.name}" as ${applicant?.systemRole === 'SUPERVISOR' ? 'Co-Supervisor' : 'Researcher'} was approved by ${user.name}!`,
         type: 'SYSTEM',
         link: `/labs/${joinReq.lab.slug}`,
       })

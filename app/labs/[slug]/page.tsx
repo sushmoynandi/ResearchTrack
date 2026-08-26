@@ -245,7 +245,11 @@ export default function LabDetailPage() {
     }
   }
 
-  const isLabLead = user && lab && (user.id === lab.leadId || user.systemRole === 'ADMIN')
+  const isLabLead = Boolean(user && lab && (user.id === lab.leadId || user.systemRole === 'ADMIN'))
+  const userMembership = lab?.members.find((m) => m.user.id === user?.id)
+  const isCoSupervisor = Boolean(userMembership && ['CO_LEAD', 'LEAD'].includes(userMembership.role) && !isLabLead)
+  // Lab supervisors have access to all lab features (assign papers, create groups, starter packs, seminars, notices, tasks, meetings)
+  const isLabSupervisor = isLabLead || isCoSupervisor
 
   if (loading) {
     return (
@@ -271,7 +275,7 @@ export default function LabDetailPage() {
     )
   }
 
-  const isStudent = Boolean(user && user.systemRole === 'STUDENT' && !isLabLead)
+  const isStudent = Boolean(user && user.systemRole === 'STUDENT' && !isLabSupervisor)
   const visibleGroups = isStudent
     ? lab.groups.filter((g) => g.members.some((m) => m.user.id === user?.id))
     : lab.groups
@@ -317,7 +321,13 @@ export default function LabDetailPage() {
                   Principal Investigator: <strong className="text-text-primary">{lab.lead.name}</strong> ({lab.lead.email})
                 </p>
 
-                {!isLabLead && isSupervisor && (
+                {isCoSupervisor && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/35 font-mono">
+                    🏛️ Co-Supervisor (Full Lab Access)
+                  </span>
+                )}
+
+                {!isLabLead && !isCoSupervisor && isSupervisor && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono">
                     👁️ Guest Supervisor (Read-Only Discovery)
                   </span>
@@ -328,7 +338,7 @@ export default function LabDetailPage() {
 
           {/* Join Code Pill & Supervisor Assign Action */}
           <div className="flex items-center gap-2 flex-wrap">
-            {isLabLead && (
+            {isLabSupervisor && (
               <Button
                 size="sm"
                 variant="primary"
@@ -409,7 +419,7 @@ export default function LabDetailPage() {
                 : `Sub-Teams & Project Clusters (${lab.groups.length})`}
             </h3>
 
-            {isLabLead && (
+            {isLabSupervisor && (
               <Button size="xs" variant="primary" onClick={() => setIsCreateGroupOpen(true)} icon={<Plus size={13} />}>
                 Create Sub-Group
               </Button>
@@ -459,8 +469,8 @@ export default function LabDetailPage() {
                     </div>
                   </div>
 
-                  {/* Action Bar for Supervisor / Lead */}
-                  {isLabLead && (
+                  {/* Action Bar for Supervisor / Lead / Co-Supervisor */}
+                  {isLabSupervisor && (
                     <div className="pt-3 border-t border-border-default flex items-center justify-between gap-2">
                       <Button
                         size="xs"
@@ -492,14 +502,17 @@ export default function LabDetailPage() {
                         Assign Paper
                       </Button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDissolveGroup(g.id, g.name)}
-                        className="p-1.5 rounded-lg text-text-tertiary hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                        title="Dissolve Sub-Group"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {/* Only Primary Lab Lead & Admin can dissolve research groups */}
+                      {isLabLead && (
+                        <button
+                          type="button"
+                          onClick={() => handleDissolveGroup(g.id, g.name)}
+                          className="p-1.5 rounded-lg text-text-tertiary hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          title="Dissolve Sub-Group"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -518,7 +531,7 @@ export default function LabDetailPage() {
               ) : (
                 <>
                   <p>No specialized research sub-groups created yet in this lab.</p>
-                  {isLabLead && (
+                  {isLabSupervisor && (
                     <Button size="xs" variant="primary" onClick={() => setIsCreateGroupOpen(true)}>
                       Create First Sub-Group
                     </Button>
@@ -537,7 +550,7 @@ export default function LabDetailPage() {
           labSlug={lab.slug}
           groups={lab.groups}
           members={lab.members}
-          isLeadOrSupervisor={Boolean(isLabLead)}
+          isLeadOrSupervisor={Boolean(isLabSupervisor)}
         />
       )}
 
@@ -546,7 +559,7 @@ export default function LabDetailPage() {
         <LabBroadcastsBoard
           labId={lab.id}
           groups={lab.groups}
-          isLeadOrSupervisor={Boolean(isLabLead)}
+          isLeadOrSupervisor={Boolean(isLabSupervisor)}
         />
       )}
 
@@ -555,7 +568,7 @@ export default function LabDetailPage() {
         <LabMeetingsBoard
           labId={lab.id}
           groups={visibleGroups}
-          isLeadOrSupervisor={Boolean(isLabLead)}
+          isLeadOrSupervisor={Boolean(isLabSupervisor)}
         />
       )}
 
@@ -586,7 +599,7 @@ export default function LabDetailPage() {
               labId={lab.id}
               groupId={activeGroup.id}
               groupName={activeGroup.name}
-              isLeadOrSupervisor={Boolean(isLabLead)}
+              isLeadOrSupervisor={Boolean(isLabSupervisor)}
             />
           ) : (
             <div className="glass-card p-12 text-center text-xs text-text-tertiary">
@@ -627,10 +640,8 @@ export default function LabDetailPage() {
               groupName={activeGroup.name}
               groupMembers={activeGroup.members}
               isLeadOrSupervisor={Boolean(
-                isLabLead ||
-                user?.systemRole === 'SUPERVISOR' ||
-                user?.systemRole === 'ADMIN' ||
-                lab.members.some((m) => m.user.id === user?.id && ['LEAD', 'CO_LEAD'].includes(m.role))
+                isLabSupervisor ||
+                user?.systemRole === 'ADMIN'
               )}
             />
           ) : (
@@ -677,10 +688,12 @@ export default function LabDetailPage() {
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           m.role === 'LEAD'
                             ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                            : m.role === 'CO_LEAD'
+                            ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
                             : 'bg-accent/15 text-accent border border-accent/30'
                         }`}
                       >
-                        {m.role}
+                        {m.role === 'CO_LEAD' ? 'CO-SUPERVISOR' : m.role}
                       </span>
                     </td>
                     <td className="p-3 text-right text-text-tertiary font-mono">

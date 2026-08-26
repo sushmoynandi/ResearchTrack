@@ -48,19 +48,20 @@ export async function POST(request: NextRequest) {
 
     // Direct Join with Join Code
     if (joinCode) {
+      const assignedRole = user.systemRole === 'SUPERVISOR' ? 'CO_LEAD' : 'RESEARCHER'
       const membership = await prisma.labMember.create({
         data: {
           labId: targetLab.id,
           userId: user.id,
-          role: 'RESEARCHER',
+          role: assignedRole,
         },
       })
 
       // Notify lab lead
       await createNotification({
         userId: targetLab.leadId,
-        title: 'New Lab Member Joined! 👥',
-        message: `${user.name} joined ${targetLab.name} using the lab invite code.`,
+        title: user.systemRole === 'SUPERVISOR' ? 'New Co-Supervisor Joined Lab! 👥' : 'New Lab Member Joined! 👥',
+        message: `${user.name} joined ${targetLab.name} as ${user.systemRole === 'SUPERVISOR' ? 'Co-Supervisor' : 'Researcher'} using the lab invite code.`,
         type: 'SYSTEM',
         link: `/labs/${targetLab.slug}`,
       })
