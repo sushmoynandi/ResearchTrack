@@ -76,7 +76,8 @@ export default function AssignmentsPage() {
   const [availablePapers, setAvailablePapers] = useState<{ id: string; title: string }[]>([])
   const [availableStudents, setAvailableStudents] = useState<{ id: string; name: string; email: string }[]>([])
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string; labName: string; memberCount: number }[]>([])
-  const [selectedPaperId, setSelectedPaperId] = useState('')
+  const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([])
+  const [paperSearch, setPaperSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -92,6 +93,7 @@ export default function AssignmentsPage() {
       }
     } catch (err) {
       console.error('Failed to load assignments:', err)
+      addToast('error', 'Failed to load assignments')
     } finally {
       setLoading(false)
     }
@@ -101,32 +103,32 @@ export default function AssignmentsPage() {
     loadAssignments()
   }, [])
 
-  // Load papers, students, and groups when opening modal
-  const handleOpenModal = async () => {
-    setIsModalOpen(true)
+  const loadAssignOptions = async () => {
     try {
-      const [papersRes, studentsRes, labsRes] = await Promise.all([
-        fetch('/api/papers?scope=own'),
-        fetch('/api/students'),
-        fetch('/api/labs'),
-      ])
-
+      // 1. Fetch available papers
+      const papersRes = await fetch('/api/papers')
       if (papersRes.ok) {
-        const papersData = await papersRes.json()
-        setAvailablePapers(papersData.map((p: any) => ({ id: p.id, title: p.title })))
-        if (papersData.length > 0) setSelectedPaperId(papersData[0].id)
+        const papers = await papersRes.json()
+        setAvailablePapers(papers)
+        if (papers.length > 0 && selectedPaperIds.length === 0) {
+          setSelectedPaperIds([papers[0].id])
+        }
       }
 
+      // 2. Fetch available students
+      const studentsRes = await fetch('/api/students')
       if (studentsRes.ok) {
-        const studentsData = await studentsRes.json()
-        setAvailableStudents(studentsData.map((s: any) => ({ id: s.id, name: s.name, email: s.email })))
-        if (studentsData.length > 0) setSelectedStudentId(studentsData[0].id)
+        const students = await studentsRes.json()
+        setAvailableStudents(students)
+        if (students.length > 0) setSelectedStudentId(students[0].id)
       }
 
+      // 3. Fetch research labs & sub-groups
+      const labsRes = await fetch('/api/labs')
       if (labsRes.ok) {
-        const labsData = await labsRes.json()
+        const labs = await labsRes.json()
         const groupsList: { id: string; name: string; labName: string; memberCount: number }[] = []
-        labsData.forEach((l: any) => {
+        labs.forEach((l: any) => {
           (l.groups || []).forEach((g: any) => {
             groupsList.push({
               id: g.id,
@@ -144,10 +146,15 @@ export default function AssignmentsPage() {
     }
   }
 
+  const handleOpenModal = async () => {
+    setIsModalOpen(true)
+    await loadAssignOptions()
+  }
+
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedPaperId) {
-      addToast('error', 'Please select a paper from your library')
+    if (selectedPaperIds.length === 0) {
+      addToast('error', 'Please select at least one paper from your library')
       return
     }
 
@@ -160,12 +167,13 @@ export default function AssignmentsPage() {
           return
         }
 
-        const res = await fetch('/api/assignments/group', {
+        const res = await fetch('/api/assignments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paperId: selectedPaperId,
+            paperIds: selectedPaperIds,
             groupId: selectedGroupId,
+            targetType: 'GROUP',
             dueDate: dueDate || null,
             note: assignmentNote || null,
           }),
@@ -173,10 +181,11 @@ export default function AssignmentsPage() {
 
         if (res.ok) {
           const data = await res.json()
-          addToast('success', `Assigned paper to all ${data.assignedCount} students in "${data.groupName}"!`)
+          addToast('success', data.message || `Assigned ${selectedPaperIds.length} paper(s) to group!`)
           setIsModalOpen(false)
           setAssignmentNote('')
           setDueDate('')
+          setSelectedPaperIds([])
           loadAssignments()
         } else {
           const err = await res.json()
@@ -193,18 +202,21 @@ export default function AssignmentsPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paperId: selectedPaperId,
+            paperIds: selectedPaperIds,
             studentId: selectedStudentId,
+            targetType: 'STUDENT',
             dueDate: dueDate || null,
             note: assignmentNote || null,
           }),
         })
 
         if (res.ok) {
-          addToast('success', 'Paper assigned successfully')
+          const data = await res.json()
+          addToast('success', data.message || `Assigned ${selectedPaperIds.length} paper(s) successfully!`)
           setIsModalOpen(false)
           setAssignmentNote('')
           setDueDate('')
+          setSelectedPaperIds([])
           loadAssignments()
         } else {
           const err = await res.json()
@@ -518,23 +530,73 @@ export default function AssignmentsPage() {
                 </div>
               )}
 
-              {/* Select Paper */}
+              {/* Select Papers (Multi-select supported) */}
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
-                  Select Paper from Library *
-                </label>
-                <select
-                  value={selectedPaperId}
-                  onChange={(e) => setSelectedPaperId(e.target.value)}
-                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                  required
-                >
-                  {availablePapers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Select Papers from Library * ({selectedPaperIds.length} selected)
+                  </label>
+                  {availablePapers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedPaperIds.length === availablePapers.length) {
+                          setSelectedPaperIds([])
+                        } else {
+                          setSelectedPaperIds(availablePapers.map((p) => p.id))
+                        }
+                      }}
+                      className="text-[11px] text-accent hover:underline font-medium cursor-pointer"
+                    >
+                      {selectedPaperIds.length === availablePapers.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+
+                {availablePapers.length > 5 && (
+                  <input
+                    type="text"
+                    placeholder="Search papers to assign..."
+                    value={paperSearch}
+                    onChange={(e) => setPaperSearch(e.target.value)}
+                    className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent mb-2"
+                  />
+                )}
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 bg-bg-tertiary/60 border border-border-default rounded-lg p-2 divide-y divide-border-default/40">
+                  {availablePapers
+                    .filter((p) => !paperSearch || p.title.toLowerCase().includes(paperSearch.toLowerCase()))
+                    .map((p) => {
+                      const isChecked = selectedPaperIds.includes(p.id)
+                      return (
+                        <label
+                          key={p.id}
+                          className={`flex items-start gap-2.5 p-1.5 rounded-md cursor-pointer text-xs transition-colors ${
+                            isChecked ? 'bg-accent/15 text-text-primary font-medium' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPaperIds((prev) => [...prev, p.id])
+                              } else {
+                                setSelectedPaperIds((prev) => prev.filter((id) => id !== p.id))
+                              }
+                            }}
+                            className="mt-0.5 accent-accent cursor-pointer shrink-0"
+                          />
+                          <span className="truncate leading-tight flex-1">{p.title}</span>
+                        </label>
+                      )
+                    })}
+                  {availablePapers.filter((p) => !paperSearch || p.title.toLowerCase().includes(paperSearch.toLowerCase())).length === 0 && (
+                    <div className="p-3 text-center text-xs text-text-tertiary">
+                      No matching papers found.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Due Date */}

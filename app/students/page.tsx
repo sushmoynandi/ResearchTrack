@@ -74,7 +74,8 @@ export default function StudentsPage() {
   // Assign Paper Modal
   const [assignStudent, setAssignStudent] = useState<StudentData | null>(null)
   const [availablePapers, setAvailablePapers] = useState<Paper[]>([])
-  const [selectedPaperId, setSelectedPaperId] = useState('')
+  const [selectedStudentPaperIds, setSelectedStudentPaperIds] = useState<string[]>([])
+  const [studentPaperSearch, setStudentPaperSearch] = useState('')
   const [assignDueDate, setAssignDueDate] = useState('')
   const [assignNote, setAssignNote] = useState('')
   const [assigningPaper, setAssigningPaper] = useState(false)
@@ -184,41 +185,49 @@ export default function StudentsPage() {
         if (res.ok) {
           const data = await res.json()
           setAvailablePapers(data)
-          if (data.length > 0) setSelectedPaperId(data[0].id)
+          if (data.length > 0 && selectedStudentPaperIds.length === 0) {
+            setSelectedStudentPaperIds([data[0].id])
+          }
         }
       } catch {
         // silent
       } finally {
         setLoadingPapers(false)
       }
-    } else if (availablePapers.length > 0) {
-      setSelectedPaperId(availablePapers[0].id)
+    } else if (availablePapers.length > 0 && selectedStudentPaperIds.length === 0) {
+      setSelectedStudentPaperIds([availablePapers[0].id])
     }
   }
 
   const handleConfirmAssign = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!assignStudent || !selectedPaperId) return
+    if (!assignStudent || selectedStudentPaperIds.length === 0) {
+      addToast('error', 'Please select at least one paper')
+      return
+    }
     setAssigningPaper(true)
     try {
       const res = await fetch('/api/assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          paperId: selectedPaperId,
+          paperIds: selectedStudentPaperIds,
           studentId: assignStudent.id,
+          targetType: 'STUDENT',
           dueDate: assignDueDate || undefined,
           note: assignNote || undefined,
         }),
       })
 
       if (res.ok) {
-        addToast('success', `Assigned paper to ${assignStudent.name} successfully!`)
+        const data = await res.json()
+        addToast('success', data.message || `Assigned ${selectedStudentPaperIds.length} paper(s) to ${assignStudent.name}!`)
         setAssignStudent(null)
+        setSelectedStudentPaperIds([])
         fetchStudents()
       } else {
         const err = await res.json()
-        addToast('error', err.error || 'Failed to assign paper')
+        addToast('error', err.error || 'Failed to assign paper(s)')
       }
     } catch {
       addToast('error', 'Network error assigning paper')
@@ -1001,24 +1010,91 @@ export default function StudentsPage() {
         >
           <form onSubmit={handleConfirmAssign} className="space-y-4 pt-2">
             <div>
-              <label className="block text-xs font-semibold text-text-secondary mb-1">
-                Select Research Paper *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-text-secondary">
+                  Select Research Papers * ({selectedStudentPaperIds.length} selected)
+                </label>
+                {availablePapers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedStudentPaperIds.length === availablePapers.length) {
+                        setSelectedStudentPaperIds([])
+                      } else {
+                        setSelectedStudentPaperIds(availablePapers.map((p) => p.id))
+                      }
+                    }}
+                    className="text-[11px] text-accent hover:underline font-medium cursor-pointer"
+                  >
+                    {selectedStudentPaperIds.length === availablePapers.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
+
               {loadingPapers ? (
                 <div className="text-xs text-text-tertiary p-3">Loading papers...</div>
               ) : availablePapers.length > 0 ? (
-                <select
-                  value={selectedPaperId}
-                  onChange={(e) => setSelectedPaperId(e.target.value)}
-                  required
-                  className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent"
-                >
-                  {availablePapers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.authors})
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  {availablePapers.length > 5 && (
+                    <input
+                      type="text"
+                      placeholder="Search papers to assign..."
+                      value={studentPaperSearch}
+                      onChange={(e) => setStudentPaperSearch(e.target.value)}
+                      className="w-full bg-bg-tertiary border border-border-default rounded-lg px-3 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent"
+                    />
+                  )}
+
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 bg-bg-tertiary/60 border border-border-default rounded-lg p-2 divide-y divide-border-default/40">
+                    {availablePapers
+                      .filter(
+                        (p) =>
+                          !studentPaperSearch ||
+                          p.title.toLowerCase().includes(studentPaperSearch.toLowerCase()) ||
+                          (p.authors && p.authors.toLowerCase().includes(studentPaperSearch.toLowerCase()))
+                      )
+                      .map((p) => {
+                        const isChecked = selectedStudentPaperIds.includes(p.id)
+                        return (
+                          <label
+                            key={p.id}
+                            className={`flex items-start gap-2.5 p-1.5 rounded-md cursor-pointer text-xs transition-colors ${
+                              isChecked
+                                ? 'bg-accent/15 text-text-primary font-medium'
+                                : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedStudentPaperIds((prev) => [...prev, p.id])
+                                } else {
+                                  setSelectedStudentPaperIds((prev) => prev.filter((id) => id !== p.id))
+                                }
+                              }}
+                              className="mt-0.5 accent-accent cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-text-primary leading-tight">{p.title}</span>
+                              {p.authors && (
+                                <span className="block truncate text-[10px] text-text-tertiary mt-0.5">{p.authors}</span>
+                              )}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    {availablePapers.filter(
+                      (p) =>
+                        !studentPaperSearch ||
+                        p.title.toLowerCase().includes(studentPaperSearch.toLowerCase()) ||
+                        (p.authors && p.authors.toLowerCase().includes(studentPaperSearch.toLowerCase()))
+                    ).length === 0 && (
+                      <div className="p-3 text-center text-xs text-text-tertiary">No matching papers found.</div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="text-xs text-text-tertiary p-3 bg-bg-tertiary rounded-lg">
                   No papers in your library. Add papers first.

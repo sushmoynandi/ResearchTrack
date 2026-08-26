@@ -119,21 +119,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { paperId, studentId, labId, groupId, targetType = 'STUDENT', dueDate, note } = body
+    const { paperId, paperIds, studentId, labId, groupId, targetType = 'STUDENT', dueDate, note } = body
 
-    if (!paperId) {
-      return NextResponse.json({ error: 'Paper ID is required' }, { status: 400 })
+    // Normalize to an array of paper IDs
+    const rawPaperIds: string[] = Array.isArray(paperIds) && paperIds.length > 0
+      ? paperIds.filter(Boolean)
+      : paperId
+      ? [paperId]
+      : []
+
+    if (rawPaperIds.length === 0) {
+      return NextResponse.json({ error: 'At least one Paper ID is required' }, { status: 400 })
     }
 
-    // Verify paper exists (by ID or Slug)
-    const paper = await prisma.paper.findFirst({
+    // Verify all papers exist
+    const papers = await prisma.paper.findMany({
       where: {
-        OR: [{ id: paperId }, { slug: paperId }],
+        OR: rawPaperIds.map((id) => ({ id })),
       },
     })
 
-    if (!paper) {
-      return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
+    if (papers.length === 0) {
+      // Fallback: search by slug if needed
+      const slugPapers = await prisma.paper.findMany({
+        where: {
+          OR: rawPaperIds.map((id) => ({ slug: id })),
+        },
+      })
+      if (slugPapers.length > 0) {
+        papers.push(...slugPapers)
+      }
+    }
+
+    if (papers.length === 0) {
+      return NextResponse.json({ error: 'No valid papers found' }, { status: 404 })
     }
 
     // ─── Case 1: Assign to Whole Research Lab ───
@@ -172,69 +191,72 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let assignedCount = 0
-      for (const m of studentMembers) {
-        const existing = await prisma.assignment.findUnique({
-          where: {
-            paperId_studentId: {
-              paperId: paper.id,
-              studentId: m.userId,
-            },
-          },
-        })
-
-        if (!existing) {
-          await prisma.assignment.create({
-            data: {
-              paperId: paper.id,
-              studentId: m.userId,
-              assignedById: user.id,
-              dueDate: dueDate ? new Date(dueDate) : null,
-              note: note?.trim() || null,
-              status: 'PENDING',
+      let totalAssignedCount = 0
+      for (const targetPaper of papers) {
+        for (const m of studentMembers) {
+          const existing = await prisma.assignment.findUnique({
+            where: {
+              paperId_studentId: {
+                paperId: targetPaper.id,
+                studentId: m.userId,
+              },
             },
           })
-          assignedCount++
 
-          // Send real-time notification
-          await createNotification({
-            userId: m.userId,
-            title: `New Lab Paper Assigned (${lab.name})`,
-            message: `${user.name} assigned "${paper.title}" to ${lab.name}.`,
-            type: 'ASSIGNMENT',
-            link: `/papers/${paper.slug || paper.id}`,
-          }).catch(() => {})
+          if (!existing) {
+            await prisma.assignment.create({
+              data: {
+                paperId: targetPaper.id,
+                studentId: m.userId,
+                assignedById: user.id,
+                dueDate: dueDate ? new Date(dueDate) : null,
+                note: note?.trim() || null,
+                status: 'PENDING',
+              },
+            })
+            totalAssignedCount++
 
-          // Send automated email notification
-          const paperUrl = `${request.nextUrl.origin}/papers/${paper.slug || paper.id}`
-          const googleCalUrl = getGoogleCalendarUrl({
-            title: `📖 Reading Deadline: ${paper.title}`,
-            description: `Lab Reading Assignment for ${lab.name}: ${paper.title}\nAuthors: ${paper.authors}\nSupervisor: ${user.name}`,
-            startDate: dueDate ? new Date(dueDate) : new Date(),
-            url: paperUrl,
-            alarms: [60, 30, 10],
-          })
+            // Send real-time notification
+            await createNotification({
+              userId: m.userId,
+              title: `New Lab Paper Assigned (${lab.name})`,
+              message: `${user.name} assigned "${targetPaper.title}" to ${lab.name}.`,
+              type: 'ASSIGNMENT',
+              link: `/papers/${targetPaper.slug || targetPaper.id}`,
+            }).catch(() => {})
 
-          sendPaperAssignedEmail({
-            toEmail: m.user.email,
-            studentName: m.user.name,
-            supervisorName: user.name,
-            paperTitle: paper.title,
-            authors: paper.authors,
-            dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
-            note: note?.trim() || undefined,
-            paperUrl,
-            googleCalendarUrl: googleCalUrl,
-          }).catch(() => {})
+            // Send automated email notification
+            const paperUrl = `${request.nextUrl.origin}/papers/${targetPaper.slug || targetPaper.id}`
+            const googleCalUrl = getGoogleCalendarUrl({
+              title: `📖 Reading Deadline: ${targetPaper.title}`,
+              description: `Lab Reading Assignment for ${lab.name}: ${targetPaper.title}\nAuthors: ${targetPaper.authors}\nSupervisor: ${user.name}`,
+              startDate: dueDate ? new Date(dueDate) : new Date(),
+              url: paperUrl,
+              alarms: [60, 30, 10],
+            })
+
+            sendPaperAssignedEmail({
+              toEmail: m.user.email,
+              studentName: m.user.name,
+              supervisorName: user.name,
+              paperTitle: targetPaper.title,
+              authors: targetPaper.authors,
+              dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+              note: note?.trim() || undefined,
+              paperUrl,
+              googleCalendarUrl: googleCalUrl,
+            }).catch(() => {})
+          }
         }
       }
 
+      const paperCountLabel = papers.length > 1 ? `${papers.length} papers` : `"${papers[0].title}"`
       return NextResponse.json(
         {
           success: true,
-          count: assignedCount,
+          count: totalAssignedCount,
           totalStudents: studentMembers.length,
-          message: `Successfully assigned paper to ${assignedCount} students in "${lab.name}" (${studentMembers.length - assignedCount} already had it).`,
+          message: `Successfully assigned ${paperCountLabel} to student researchers in "${lab.name}".`,
         },
         { status: 201 }
       )
@@ -276,69 +298,72 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let assignedCount = 0
-      for (const m of studentMembers) {
-        const existing = await prisma.assignment.findUnique({
-          where: {
-            paperId_studentId: {
-              paperId: paper.id,
-              studentId: m.userId,
-            },
-          },
-        })
-
-        if (!existing) {
-          await prisma.assignment.create({
-            data: {
-              paperId: paper.id,
-              studentId: m.userId,
-              assignedById: user.id,
-              dueDate: dueDate ? new Date(dueDate) : null,
-              note: note?.trim() || null,
-              status: 'PENDING',
+      let totalAssignedCount = 0
+      for (const targetPaper of papers) {
+        for (const m of studentMembers) {
+          const existing = await prisma.assignment.findUnique({
+            where: {
+              paperId_studentId: {
+                paperId: targetPaper.id,
+                studentId: m.userId,
+              },
             },
           })
-          assignedCount++
 
-          // Send notification
-          await createNotification({
-            userId: m.userId,
-            title: `New Sub-Group Paper Assigned (${group.name})`,
-            message: `${user.name} assigned "${paper.title}" to sub-group ${group.name}.`,
-            type: 'ASSIGNMENT',
-            link: `/papers/${paper.slug || paper.id}`,
-          }).catch(() => {})
+          if (!existing) {
+            await prisma.assignment.create({
+              data: {
+                paperId: targetPaper.id,
+                studentId: m.userId,
+                assignedById: user.id,
+                dueDate: dueDate ? new Date(dueDate) : null,
+                note: note?.trim() || null,
+                status: 'PENDING',
+              },
+            })
+            totalAssignedCount++
 
-          // Send automated email notification
-          const paperUrl = `${request.nextUrl.origin}/papers/${paper.slug || paper.id}`
-          const googleCalUrl = getGoogleCalendarUrl({
-            title: `📖 Reading Deadline: ${paper.title}`,
-            description: `Sub-Group Reading Assignment for ${group.name}: ${paper.title}\nAuthors: ${paper.authors}\nSupervisor: ${user.name}`,
-            startDate: dueDate ? new Date(dueDate) : new Date(),
-            url: paperUrl,
-            alarms: [60, 30, 10],
-          })
+            // Send notification
+            await createNotification({
+              userId: m.userId,
+              title: `New Sub-Group Paper Assigned (${group.name})`,
+              message: `${user.name} assigned "${targetPaper.title}" to sub-group ${group.name}.`,
+              type: 'ASSIGNMENT',
+              link: `/papers/${targetPaper.slug || targetPaper.id}`,
+            }).catch(() => {})
 
-          sendPaperAssignedEmail({
-            toEmail: m.user.email,
-            studentName: m.user.name,
-            supervisorName: user.name,
-            paperTitle: paper.title,
-            authors: paper.authors,
-            dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
-            note: note?.trim() || undefined,
-            paperUrl,
-            googleCalendarUrl: googleCalUrl,
-          }).catch(() => {})
+            // Send automated email notification
+            const paperUrl = `${request.nextUrl.origin}/papers/${targetPaper.slug || targetPaper.id}`
+            const googleCalUrl = getGoogleCalendarUrl({
+              title: `📖 Reading Deadline: ${targetPaper.title}`,
+              description: `Sub-Group Reading Assignment for ${group.name}: ${targetPaper.title}\nAuthors: ${targetPaper.authors}\nSupervisor: ${user.name}`,
+              startDate: dueDate ? new Date(dueDate) : new Date(),
+              url: paperUrl,
+              alarms: [60, 30, 10],
+            })
+
+            sendPaperAssignedEmail({
+              toEmail: m.user.email,
+              studentName: m.user.name,
+              supervisorName: user.name,
+              paperTitle: targetPaper.title,
+              authors: targetPaper.authors,
+              dueDateFormatted: dueDate ? new Date(dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+              note: note?.trim() || undefined,
+              paperUrl,
+              googleCalendarUrl: googleCalUrl,
+            }).catch(() => {})
+          }
         }
       }
 
+      const paperCountLabel = papers.length > 1 ? `${papers.length} papers` : `"${papers[0].title}"`
       return NextResponse.json(
         {
           success: true,
-          count: assignedCount,
+          count: totalAssignedCount,
           totalStudents: studentMembers.length,
-          message: `Successfully assigned paper to ${assignedCount} students in sub-group "${group.name}".`,
+          message: `Successfully assigned ${paperCountLabel} to sub-group "${group.name}".`,
         },
         { status: 201 }
       )
@@ -388,63 +413,86 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if assignment already exists
-    const existing = await prisma.assignment.findUnique({
-      where: {
-        paperId_studentId: {
-          paperId: paper.id,
-          studentId,
+    const createdAssignments = []
+    for (const targetPaper of papers) {
+      // Check if assignment already exists
+      const existing = await prisma.assignment.findUnique({
+        where: {
+          paperId_studentId: {
+            paperId: targetPaper.id,
+            studentId,
+          },
         },
-      },
-    })
+      })
 
-    if (existing) {
+      if (!existing) {
+        const assignment = await prisma.assignment.create({
+          data: {
+            paperId: targetPaper.id,
+            studentId,
+            assignedById: user.id,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            note: note?.trim() || null,
+            status: 'PENDING',
+          },
+          include: {
+            paper: { select: { id: true, slug: true, title: true, authors: true } },
+            student: { select: { id: true, name: true, email: true } },
+            assignedBy: { select: { id: true, name: true, image: true } },
+          },
+        })
+
+        createdAssignments.push(assignment)
+
+        // Send real-time notification
+        await createNotification({
+          userId: student.id,
+          title: `New Paper Assigned 📖`,
+          message: `${user.name} assigned you: "${targetPaper.title}"`,
+          type: 'ASSIGNMENT',
+          link: `/papers/${targetPaper.slug || targetPaper.id}`,
+        }).catch(() => {})
+
+        // Send automated email notification to assigned student
+        const paperUrl = `${request.nextUrl.origin}/papers/${assignment.paper.slug || assignment.paper.id}`
+        const googleCalUrl = getGoogleCalendarUrl({
+          title: `📖 Reading Deadline: ${assignment.paper.title}`,
+          description: `Supervisory Reading Sprint for: ${assignment.paper.title}\nAuthors: ${assignment.paper.authors}\nSupervisor: ${assignment.assignedBy.name}`,
+          startDate: assignment.dueDate || new Date(),
+          url: paperUrl,
+          alarms: [60, 30, 10],
+        })
+
+        sendPaperAssignedEmail({
+          toEmail: assignment.student.email,
+          studentName: assignment.student.name,
+          supervisorName: assignment.assignedBy.name,
+          supervisorImage: assignment.assignedBy.image || undefined,
+          paperTitle: assignment.paper.title,
+          authors: assignment.paper.authors,
+          dueDateFormatted: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+          note: assignment.note || undefined,
+          paperUrl,
+          googleCalendarUrl: googleCalUrl,
+        }).catch(() => {})
+      }
+    }
+
+    if (createdAssignments.length === 0 && papers.length > 0) {
       return NextResponse.json(
-        { error: 'This paper has already been assigned to this student' },
+        { error: 'The selected paper(s) have already been assigned to this student' },
         { status: 409 }
       )
     }
 
-    const assignment = await prisma.assignment.create({
-      data: {
-        paperId: paper.id,
-        studentId,
-        assignedById: user.id,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        note: note?.trim() || null,
-        status: 'PENDING',
-      },
-      include: {
-        paper: { select: { id: true, slug: true, title: true, authors: true } },
-        student: { select: { id: true, name: true, email: true } },
-        assignedBy: { select: { id: true, name: true, image: true } },
-      },
-    })
-
-    // Send automated email notification to assigned student
-    const paperUrl = `${request.nextUrl.origin}/papers/${assignment.paper.slug || assignment.paper.id}`
-    const googleCalUrl = getGoogleCalendarUrl({
-      title: `📖 Reading Deadline: ${assignment.paper.title}`,
-      description: `Supervisory Reading Sprint for: ${assignment.paper.title}\nAuthors: ${assignment.paper.authors}\nSupervisor: ${assignment.assignedBy.name}`,
-      startDate: assignment.dueDate || new Date(),
-      url: paperUrl,
-      alarms: [60, 30, 10],
-    })
-
-    sendPaperAssignedEmail({
-      toEmail: assignment.student.email,
-      studentName: assignment.student.name,
-      supervisorName: assignment.assignedBy.name,
-      supervisorImage: assignment.assignedBy.image || undefined,
-      paperTitle: assignment.paper.title,
-      authors: assignment.paper.authors,
-      dueDateFormatted: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
-      note: assignment.note || undefined,
-      paperUrl,
-      googleCalendarUrl: googleCalUrl,
-    }).catch(() => {})
-
-    return NextResponse.json(assignment, { status: 201 })
+    const paperCountLabel = createdAssignments.length > 1 ? `${createdAssignments.length} papers` : `"${createdAssignments[0]?.paper?.title || 'Paper'}"`
+    return NextResponse.json({
+      success: true,
+      count: createdAssignments.length,
+      message: `Assigned ${paperCountLabel} to ${student.name} successfully!`,
+      assignment: createdAssignments[0],
+      assignments: createdAssignments,
+    }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating assignment:', error)
     return NextResponse.json({ error: error?.message || 'Failed to create assignment' }, { status: 500 })
