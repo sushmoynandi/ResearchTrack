@@ -1823,64 +1823,55 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                     {
                       key: 'q1ProblemImportance',
                       num: 'Q1',
-                      title: 'Problem & Importance',
-                      desc: 'What problem do the authors address and why is it important?',
+                      fullQuestion: 'What problem do the authors address and why is it important?',
                       placeholder: 'Describe the core motivation, scientific/industrial significance, and main bottleneck...',
                     },
                     {
                       key: 'q2DataDetails',
                       num: 'Q2',
-                      title: 'Data & Benchmarks',
-                      desc: 'What data is used (source, size, timeframe, splits, collection process, ethics or consent)?',
+                      fullQuestion: 'What data is used (source, size, timeframe, splits, collection process, ethics or consent)?',
                       placeholder: 'Detail dataset provenance, training/test splits, token counts, curation process, consent...',
                     },
                     {
                       key: 'q3FeaturesInputs',
                       num: 'Q3',
-                      title: 'Features & Input Representations',
-                      desc: 'What features or inputs are used, and how were they selected or engineered?',
+                      fullQuestion: 'What features or inputs are used, and how were they selected or engineered?',
                       placeholder: 'Specify token representations, embeddings, modalities, pre-processing filters...',
                     },
                     {
                       key: 'q4MethodsPipeline',
                       num: 'Q4',
-                      title: 'Methods & Overall Pipeline',
-                      desc: 'What methods or models are applied, and what is the overall pipeline?',
+                      fullQuestion: 'What methods or models are applied, and what is the overall pipeline?',
                       placeholder: 'Explain core algorithmic mechanisms, model architecture, loss formulation, optimization...',
                     },
                     {
                       key: 'q5Baselines',
                       num: 'Q5',
-                      title: 'Baselines for Comparison',
-                      desc: 'What baselines are used for comparison, and why were they chosen?',
+                      fullQuestion: 'What baselines are used for comparison, and why were they chosen?',
                       placeholder: 'List standard SOTA baselines compared against and rationale for selection...',
                     },
                     {
                       key: 'q6Evaluation',
                       num: 'Q6',
-                      title: 'Performance Evaluation & Metrics',
-                      desc: 'How is performance evaluated (metrics, experimental setup, statistical tests)?',
+                      fullQuestion: 'How is performance evaluated (metrics, experimental setup, statistical tests, user studies if applicable)?',
                       placeholder: 'Describe benchmarks, evaluation metrics (accuracy, BLEU, latency), statistical tests...',
                     },
                     {
                       key: 'q7KeyResults',
                       num: 'Q7',
-                      title: 'Key Results with Numbers',
-                      desc: 'What are the key results with numbers, and how do they compare to baselines or prior work?',
+                      fullQuestion: 'What are the key results with numbers, and how do they compare to baselines or prior work?',
                       placeholder: 'State numerical findings, percentage improvements over baselines, headline scores...',
                     },
                     {
                       key: 'q8LimitationsBiases',
                       num: 'Q8',
-                      title: 'Limitations & Potential Biases',
-                      desc: 'What are the limitations and potential biases?',
+                      fullQuestion: 'What are the limitations and potential biases?',
                       placeholder: 'Discuss computational cost, memory footprint, data bias, failure modes, degradation...',
                     },
                     {
                       key: 'q9ArtifactsReplication',
                       num: 'Q9',
-                      title: 'Artifacts & Replication Assets',
-                      desc: 'Is code, data, or other artifacts available to enable replication?',
+                      fullQuestion: 'Is code, data, or other artifacts available to enable replication?',
                       placeholder: 'Document links to open-source GitHub repositories, model weights, training scripts...',
                     },
                   ].map((q) => {
@@ -1891,17 +1882,14 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
                     return (
                       <div
                         key={q.key}
-                        className="p-3 rounded-xl bg-bg-primary border border-border-default hover:border-accent/40 transition-colors space-y-1.5"
+                        className="p-3 rounded-xl bg-bg-primary border border-border-default hover:border-accent/40 transition-colors space-y-2"
                       >
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5">
-                            <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold">
-                              {q.num}
-                            </span>
-                            <span>{q.title}</span>
-                          </label>
-                        </div>
-                        <p className="text-[10px] text-text-tertiary leading-tight">{q.desc}</p>
+                        <label className="text-[11px] font-semibold text-text-primary flex items-start gap-2 leading-snug">
+                          <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-mono text-[10px] font-bold shrink-0 mt-0.5">
+                            {q.num}
+                          </span>
+                          <span className="flex-1 text-text-primary">{q.fullQuestion}</span>
+                        </label>
                         
                         <textarea
                           value={detailedText}
