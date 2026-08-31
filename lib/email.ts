@@ -318,7 +318,6 @@ export async function sendPaperOfTheDayEmail({
   const doiUrl = cleanDoi.startsWith('http') ? cleanDoi : `https://doi.org/${cleanDoi}`
   const targetReadUrl = paperUrl || doiUrl
   const venueString = [journal || 'Research Publication', year || new Date().getFullYear()].join(' • ')
-  const formattedScore = score || '9.4/10'
 
   // Format authors to show top 4 + remaining count if many
   let authorDisplay = authors

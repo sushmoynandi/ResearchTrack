@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         pdfUrl: pdfUrl?.trim() || null,
         paperId: paperId || null,
         theme: theme || 'DARK',
-        score: score || '9.4/10',
+        score: score ? score.trim() : null,
         topics: topicsString,
         scheduledFor: scheduledDateTime,
         status: sendNow ? 'SENT' : 'SCHEDULED',
