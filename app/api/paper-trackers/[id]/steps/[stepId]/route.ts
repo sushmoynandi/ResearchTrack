@@ -36,7 +36,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const tracker = step.tracker
     const isOwner = tracker.ownerId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
-    const isSupervisor = user.systemRole === 'SUPERVISOR'
     const isCollaborator = tracker.shares.some(
       (s) => s.userId === user.id && s.permission === 'COLLABORATE'
     )
@@ -44,20 +43,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Check lab/group share
     let isLabCollaborator = false
     if (tracker.shares.some((s) => s.labId || s.groupId)) {
-      const [userLabs, userGroups] = await Promise.all([
+      const [userLabs, userGroups, ledLabs] = await Promise.all([
         prisma.labMember.findMany({ where: { userId: user.id }, select: { labId: true } }),
         prisma.groupMember.findMany({ where: { userId: user.id }, select: { groupId: true } }),
+        prisma.lab.findMany({ where: { leadId: user.id }, select: { id: true } }),
       ])
-      const userLabIds = userLabs.map((l) => l.labId)
+      const userLabIds = [...userLabs.map((l) => l.labId), ...ledLabs.map((l) => l.id)]
       const userGroupIds = userGroups.map((g) => g.groupId)
 
       isLabCollaborator = tracker.shares.some(
-        (s) => (s.labId && userLabIds.includes(s.labId)) || (s.groupId && userGroupIds.includes(s.groupId))
+        (s) =>
+          s.permission === 'COLLABORATE' &&
+          ((s.labId && userLabIds.includes(s.labId)) || (s.groupId && userGroupIds.includes(s.groupId)))
       )
     }
 
-    if (!isOwner && !isAdmin && !isSupervisor && !isCollaborator && !isLabCollaborator) {
-      return NextResponse.json({ error: 'Forbidden: You cannot modify this step' }, { status: 403 })
+    if (!isOwner && !isAdmin && !isCollaborator && !isLabCollaborator) {
+      return NextResponse.json({ error: 'Forbidden: You do not have edit permission for this step' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -98,8 +100,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (typeof supervisorFeedback === 'string' || supervisorFeedback === null) {
-      // Supervisor feedback / Review feedback can be provided by supervisors, owners, or collaborators
-      if (isSupervisor || isAdmin || isOwner || isCollaborator || isLabCollaborator) {
+      // Review feedback can be provided by owners, collaborators, or admins
+      if (isAdmin || isOwner || isCollaborator || isLabCollaborator) {
         updateData.supervisorFeedback = supervisorFeedback
       }
     }

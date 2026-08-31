@@ -265,6 +265,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          permission: sharePermission,
           newStudentIds: selectedStudentIds,
           newLabIds: selectedLabIds,
           newGroupIds: selectedGroupIds,
@@ -335,13 +336,10 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
   ]
 
   const isOwner = tracker.ownerId === user?.id
-  const isSupervisorOrAdmin = isSupervisor || isAdmin
-  const userDirectShare = tracker.shares.find((s) => s.user?.id === user?.id)
-  const canEditAndComment =
-    isOwner ||
-    isSupervisorOrAdmin ||
-    !userDirectShare ||
-    userDirectShare.permission === 'COLLABORATE'
+  const isAdminUser = isAdmin
+  const userShare = tracker.shares.find((s) => s.user?.id === user?.id)
+  const isViewOnlyShare = userShare && userShare.permission === 'VIEW'
+  const canEditAndComment = isOwner || isAdminUser || (!isViewOnlyShare && userShare?.permission === 'COLLABORATE')
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in pb-16">

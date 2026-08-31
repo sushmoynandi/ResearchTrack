@@ -65,10 +65,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Paper tracker not found' }, { status: 404 })
     }
 
-    // Access check
+    // Access check: Only owner, explicitly shared user, member of shared lab/group, or system admin
     const isOwner = tracker.ownerId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
-    const isSupervisorOfOwner = tracker.owner.systemRole === 'STUDENT' && (user.systemRole === 'SUPERVISOR' || isAdmin)
     const isDirectlyShared = tracker.shares.some((s) => s.userId === user.id)
 
     // Check lab/group share
@@ -85,12 +84,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const userLabIds = userLabs.map((l) => l.labId)
       const userGroupIds = userGroups.map((g) => g.groupId)
 
+      // Also check led labs if user is supervisor
+      const ledLabs = await prisma.lab.findMany({
+        where: { leadId: user.id },
+        select: { id: true },
+      })
+      const allAccessibleLabIds = [...userLabIds, ...ledLabs.map((l) => l.id)]
+
       isLabOrGroupShared = tracker.shares.some(
-        (s) => (s.labId && userLabIds.includes(s.labId)) || (s.groupId && userGroupIds.includes(s.groupId))
+        (s) => (s.labId && allAccessibleLabIds.includes(s.labId)) || (s.groupId && userGroupIds.includes(s.groupId))
       )
     }
 
-    if (!isOwner && !isAdmin && !isSupervisorOfOwner && !isDirectlyShared && !isLabOrGroupShared) {
+    if (!isOwner && !isAdmin && !isDirectlyShared && !isLabOrGroupShared) {
       return NextResponse.json({ error: 'Forbidden: You do not have access to this paper tracker' }, { status: 403 })
     }
 

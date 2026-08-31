@@ -43,25 +43,18 @@ export async function GET(request: NextRequest) {
 
     if (user.systemRole === 'ADMIN') {
       whereCondition = {}
-    } else if (user.systemRole === 'SUPERVISOR') {
-      whereCondition = {
-        OR: [
-          { ownerId: user.id },
-          { shares: { some: { userId: user.id } } },
-          { shares: { some: { labId: { in: allAccessibleLabIds } } } },
-          { shares: { some: { groupId: { in: userGroupIds } } } },
-          // Supervised students' trackers
-          { owner: { supervisorId: user.id } },
-        ],
-      }
     } else {
-      // Student
+      // Both Supervisors and Students: can ONLY see trackers they own or that were explicitly shared with them (individually, or via enrolled Lab / Sub-Group)
       whereCondition = {
         OR: [
           { ownerId: user.id },
           { shares: { some: { userId: user.id } } },
-          { shares: { some: { labId: { in: userLabIds } } } },
-          { shares: { some: { groupId: { in: userGroupIds } } } },
+          ...(allAccessibleLabIds.length > 0
+            ? [{ shares: { some: { labId: { in: allAccessibleLabIds } } } }]
+            : []),
+          ...(userGroupIds.length > 0
+            ? [{ shares: { some: { groupId: { in: userGroupIds } } } }]
+            : []),
         ],
       }
     }
