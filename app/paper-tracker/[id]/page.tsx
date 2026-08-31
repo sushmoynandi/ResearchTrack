@@ -30,6 +30,9 @@ import {
   Plus,
   Trash2,
   Globe,
+  ThumbsUp,
+  ThumbsDown,
+  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -45,7 +48,7 @@ interface StepItem {
   title: string
   category: 'PLANNING' | 'DATA' | 'MODELING' | 'ANALYSIS' | 'WRITING' | 'PUBLICATION'
   description?: string | null
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
+  status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'COMPLETED' | 'REJECTED' | 'BLOCKED'
   dueDate?: string | null
   completedAt?: string | null
   deliverableUrl?: string | null
@@ -214,6 +217,38 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
       }
     } catch {
       addToast('error', 'Network error updating stage status')
+    }
+  }
+
+  const handleReviewStep = async (stepId: string, action: 'ACCEPT' | 'REJECT', stepIndex: number) => {
+    const draft = stepDrafts[stepId]
+    try {
+      setSavingStepId(stepId)
+      const res = await fetch(`/api/paper-trackers/${trackerId}/steps/${stepId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewAction: action,
+          supervisorFeedback: draft?.supervisorFeedback || null,
+        }),
+      })
+
+      if (res.ok) {
+        if (action === 'ACCEPT') {
+          addToast('success', `✓ Stage ${stepIndex} Approved! Automatically unlocked Stage ${stepIndex + 1}.`)
+          setExpandedStepIndex(stepIndex + 1)
+        } else {
+          addToast('warning', `⚠️ Revision Requested on Stage ${stepIndex}. The stage remains pending revision.`)
+        }
+        fetchTracker()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to submit review decision')
+      }
+    } catch {
+      addToast('error', 'Network error submitting review decision')
+    } finally {
+      setSavingStepId(null)
     }
   }
 
@@ -624,36 +659,55 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                           </div>
                         </div>
 
-                        {/* Status Toggle Buttons */}
+                        {/* Status Toggle & Review Quick Actions */}
                         <div
-                          className="flex items-center gap-1.5 shrink-0"
+                          className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED'] as const).map((st) => (
-                            <button
-                              key={st}
-                              type="button"
-                              onClick={() => handleUpdateStepStatus(step.id, st)}
-                              className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer ${
-                                step.status === st
-                                  ? st === 'COMPLETED'
-                                  ? 'bg-emerald-500 text-white shadow-xs'
-                                  : st === 'IN_PROGRESS'
-                                  ? 'bg-accent text-white shadow-xs'
-                                  : st === 'BLOCKED'
-                                  ? 'bg-red-500 text-white shadow-xs'
-                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : 'bg-bg-tertiary text-text-tertiary hover:text-text-primary hover:bg-bg-elevated'
-                              }`}
-                            >
-                              {st === 'IN_PROGRESS' ? 'Active' : st}
-                            </button>
-                          ))}
+                          {/* Status Badge Buttons */}
+                          {(['PENDING', 'IN_PROGRESS', 'SUBMITTED', 'COMPLETED', 'REJECTED', 'BLOCKED'] as const)
+                            .filter((st) => {
+                              // If not in that status and not common, keep list compact
+                              if (step.status === st) return true
+                              if (st === 'IN_PROGRESS' || st === 'SUBMITTED' || st === 'COMPLETED') return true
+                              return false
+                            })
+                            .map((st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => handleUpdateStepStatus(step.id, st)}
+                                disabled={!canEditAndComment}
+                                className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer disabled:opacity-80 ${
+                                  step.status === st
+                                    ? st === 'COMPLETED'
+                                      ? 'bg-emerald-500 text-white shadow-xs'
+                                      : st === 'SUBMITTED'
+                                      ? 'bg-purple-500 text-white shadow-xs'
+                                      : st === 'IN_PROGRESS'
+                                      ? 'bg-accent text-white shadow-xs'
+                                      : st === 'REJECTED'
+                                      ? 'bg-rose-500 text-white shadow-xs'
+                                      : st === 'BLOCKED'
+                                      ? 'bg-red-500 text-white shadow-xs'
+                                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-bg-tertiary text-text-tertiary hover:text-text-primary hover:bg-bg-elevated'
+                                }`}
+                              >
+                                {st === 'IN_PROGRESS'
+                                  ? 'Active'
+                                  : st === 'SUBMITTED'
+                                  ? 'Under Review'
+                                  : st === 'REJECTED'
+                                  ? 'Revision'
+                                  : st}
+                              </button>
+                            ))}
 
                           <button
                             type="button"
                             onClick={() => setExpandedStepIndex(isExpanded ? null : step.stepIndex)}
-                            className="p-1 text-text-tertiary hover:text-text-primary"
+                            className="p-1 text-text-tertiary hover:text-text-primary ml-1"
                           >
                             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                           </button>
@@ -847,26 +901,103 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             </div>
                           </div>
 
-                          {/* Save Changes Button */}
-                          <div className="flex items-center justify-between pt-2 border-t border-border-default/50">
-                            <span className="text-[10px] text-text-tertiary">
-                              {step.completedAt && (
-                                <>✓ Completed on {new Date(step.completedAt).toLocaleDateString()}</>
-                              )}
-                            </span>
+                          {/* Save & Supervisor Review Action Buttons */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border-default/60">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-text-tertiary">
+                                {step.status === 'COMPLETED' && step.completedAt && (
+                                  <span className="text-emerald-400 font-semibold font-mono">
+                                    ✓ Approved &amp; Completed on {new Date(step.completedAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {step.status === 'SUBMITTED' && (
+                                  <span className="text-purple-400 font-semibold font-mono flex items-center gap-1">
+                                    <Clock size={12} /> Awaiting Supervisor Review Decision
+                                  </span>
+                                )}
+                                {step.status === 'REJECTED' && (
+                                  <span className="text-rose-400 font-semibold font-mono flex items-center gap-1">
+                                    <AlertTriangle size={12} /> Revision Requested — Update deliverables &amp; resubmit
+                                  </span>
+                                )}
+                              </span>
+                            </div>
 
-                            {canEditAndComment && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="primary"
-                                loading={savingStepId === step.id}
-                                onClick={() => handleSaveStepDraft(step.id)}
-                                icon={<Save size={13} />}
-                              >
-                                Save Stage Updates
-                              </Button>
-                            )}
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                              {/* Supervisor / Reviewer Decision Actions */}
+                              {(isSupervisor || isAdmin || (!isOwner && canEditAndComment)) && (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="danger"
+                                    loading={savingStepId === step.id}
+                                    onClick={() => handleReviewStep(step.id, 'REJECT', step.stepIndex)}
+                                    icon={<ThumbsDown size={13} />}
+                                    className="bg-rose-500/20 text-rose-300 hover:bg-rose-600 hover:text-white border-rose-500/30"
+                                  >
+                                    Reject (Remain on Stage {step.stepIndex})
+                                  </Button>
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="primary"
+                                    loading={savingStepId === step.id}
+                                    onClick={() => handleReviewStep(step.id, 'ACCEPT', step.stepIndex)}
+                                    icon={<ThumbsUp size={13} />}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-md font-bold"
+                                  >
+                                    Accept &amp; Advance to Next Stage →
+                                  </Button>
+                                </>
+                              )}
+
+                              {/* Student / Owner Actions */}
+                              {canEditAndComment && isOwner && (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    loading={savingStepId === step.id}
+                                    onClick={() => handleSaveStepDraft(step.id)}
+                                    icon={<Save size={13} />}
+                                  >
+                                    Save Draft
+                                  </Button>
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="primary"
+                                    loading={savingStepId === step.id}
+                                    onClick={async () => {
+                                      await handleSaveStepDraft(step.id)
+                                      await handleUpdateStepStatus(step.id, 'SUBMITTED')
+                                    }}
+                                    icon={<Send size={13} />}
+                                    className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm font-semibold"
+                                  >
+                                    Submit for Review
+                                  </Button>
+                                </>
+                              )}
+
+                              {/* Generic save if not owner and not supervisor */}
+                              {canEditAndComment && !isOwner && !(isSupervisor || isAdmin) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="primary"
+                                  loading={savingStepId === step.id}
+                                  onClick={() => handleSaveStepDraft(step.id)}
+                                  icon={<Save size={13} />}
+                                >
+                                  Save Stage Updates
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}

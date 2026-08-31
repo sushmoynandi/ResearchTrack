@@ -65,6 +65,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const {
       status,
+      reviewAction, // 'ACCEPT' | 'REJECT'
       dueDate,
       deliverableUrl,
       deliverableNotes,
@@ -74,11 +75,67 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const updateData: any = {}
 
-    if (typeof status === 'string') {
+    // Review Action Logic (Supervisor / Lead / Owner review)
+    if (reviewAction === 'ACCEPT') {
+      updateData.status = 'COMPLETED'
+      updateData.completedAt = new Date()
+      if (supervisorFeedback) updateData.supervisorFeedback = supervisorFeedback
+
+      // Automatically advance: Set the subsequent step (stepIndex + 1) to IN_PROGRESS if it's currently PENDING
+      const nextStep = await prisma.paperTrackerStep.findFirst({
+        where: {
+          trackerId,
+          stepIndex: step.stepIndex + 1,
+        },
+      })
+      if (nextStep && (nextStep.status === 'PENDING' || nextStep.status === 'BLOCKED')) {
+        await prisma.paperTrackerStep.update({
+          where: { id: nextStep.id },
+          data: { status: 'IN_PROGRESS' },
+        })
+      }
+
+      // Notify the student / tracker owner
+      if (user.id !== tracker.ownerId) {
+        await createNotification({
+          userId: tracker.ownerId,
+          title: `✅ Stage ${step.stepIndex} Approved: ${step.title}`,
+          message: `${user.name} approved stage ${step.stepIndex}. You may now proceed to ${nextStep ? `Stage ${nextStep.stepIndex}: ${nextStep.title}` : 'final submission'}!`,
+          type: 'FEEDBACK',
+          link: `/paper-tracker/${trackerId}`,
+        }).catch(() => {})
+      }
+    } else if (reviewAction === 'REJECT') {
+      // If rejected, keep on the same step with REJECTED or IN_PROGRESS status
+      updateData.status = 'REJECTED'
+      updateData.completedAt = null
+      if (supervisorFeedback) updateData.supervisorFeedback = supervisorFeedback
+
+      // Keep next steps PENDING (do not allow advancement)
+      await prisma.paperTrackerStep.updateMany({
+        where: {
+          trackerId,
+          stepIndex: { gt: step.stepIndex },
+          status: 'IN_PROGRESS',
+        },
+        data: { status: 'PENDING' },
+      })
+
+      // Notify the student / tracker owner
+      if (user.id !== tracker.ownerId) {
+        await createNotification({
+          userId: tracker.ownerId,
+          title: `⚠️ Revision Requested on Stage ${step.stepIndex}: ${step.title}`,
+          message: `${user.name} requested changes on stage ${step.stepIndex}. Please review the remarks and update deliverables.`,
+          type: 'FEEDBACK',
+          link: `/paper-tracker/${trackerId}`,
+        }).catch(() => {})
+      }
+    } else if (typeof status === 'string') {
       updateData.status = status
       if (status === 'COMPLETED') {
         updateData.completedAt = new Date()
-      } else if (status === 'PENDING' || status === 'IN_PROGRESS') {
+      } else if (status === 'PENDING' || status === 'IN_PROGRESS' || status === 'SUBMITTED' || status === 'REJECTED') {
         updateData.completedAt = null
       }
     }
@@ -111,8 +168,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     })
 
-    // If a collaborator or supervisor leaves feedback, notify the owner
-    if (supervisorFeedback && user.id !== tracker.ownerId) {
+    // If general feedback without explicit accept/reject reviewAction
+    if (!reviewAction && supervisorFeedback && user.id !== tracker.ownerId) {
       await createNotification({
         userId: tracker.ownerId,
         title: `💬 Feedback on Stage ${step.stepIndex}: ${step.title}`,
