@@ -181,11 +181,35 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // ─── NOTIFICATION DISPATCH TO RELEVANT PARTIES (STUDENT & SUPERVISORS) ───
     // 1. When a student explicitly notifies supervisor of stage update or submits for review
     if (status === 'SUBMITTED' || body.notifySupervisor === true) {
-      // Find supervisor and shared collaborators to notify
       const targetUserIds = new Set<string>()
-      if (tracker.owner?.supervisorId && tracker.owner.supervisorId !== user.id) {
-        targetUserIds.add(tracker.owner.supervisorId)
+
+      // 1a. Student's direct supervisor
+      const studentOwner = await prisma.user.findUnique({
+        where: { id: tracker.ownerId },
+        select: {
+          supervisorId: true,
+          labMemberships: {
+            select: {
+              lab: { select: { leadId: true } },
+            },
+          },
+        },
+      })
+
+      if (studentOwner?.supervisorId && studentOwner.supervisorId !== user.id) {
+        targetUserIds.add(studentOwner.supervisorId)
       }
+
+      // 1b. Lab Leads of all labs the student is a member of
+      if (studentOwner?.labMemberships) {
+        for (const membership of studentOwner.labMemberships) {
+          if (membership.lab?.leadId && membership.lab.leadId !== user.id) {
+            targetUserIds.add(membership.lab.leadId)
+          }
+        }
+      }
+
+      // 1c. Users/Supervisors explicitly shared with on this tracker
       for (const share of tracker.shares) {
         if (share.userId && share.userId !== user.id) {
           targetUserIds.add(share.userId)
@@ -198,6 +222,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
+      // 1d. Fallback: If no supervisor is linked yet, notify all SUPERVISORS in system so submissions are never lost
+      if (targetUserIds.size === 0) {
+        const allSupervisors = await prisma.user.findMany({
+          where: {
+            systemRole: { in: ['SUPERVISOR', 'ADMIN'] },
+            id: { not: user.id },
+          },
+          select: { id: true },
+          take: 5,
+        })
+        for (const sup of allSupervisors) {
+          targetUserIds.add(sup.id)
+        }
+      }
+
       for (const recipientId of targetUserIds) {
         await createNotification({
           userId: recipientId,
@@ -205,7 +244,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           message: `${user.name} submitted Stage ${step.stepIndex}: "${step.title}" (${tracker.title}) for review. Review decision needed.`,
           type: 'FEEDBACK',
           link: `/paper-tracker/${trackerId}`,
-        }).catch(() => {})
+        }).catch((err) => console.error('Notification creation failed:', err))
       }
     }
 

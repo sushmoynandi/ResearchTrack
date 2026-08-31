@@ -742,15 +742,16 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
                           {/* Deliverable Artifact Link & Notes Form */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Left Column: Artifacts & Student Synthesis */}
+                            {/* Left Column: Artifacts & Student Synthesis (Full visibility for Supervisor & Student) */}
                             <div className="space-y-3">
+                              {/* Deliverable Links & Artifact URLs */}
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5">
                                     <LinkIcon size={12} className="text-accent" />
                                     <span>Deliverable Links &amp; Artifact URLs</span>
                                   </label>
-                                  {canEditAndComment && (
+                                  {canEditAndComment && !isSupervisor && (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -767,101 +768,157 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                   )}
                                 </div>
 
-                                <div className="space-y-2">
-                                  {(draft.deliverableUrls || ['']).map((url, urlIndex) => (
-                                    <div key={urlIndex} className="flex items-center gap-1.5">
-                                      <input
-                                        type="url"
-                                        value={url}
-                                        onChange={(e) => {
-                                          const updatedUrls = [...(draft.deliverableUrls || [''])]
-                                          updatedUrls[urlIndex] = e.target.value
-                                          setStepDrafts({
-                                            ...stepDrafts,
-                                            [step.id]: { ...draft, deliverableUrls: updatedUrls },
-                                          })
-                                        }}
-                                        disabled={!canEditAndComment}
-                                        placeholder={
-                                          urlIndex === 0
-                                            ? stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'
-                                            : `https://... (Deliverable link #${urlIndex + 1})`
-                                        }
-                                        className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono disabled:opacity-70"
-                                      />
-
-                                      {url.trim() && (
-                                        <a
-                                          href={url.startsWith('http') ? url : `https://${url}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
-                                          title={`Open Link #${urlIndex + 1}`}
-                                        >
-                                          <ExternalLink size={13} />
-                                        </a>
-                                      )}
-
-                                      {canEditAndComment && (draft.deliverableUrls || []).length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updatedUrls = (draft.deliverableUrls || []).filter((_, idx) => idx !== urlIndex)
+                                {isSupervisor ? (
+                                  /* Supervisor Read/Inspection View */
+                                  <div className="space-y-1.5 p-2.5 rounded-lg bg-bg-tertiary border border-border-default">
+                                    {(draft.deliverableUrls || []).filter((u) => u.trim()).length > 0 ? (
+                                      <div className="flex flex-col gap-1.5">
+                                        {(draft.deliverableUrls || [])
+                                          .filter((u) => u.trim())
+                                          .map((url, idx) => (
+                                            <a
+                                              key={idx}
+                                              href={url.startsWith('http') ? url : `https://${url}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-center justify-between p-2 rounded-lg bg-bg-secondary hover:bg-accent/10 border border-border-default hover:border-accent transition-all group text-xs text-text-primary"
+                                            >
+                                              <div className="flex items-center gap-2 truncate">
+                                                <Globe size={13} className="text-accent shrink-0 group-hover:scale-110 transition-transform" />
+                                                <span className="truncate font-mono text-[11px] text-accent font-semibold">{url}</span>
+                                              </div>
+                                              <ExternalLink size={12} className="text-text-tertiary group-hover:text-accent shrink-0" />
+                                            </a>
+                                          ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-text-tertiary italic flex items-center gap-1">
+                                        <AlertTriangle size={12} className="text-amber-400/80" /> No deliverable links attached yet
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  /* Student Editing Input View */
+                                  <div className="space-y-2">
+                                    {(draft.deliverableUrls || ['']).map((url, urlIndex) => (
+                                      <div key={urlIndex} className="flex items-center gap-1.5">
+                                        <input
+                                          type="url"
+                                          value={url}
+                                          onChange={(e) => {
+                                            const updatedUrls = [...(draft.deliverableUrls || [''])]
+                                            updatedUrls[urlIndex] = e.target.value
                                             setStepDrafts({
                                               ...stepDrafts,
-                                              [step.id]: {
-                                                ...draft,
-                                                deliverableUrls: updatedUrls.length > 0 ? updatedUrls : [''],
-                                              },
+                                              [step.id]: { ...draft, deliverableUrls: updatedUrls },
                                             })
                                           }}
-                                          className="p-2 rounded-lg text-text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
-                                          title="Remove Link"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
+                                          disabled={!canEditAndComment}
+                                          placeholder={
+                                            urlIndex === 0
+                                              ? stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'
+                                              : `https://... (Deliverable link #${urlIndex + 1})`
+                                         }
+                                          className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono disabled:opacity-70"
+                                        />
+
+                                        {url.trim() && (
+                                          <a
+                                            href={url.startsWith('http') ? url : `https://${url}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
+                                            title={`Open Link #${urlIndex + 1}`}
+                                          >
+                                            <ExternalLink size={13} />
+                                          </a>
+                                        )}
+
+                                        {canEditAndComment && (draft.deliverableUrls || []).length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const updatedUrls = (draft.deliverableUrls || []).filter((_, idx) => idx !== urlIndex)
+                                              setStepDrafts({
+                                                ...stepDrafts,
+                                                [step.id]: {
+                                                  ...draft,
+                                                  deliverableUrls: updatedUrls.length > 0 ? updatedUrls : [''],
+                                                },
+                                              })
+                                            }}
+                                            className="p-2 rounded-lg text-text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                            title="Remove Link"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
 
+                              {/* Deliverable Notes & Findings */}
                               <div>
                                 <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
                                   <FileText size={12} className="text-cyan-400" />
                                   <span>Deliverable Notes &amp; Findings</span>
                                 </label>
-                                <textarea
-                                  value={draft.deliverableNotes}
-                                  onChange={(e) =>
-                                    setStepDrafts({
-                                      ...stepDrafts,
-                                      [step.id]: { ...draft, deliverableNotes: e.target.value },
-                                    })
-                                  }
-                                  placeholder="Document key results, checkpoints, dataset splits, code commit hashes..."
-                                  rows={3}
-                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
-                                />
+                                {isSupervisor ? (
+                                  <div className="p-2.5 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary min-h-[60px] whitespace-pre-wrap">
+                                    {draft.deliverableNotes?.trim() ? (
+                                      draft.deliverableNotes
+                                    ) : (
+                                      <span className="text-text-tertiary italic text-[11px]">No deliverable findings documented yet.</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <textarea
+                                    value={draft.deliverableNotes}
+                                    onChange={(e) =>
+                                      setStepDrafts({
+                                        ...stepDrafts,
+                                        [step.id]: { ...draft, deliverableNotes: e.target.value },
+                                      })
+                                    }
+                                    placeholder="Document key results, checkpoints, dataset splits, code commit hashes..."
+                                    rows={3}
+                                    disabled={!canEditAndComment}
+                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
+                                  />
+                                )}
                               </div>
 
+                              {/* Student Working Notes & Open Questions */}
                               <div>
                                 <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
                                   <GraduationCap size={12} className="text-blue-400" />
                                   <span>Student Working Notes &amp; Open Questions</span>
                                 </label>
-                                <textarea
-                                  value={draft.studentNotes}
-                                  onChange={(e) =>
-                                    setStepDrafts({
-                                      ...stepDrafts,
-                                      [step.id]: { ...draft, studentNotes: e.target.value },
-                                    })
-                                  }
-                                  placeholder="Unresolved questions for supervisor, blockers, GPU compute constraints..."
-                                  rows={2}
-                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
-                                />
+                                {isSupervisor ? (
+                                  <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-text-primary min-h-[50px] whitespace-pre-wrap">
+                                    {draft.studentNotes?.trim() ? (
+                                      draft.studentNotes
+                                    ) : (
+                                      <span className="text-text-tertiary italic text-[11px]">No open student questions or blockers noted.</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <textarea
+                                    value={draft.studentNotes}
+                                    onChange={(e) =>
+                                      setStepDrafts({
+                                        ...stepDrafts,
+                                        [step.id]: { ...draft, studentNotes: e.target.value },
+                                      })
+                                    }
+                                    placeholder="Unresolved questions for supervisor, blockers, GPU compute constraints..."
+                                    rows={2}
+                                    disabled={!canEditAndComment}
+                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
+                                  />
+                                )}
                               </div>
                             </div>
 
