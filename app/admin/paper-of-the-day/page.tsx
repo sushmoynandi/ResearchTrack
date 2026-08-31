@@ -70,6 +70,7 @@ export default function AdminPaperOfTheDayPage() {
   const [fetchingDoi, setFetchingDoi] = useState(false)
   const [autoResolved, setAutoResolved] = useState(false)
   const [selectedTheme, setSelectedTheme] = useState<'DARK' | 'LIGHT'>('DARK')
+  const [showScore, setShowScore] = useState(false)
   const [paperDetails, setPaperDetails] = useState<{
     doi: string
     title: string
@@ -139,10 +140,9 @@ export default function AdminPaperOfTheDayPage() {
     const raw = inputVal.trim()
     if (!raw) return
 
-    // Quick regex to check if it looks like a DOI or doi.org link
     const cleanDoi = raw.replace(/^https?:\/\/doi\.org\//i, '').trim()
-    if (!cleanDoi.includes('/') && cleanDoi.length < 5) {
-      if (isManual) addToast('error', 'Please enter a valid DOI format (e.g. 10.1038/...)')
+    if (!cleanDoi.includes('/') && cleanDoi.length < 5 && !cleanDoi.includes('.')) {
+      if (isManual) addToast('error', 'Please enter a valid DOI format or arXiv URL')
       return
     }
 
@@ -167,9 +167,7 @@ export default function AdminPaperOfTheDayPage() {
           url: data.url || ('https://doi.org/' + (data.doi || cleanDoi)),
           pdfUrl: data.pdfUrl || '',
           score: '9.4/10',
-          topics: Array.isArray(data.topics) && data.topics.length > 0
-            ? data.topics.slice(0, 4).join(', ')
-            : 'Foundation Models, Machine Learning, Artificial Intelligence',
+          topics: Array.isArray(data.topics) && data.topics.length > 0 ? data.topics.slice(0, 4).join(', ') : '',
         })
         setAutoResolved(true)
         addToast('success', '⚡ Automatically fetched paper title, authors, venue & abstract!')
@@ -187,7 +185,7 @@ export default function AdminPaperOfTheDayPage() {
           url: 'https://doi.org/' + cleanDoi,
           pdfUrl: '',
           score: '9.4/10',
-          topics: 'Machine Learning, Artificial Intelligence',
+          topics: '',
         })
       }
     } catch {
@@ -252,8 +250,8 @@ export default function AdminPaperOfTheDayPage() {
         url: paperDetails.url || null,
         pdfUrl: paperDetails.pdfUrl || null,
         theme: selectedTheme,
-        score: paperDetails.score || '9.4/10',
-        topics: paperDetails.topics || null,
+        score: showScore && paperDetails.score ? paperDetails.score.trim() : null,
+        topics: paperDetails.topics ? paperDetails.topics.trim() : null,
         sendNow,
         scheduledFor: sendNow ? new Date().toISOString() : new Date(scheduledDate).toISOString(),
         targetFilter,
@@ -450,23 +448,41 @@ export default function AdminPaperOfTheDayPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">Impact Score</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-text-primary">Impact Score</label>
+                      <label className="flex items-center gap-1 text-[10px] text-text-tertiary cursor-pointer font-sans">
+                        <input
+                          type="checkbox"
+                          checked={showScore}
+                          onChange={(e) => setShowScore(e.target.checked)}
+                          className="rounded border-border-default text-accent focus:ring-accent w-3 h-3"
+                        />
+                        <span>Show Score</span>
+                      </label>
+                    </div>
                     <input
                       type="text"
+                      disabled={!showScore}
                       value={paperDetails.score}
                       onChange={(e) => setPaperDetails({ ...paperDetails, score: e.target.value })}
-                      className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-amber-400 font-bold outline-none focus:border-accent font-mono"
-                      placeholder="9.4/10"
+                      className={`w-full p-2.5 rounded-xl border text-xs font-mono font-bold outline-none transition-opacity ${
+                        showScore
+                          ? 'bg-bg-tertiary border-border-default text-amber-400 focus:border-accent'
+                          : 'bg-bg-tertiary/40 border-border-default/40 text-text-tertiary opacity-60 cursor-not-allowed'
+                      }`}
+                      placeholder="e.g. 9.4/10 (Optional)"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">Topics (comma separated)</label>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">
+                      Topics <span className="text-text-tertiary font-normal">(Optional, comma separated)</span>
+                    </label>
                     <input
                       type="text"
                       value={paperDetails.topics}
                       onChange={(e) => setPaperDetails({ ...paperDetails, topics: e.target.value })}
                       className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
-                      placeholder="Computer Vision, AI"
+                      placeholder="e.g. Computer Vision, AI (Optional)"
                     />
                   </div>
                 </div>
@@ -559,23 +575,27 @@ export default function AdminPaperOfTheDayPage() {
                     <span className={selectedTheme === 'LIGHT' ? 'text-slate-600' : 'text-slate-400'}>
                       <strong>Venue:</strong> {paperDetails.journal || 'arXiv'} • {paperDetails.year || '2026'}
                     </span>
-                    <span className="text-amber-500 font-bold">⭐ {paperDetails.score || '9.4/10'}</span>
+                    {showScore && paperDetails.score && (
+                      <span className="text-amber-500 font-bold">⭐ {paperDetails.score}</span>
+                    )}
                   </div>
 
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {(paperDetails.topics ? paperDetails.topics.split(',') : ['Computer Vision', 'AI']).map((t, idx) => (
-                      <span
-                        key={idx}
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
-                          selectedTheme === 'LIGHT'
-                            ? 'bg-slate-100 border border-slate-300 text-slate-700'
-                            : 'bg-slate-800 border border-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {t.trim()}
-                      </span>
-                    ))}
-                  </div>
+                  {paperDetails.topics && paperDetails.topics.trim() && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {paperDetails.topics.split(',').map((t) => t.trim()).filter(Boolean).map((t, idx) => (
+                        <span
+                          key={idx}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                            selectedTheme === 'LIGHT'
+                              ? 'bg-slate-100 border border-slate-300 text-slate-700'
+                              : 'bg-slate-800 border border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -327,9 +327,8 @@ export async function sendPaperOfTheDayEmail({
     authorDisplay = `${authorList.slice(0, 4).join(', ')} +${authorList.length - 4}`
   }
 
-  const topicsList = Array.isArray(topics) && topics.length > 0
-    ? topics.slice(0, 4)
-    : ['Foundation Models', 'Representation Learning', 'Artificial Intelligence']
+  const hasTopics = Array.isArray(topics) && topics.length > 0
+  const topicsList = hasTopics ? topics.slice(0, 5) : []
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     month: 'long',
@@ -395,32 +394,40 @@ export async function sendPaperOfTheDayEmail({
                   : ''
               }
 
-              <!-- 4. Venue & Score Stats Grid -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px; border-top: 1px solid ${divider}; padding-top: 14px;">
+              <!-- 4. Venue & Optional Score Stats Grid -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: ${hasTopics ? '16px' : '8px'}; border-top: 1px solid ${divider}; padding-top: 14px;">
                 <tr>
-                  <td width="55%" valign="top">
+                  <td width="${score ? '55%' : '100%'}" valign="top">
                     <div style="font-size: 11px; font-weight: 700; color: ${textPrimary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;">Venue</div>
                     <div style="font-size: 13px; color: ${textSecondary}; font-weight: 500;">${venueString}</div>
                   </td>
-                  <td width="45%" valign="top">
-                    <div style="font-size: 11px; font-weight: 700; color: ${textPrimary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;">Impact Score</div>
-                    <div style="font-size: 13px; color: #f59e0b; font-weight: 700;">⭐ ${formattedScore}</div>
-                  </td>
+                  ${
+                    score
+                      ? `<td width="45%" valign="top">
+                          <div style="font-size: 11px; font-weight: 700; color: ${textPrimary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;">Impact Score</div>
+                          <div style="font-size: 13px; color: #f59e0b; font-weight: 700;">⭐ ${score}</div>
+                        </td>`
+                      : ''
+                  }
                 </tr>
               </table>
 
-              <!-- 5. Topics Tags -->
-              <div style="margin-bottom: 20px;">
-                <div style="font-size: 11px; font-weight: 700; color: ${textPrimary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Topics</div>
-                <div>
-                  ${topicsList
-                    .map(
-                      (t) =>
-                        `<span style="display: inline-block; background-color: ${tagBg}; color: ${tagText}; border: 1px solid ${tagBorder}; padding: 3px 9px; border-radius: 6px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; margin-right: 6px; margin-bottom: 6px; font-weight: 500;">${t}</span>`
-                    )
-                    .join('')}
-                </div>
-              </div>
+              <!-- 5. Optional Topics Tags -->
+              ${
+                hasTopics
+                  ? `<div style="margin-bottom: 20px;">
+                      <div style="font-size: 11px; font-weight: 700; color: ${textPrimary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Topics</div>
+                      <div>
+                        ${topicsList
+                          .map(
+                            (t) =>
+                              `<span style="display: inline-block; background-color: ${tagBg}; color: ${tagText}; border: 1px solid ${tagBorder}; padding: 3px 9px; border-radius: 6px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; margin-right: 6px; margin-bottom: 6px; font-weight: 500;">${t}</span>`
+                          )
+                          .join('')}
+                      </div>
+                    </div>`
+                  : ''
+              }
 
               <!-- 6. Footer Meta & Action Links -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid ${divider}; padding-top: 14px;">
