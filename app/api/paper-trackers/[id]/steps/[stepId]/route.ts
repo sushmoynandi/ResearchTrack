@@ -179,8 +179,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     })
 
     // ─── NOTIFICATION DISPATCH TO RELEVANT PARTIES (STUDENT & SUPERVISORS) ───
-    // 1. When a student submits a stage for review or updates deliverable
-    if (status === 'SUBMITTED' || (!reviewAction && (deliverableUrl || deliverableNotes) && user.id === tracker.ownerId)) {
+    // 1. When a student explicitly notifies supervisor of stage update or submits for review
+    if (status === 'SUBMITTED' || body.notifySupervisor === true) {
       // Find supervisor and shared collaborators to notify
       const targetUserIds = new Set<string>()
       if (tracker.owner?.supervisorId && tracker.owner.supervisorId !== user.id) {
@@ -201,8 +201,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       for (const recipientId of targetUserIds) {
         await createNotification({
           userId: recipientId,
-          title: status === 'SUBMITTED' ? `📥 Stage ${step.stepIndex} Submitted for Review` : `📦 Deliverable Updated on Stage ${step.stepIndex}`,
-          message: `${user.name} submitted deliverables on Stage ${step.stepIndex}: "${step.title}" (${tracker.title}). Review decision needed.`,
+          title: `📥 Stage ${step.stepIndex} Update from ${user.name}`,
+          message: `${user.name} submitted Stage ${step.stepIndex}: "${step.title}" (${tracker.title}) for review. Review decision needed.`,
           type: 'FEEDBACK',
           link: `/paper-tracker/${trackerId}`,
         }).catch(() => {})

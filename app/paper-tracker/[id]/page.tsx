@@ -252,7 +252,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
     }
   }
 
-  const handleSaveStepDraft = async (stepId: string) => {
+  const handleSaveStepDraft = async (stepId: string, notifySupervisor = false) => {
     const draft = stepDrafts[stepId]
     if (!draft) return
 
@@ -276,6 +276,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
           studentNotes: draft.studentNotes || null,
           supervisorFeedback: draft.supervisorFeedback || null,
           dueDate: draft.dueDate || null,
+          status: notifySupervisor ? 'SUBMITTED' : undefined,
+          notifySupervisor,
         }),
       })
 
@@ -288,7 +290,11 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
             steps: prev.steps.map((s) => (s.id === stepId ? updatedStep : s)),
           }
         })
-        addToast('success', 'Stage deliverables and feedback saved successfully!')
+        if (notifySupervisor) {
+          addToast('success', '🔔 Supervisor notified of stage update! Review is now in progress.')
+        } else {
+          addToast('success', 'Stage update saved internally!')
+        }
       } else {
         const err = await res.json()
         addToast('error', err.error || 'Failed to save stage information')
@@ -906,17 +912,17 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] text-text-tertiary">
                                 {step.status === 'COMPLETED' && step.completedAt && (
-                                  <span className="text-emerald-400 font-semibold font-mono">
+                                  <span className="text-emerald-400 font-semibold font-mono bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 inline-flex items-center gap-1">
                                     ✓ Approved &amp; Completed on {new Date(step.completedAt).toLocaleDateString()}
                                   </span>
                                 )}
                                 {step.status === 'SUBMITTED' && (
-                                  <span className="text-purple-400 font-semibold font-mono flex items-center gap-1">
-                                    <Clock size={12} /> Awaiting Supervisor Review Decision
+                                  <span className="text-purple-300 font-bold font-mono bg-purple-500/15 px-2.5 py-1 rounded-lg border border-purple-500/30 inline-flex items-center gap-1.5 animate-pulse">
+                                    <Clock size={13} className="text-purple-400" /> Review on process (Awaiting Supervisor Decision)
                                   </span>
                                 )}
                                 {step.status === 'REJECTED' && (
-                                  <span className="text-rose-400 font-semibold font-mono flex items-center gap-1">
+                                  <span className="text-rose-400 font-semibold font-mono bg-rose-500/10 px-2 py-1 rounded-lg border border-rose-500/20 inline-flex items-center gap-1">
                                     <AlertTriangle size={12} /> Revision Requested — Update deliverables &amp; resubmit
                                   </span>
                                 )}
@@ -961,10 +967,10 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                     size="sm"
                                     variant="secondary"
                                     loading={savingStepId === step.id}
-                                    onClick={() => handleSaveStepDraft(step.id)}
+                                    onClick={() => handleSaveStepDraft(step.id, false)}
                                     icon={<Save size={13} />}
                                   >
-                                    Save Draft
+                                    Save Stage Update
                                   </Button>
 
                                   <Button
@@ -972,14 +978,13 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                     size="sm"
                                     variant="primary"
                                     loading={savingStepId === step.id}
-                                    onClick={async () => {
-                                      await handleSaveStepDraft(step.id)
-                                      await handleUpdateStepStatus(step.id, 'SUBMITTED')
-                                    }}
+                                    onClick={() => handleSaveStepDraft(step.id, true)}
                                     icon={<Send size={13} />}
                                     className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm font-semibold"
                                   >
-                                    Submit for Review
+                                    {step.status === 'SUBMITTED'
+                                      ? 'Resend Notification to Supervisor'
+                                      : 'Notify Supervisor of Stage Update'}
                                   </Button>
                                 </>
                               )}
