@@ -27,6 +27,9 @@ import {
   Award,
   Layers,
   Edit,
+  Plus,
+  Trash2,
+  Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -108,7 +111,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
     Record<
       string,
       {
-        deliverableUrl: string
+        deliverableUrls: string[]
         deliverableNotes: string
         studentNotes: string
         supervisorFeedback: string
@@ -136,6 +139,21 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [savingShare, setSavingShare] = useState(false)
 
+  const parseDeliverableUrls = (raw: string | null | undefined): string[] => {
+    if (!raw) return ['']
+    try {
+      if (raw.startsWith('[') && raw.endsWith(']')) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((u) => typeof u === 'string')
+        }
+      }
+    } catch {}
+    // Fallback: newline or comma separated or single URL
+    const lines = raw.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean)
+    return lines.length > 0 ? lines : ['']
+  }
+
   const fetchTracker = async () => {
     try {
       setLoading(true)
@@ -149,7 +167,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
         if (data.steps) {
           for (const s of data.steps) {
             drafts[s.id] = {
-              deliverableUrl: s.deliverableUrl || '',
+              deliverableUrls: parseDeliverableUrls(s.deliverableUrl),
               deliverableNotes: s.deliverableNotes || '',
               studentNotes: s.studentNotes || '',
               supervisorFeedback: s.supervisorFeedback || '',
@@ -205,11 +223,20 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
     try {
       setSavingStepId(stepId)
+      // Filter out empty URLs and serialize
+      const cleanedUrls = (draft.deliverableUrls || []).map((u) => u.trim()).filter(Boolean)
+      const deliverableUrlPayload =
+        cleanedUrls.length > 1
+          ? JSON.stringify(cleanedUrls)
+          : cleanedUrls.length === 1
+          ? cleanedUrls[0]
+          : null
+
       const res = await fetch(`/api/paper-trackers/${trackerId}/steps/${stepId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          deliverableUrl: draft.deliverableUrl || null,
+          deliverableUrl: deliverableUrlPayload,
           deliverableNotes: draft.deliverableNotes || null,
           studentNotes: draft.studentNotes || null,
           supervisorFeedback: draft.supervisorFeedback || null,
@@ -536,7 +563,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                   const isExpanded = expandedStepIndex === step.stepIndex
                   const stageDef = PAPER_TRACKER_STAGES.find((s) => s.index === step.stepIndex)
                   const draft = stepDrafts[step.id] || {
-                    deliverableUrl: '',
+                    deliverableUrls: [''],
                     deliverableNotes: '',
                     studentNotes: '',
                     supervisorFeedback: '',
@@ -576,13 +603,16 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             <h3 className="text-xs md:text-sm font-bold text-text-primary truncate flex items-center gap-2">
                               <span>{step.title}</span>
                               {step.deliverableUrl && (
-                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
-                                  <LinkIcon size={10} /> Artifact
+                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                  <LinkIcon size={10} />{' '}
+                                  {parseDeliverableUrls(step.deliverableUrl).filter((u) => u.trim()).length > 1
+                                    ? `${parseDeliverableUrls(step.deliverableUrl).filter((u) => u.trim()).length} Artifacts`
+                                    : 'Artifact'}
                                 </span>
                               )}
                               {step.supervisorFeedback && (
-                                <span className="text-[10px] text-purple-400 font-mono flex items-center gap-0.5">
-                                  <MessageSquare size={10} /> Reviewed
+                                <span className="text-[10px] text-purple-400 font-mono flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                                  <MessageSquare size={10} /> Feedback
                                 </span>
                               )}
                             </h3>
@@ -655,34 +685,84 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             {/* Left Column: Artifacts & Student Synthesis */}
                             <div className="space-y-3">
                               <div>
-                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                                  <LinkIcon size={12} className="text-accent" />
-                                  <span>Deliverable Link / Artifact URL</span>
-                                </label>
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    type="url"
-                                    value={draft.deliverableUrl}
-                                    onChange={(e) =>
-                                      setStepDrafts({
-                                        ...stepDrafts,
-                                        [step.id]: { ...draft, deliverableUrl: e.target.value },
-                                      })
-                                    }
-                                    placeholder={stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'}
-                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
-                                  />
-                                  {draft.deliverableUrl && (
-                                    <a
-                                      href={draft.deliverableUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
-                                      title="Open Artifact Link"
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5">
+                                    <LinkIcon size={12} className="text-accent" />
+                                    <span>Deliverable Links &amp; Artifact URLs</span>
+                                  </label>
+                                  {canEditAndComment && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const currentUrls = draft.deliverableUrls || ['']
+                                        setStepDrafts({
+                                          ...stepDrafts,
+                                          [step.id]: { ...draft, deliverableUrls: [...currentUrls, ''] },
+                                        })
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:underline cursor-pointer"
                                     >
-                                      <ExternalLink size={13} />
-                                    </a>
+                                      <Plus size={11} /> Add Link
+                                    </button>
                                   )}
+                                </div>
+
+                                <div className="space-y-2">
+                                  {(draft.deliverableUrls || ['']).map((url, urlIndex) => (
+                                    <div key={urlIndex} className="flex items-center gap-1.5">
+                                      <input
+                                        type="url"
+                                        value={url}
+                                        onChange={(e) => {
+                                          const updatedUrls = [...(draft.deliverableUrls || [''])]
+                                          updatedUrls[urlIndex] = e.target.value
+                                          setStepDrafts({
+                                            ...stepDrafts,
+                                            [step.id]: { ...draft, deliverableUrls: updatedUrls },
+                                          })
+                                        }}
+                                        disabled={!canEditAndComment}
+                                        placeholder={
+                                          urlIndex === 0
+                                            ? stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'
+                                            : `https://... (Deliverable link #${urlIndex + 1})`
+                                        }
+                                        className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono disabled:opacity-70"
+                                      />
+
+                                      {url.trim() && (
+                                        <a
+                                          href={url.startsWith('http') ? url : `https://${url}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
+                                          title={`Open Link #${urlIndex + 1}`}
+                                        >
+                                          <ExternalLink size={13} />
+                                        </a>
+                                      )}
+
+                                      {canEditAndComment && (draft.deliverableUrls || []).length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updatedUrls = (draft.deliverableUrls || []).filter((_, idx) => idx !== urlIndex)
+                                            setStepDrafts({
+                                              ...stepDrafts,
+                                              [step.id]: {
+                                                ...draft,
+                                                deliverableUrls: updatedUrls.length > 0 ? updatedUrls : [''],
+                                              },
+                                            })
+                                          }}
+                                          className="p-2 rounded-lg text-text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                          title="Remove Link"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
 
