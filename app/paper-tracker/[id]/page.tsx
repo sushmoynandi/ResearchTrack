@@ -959,8 +959,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                 </>
                               )}
 
-                              {/* Student / Owner Actions */}
-                              {canEditAndComment && isOwner && (
+                              {/* Student & Researcher Actions (for owners or student collaborators with edit access) */}
+                              {canEditAndComment && !isSupervisor && (
                                 <>
                                   <Button
                                     type="button"
@@ -987,20 +987,6 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                       : 'Notify Supervisor of Stage Update'}
                                   </Button>
                                 </>
-                              )}
-
-                              {/* Generic save if not owner and not supervisor */}
-                              {canEditAndComment && !isOwner && !(isSupervisor || isAdmin) && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="primary"
-                                  loading={savingStepId === step.id}
-                                  onClick={() => handleSaveStepDraft(step.id)}
-                                  icon={<Save size={13} />}
-                                >
-                                  Save Stage Updates
-                                </Button>
                               )}
                             </div>
                           </div>
