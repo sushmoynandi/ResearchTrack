@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const tracker = step.tracker
     const isOwner = tracker.ownerId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisorOfOwner = user.systemRole === 'SUPERVISOR' && tracker.owner?.supervisorId === user.id
     const isCollaborator = tracker.shares.some(
       (s) => s.userId === user.id && s.permission === 'COLLABORATE'
     )
@@ -58,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    if (!isOwner && !isAdmin && !isCollaborator && !isLabCollaborator) {
+    if (!isOwner && !isAdmin && !isSupervisorOfOwner && !isCollaborator && !isLabCollaborator) {
       return NextResponse.json({ error: 'Forbidden: You do not have edit permission for this step' }, { status: 403 })
     }
 

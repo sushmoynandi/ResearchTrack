@@ -28,6 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             image: true,
             institution: true,
             department: true,
+            supervisorId: true,
           },
         },
         papers: {
@@ -65,9 +66,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Paper tracker not found' }, { status: 404 })
     }
 
-    // Access check: Only owner, explicitly shared user, member of shared lab/group, or system admin
+    // Access check: Owner, student's supervisor, explicitly shared user, member of shared lab/group, or system admin
     const isOwner = tracker.ownerId === user.id
     const isAdmin = user.systemRole === 'ADMIN'
+    const isSupervisorOfOwner = user.systemRole === 'SUPERVISOR' && tracker.owner?.supervisorId === user.id
     const isDirectlyShared = tracker.shares.some((s) => s.userId === user.id)
 
     // Check lab/group share
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    if (!isOwner && !isAdmin && !isDirectlyShared && !isLabOrGroupShared) {
+    if (!isOwner && !isAdmin && !isSupervisorOfOwner && !isDirectlyShared && !isLabOrGroupShared) {
       return NextResponse.json({ error: 'Forbidden: You do not have access to this paper tracker' }, { status: 403 })
     }
 
