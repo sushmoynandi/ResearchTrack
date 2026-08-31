@@ -24,6 +24,7 @@ import {
   Share2,
   HelpCircle,
   MonitorPlay,
+  ListChecks,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -58,6 +59,7 @@ export function Sidebar() {
       ]
     : [
         { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/paper-tracker', label: 'Paper Tracker', icon: ListChecks },
         { href: '/labs', label: 'Research Labs', icon: Building },
         { href: '/papers', label: 'Paper Library', icon: FileText },
         ...(user?.systemRole === 'STUDENT'

@@ -59,6 +59,7 @@ import {
   Layers,
   User,
   ShieldAlert,
+  ListChecks,
 } from 'lucide-react'
 import { GithubIcon, HuggingFaceIcon } from '@/components/ui/Icons'
 import type {
@@ -715,6 +716,12 @@ export default function PaperDetailPage() {
                   <Share2 size={13} className="text-purple-400" /> Share with peers
                 </button>
               )}
+              <Link
+                href={`/paper-tracker?paperId=${paper.id}`}
+                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
+              >
+                <ListChecks size={13} className="text-accent" /> Paper Tracker Checklist
+              </Link>
               <Link
                 href={`/papers/${paper.slug || paper.id}/present`}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"

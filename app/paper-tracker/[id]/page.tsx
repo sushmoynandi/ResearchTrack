@@ -1,0 +1,1095 @@
+'use client'
+
+import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import {
+  ListChecks,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  ExternalLink,
+  ChevronRight,
+  ChevronDown,
+  ArrowLeft,
+  Share2,
+  FileText,
+  MessageSquare,
+  GraduationCap,
+  Building,
+  Users,
+  Calendar,
+  Save,
+  Send,
+  Sparkles,
+  Link as LinkIcon,
+  Check,
+  Trophy,
+  Award,
+  Layers,
+  Edit,
+} from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { useToast } from '@/components/ui/Toast'
+import { CATEGORY_METADATA, PAPER_TRACKER_STAGES, StageDefinition } from '@/lib/paperTrackerStages'
+
+interface StepItem {
+  id: string
+  stepIndex: number
+  stepKey: string
+  title: string
+  category: 'PLANNING' | 'DATA' | 'MODELING' | 'ANALYSIS' | 'WRITING' | 'PUBLICATION'
+  description?: string | null
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
+  dueDate?: string | null
+  completedAt?: string | null
+  deliverableUrl?: string | null
+  deliverableNotes?: string | null
+  studentNotes?: string | null
+  supervisorFeedback?: string | null
+}
+
+interface PaperTrackerDetail {
+  id: string
+  title: string
+  description?: string | null
+  targetVenue?: string | null
+  targetDate?: string | null
+  status: 'ACTIVE' | 'SUBMITTED' | 'ACCEPTED' | 'PUBLISHED' | 'ON_HOLD' | 'ARCHIVED'
+  createdAt: string
+  updatedAt: string
+  ownerId: string
+  owner: {
+    id: string
+    name: string
+    email: string
+    systemRole: string
+    institution?: string | null
+    department?: string | null
+  }
+  papers: Array<{
+    id: string
+    title: string
+    authors: string
+    slug?: string | null
+    status: string
+  }>
+  steps: StepItem[]
+  shares: Array<{
+    id: string
+    targetType: 'STUDENT' | 'LAB' | 'GROUP'
+    user?: { id: string; name: string; email: string } | null
+    lab?: { id: string; name: string; slug: string } | null
+    group?: { id: string; name: string; color: string } | null
+    permission: string
+  }>
+}
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function PaperTrackerWorkspacePage({ params }: PageProps) {
+  const resolvedParams = use(params)
+  const trackerId = resolvedParams.id
+
+  const { user, isSupervisor, isAdmin, isStudent } = useAuth()
+  const { addToast } = useToast()
+
+  const [tracker, setTracker] = useState<PaperTrackerDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expandedStepIndex, setExpandedStepIndex] = useState<number | null>(1)
+
+  // Step Editing State
+  const [savingStepId, setSavingStepId] = useState<string | null>(null)
+  const [stepDrafts, setStepDrafts] = useState<
+    Record<
+      string,
+      {
+        deliverableUrl: string
+        deliverableNotes: string
+        studentNotes: string
+        supervisorFeedback: string
+        dueDate: string
+      }
+    >
+  >({})
+
+  // Share Modal State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [targetType, setTargetType] = useState<'INDIVIDUAL' | 'LAB' | 'GROUP'>('INDIVIDUAL')
+  const [sharePermission, setSharePermission] = useState<'COLLABORATE' | 'VIEW'>('COLLABORATE')
+  const [availableStudents, setAvailableStudents] = useState<Array<{ id: string; name: string; email: string }>>([])
+  const [availableLabs, setAvailableLabs] = useState<
+    Array<{
+      id: string
+      name: string
+      institution: string
+      groups: Array<{ id: string; name: string }>
+      members: Array<{ userId: string; user: { id: string; name: string; email: string } }>
+    }>
+  >([])
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
+  const [selectedLabIds, setSelectedLabIds] = useState<string[]>([])
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+  const [savingShare, setSavingShare] = useState(false)
+
+  const fetchTracker = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/paper-trackers/${trackerId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTracker(data)
+
+        // Initialize draft states
+        const drafts: any = {}
+        if (data.steps) {
+          for (const s of data.steps) {
+            drafts[s.id] = {
+              deliverableUrl: s.deliverableUrl || '',
+              deliverableNotes: s.deliverableNotes || '',
+              studentNotes: s.studentNotes || '',
+              supervisorFeedback: s.supervisorFeedback || '',
+              dueDate: s.dueDate ? s.dueDate.slice(0, 10) : '',
+            }
+          }
+          setStepDrafts(drafts)
+        }
+      } else {
+        addToast('error', 'Failed to load paper tracker')
+      }
+    } catch {
+      addToast('error', 'Network error fetching paper tracker')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchTracker()
+  }, [trackerId])
+
+  const handleUpdateStepStatus = async (stepId: string, newStatus: StepItem['status']) => {
+    try {
+      const res = await fetch(`/api/paper-trackers/${trackerId}/steps/${stepId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (res.ok) {
+        const updatedStep = await res.json()
+        setTracker((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            steps: prev.steps.map((s) => (s.id === stepId ? updatedStep : s)),
+          }
+        })
+        addToast('success', `Stage status updated to ${newStatus}`)
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to update stage status')
+      }
+    } catch {
+      addToast('error', 'Network error updating stage status')
+    }
+  }
+
+  const handleSaveStepDraft = async (stepId: string) => {
+    const draft = stepDrafts[stepId]
+    if (!draft) return
+
+    try {
+      setSavingStepId(stepId)
+      const res = await fetch(`/api/paper-trackers/${trackerId}/steps/${stepId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deliverableUrl: draft.deliverableUrl || null,
+          deliverableNotes: draft.deliverableNotes || null,
+          studentNotes: draft.studentNotes || null,
+          supervisorFeedback: draft.supervisorFeedback || null,
+          dueDate: draft.dueDate || null,
+        }),
+      })
+
+      if (res.ok) {
+        const updatedStep = await res.json()
+        setTracker((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            steps: prev.steps.map((s) => (s.id === stepId ? updatedStep : s)),
+          }
+        })
+        addToast('success', 'Stage deliverables and feedback saved successfully!')
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to save stage information')
+      }
+    } catch {
+      addToast('error', 'Network error saving stage information')
+    } finally {
+      setSavingStepId(null)
+    }
+  }
+
+  // Open Share Modal & fetch candidates
+  const handleOpenShareModal = () => {
+    setIsShareModalOpen(true)
+    fetch('/api/students')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setAvailableStudents(Array.isArray(data) ? data : []))
+      .catch(() => {})
+
+    fetch('/api/labs')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setAvailableLabs(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }
+
+  const handleSaveShares = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedStudentIds.length === 0 && selectedLabIds.length === 0 && selectedGroupIds.length === 0) {
+      addToast('error', 'Please select at least one student, lab, or sub-group to share with')
+      return
+    }
+
+    try {
+      setSavingShare(true)
+      const res = await fetch(`/api/paper-trackers/${trackerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newStudentIds: selectedStudentIds,
+          newLabIds: selectedLabIds,
+          newGroupIds: selectedGroupIds,
+        }),
+      })
+
+      if (res.ok) {
+        addToast('success', 'Tracker shared successfully!')
+        setIsShareModalOpen(false)
+        setSelectedStudentIds([])
+        setSelectedLabIds([])
+        setSelectedGroupIds([])
+        fetchTracker()
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to share tracker')
+      }
+    } catch {
+      addToast('error', 'Network error sharing tracker')
+    } finally {
+      setSavingShare(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!tracker) {
+    return (
+      <div className="max-w-md mx-auto my-16 text-center space-y-4 glass-card p-8">
+        <AlertTriangle size={32} className="text-amber-400 mx-auto" />
+        <h2 className="text-lg font-bold text-text-primary">Paper Tracker Not Found</h2>
+        <p className="text-xs text-text-secondary">
+          You may not have permission to view this project tracker or it has been deleted.
+        </p>
+        <Link href="/paper-tracker">
+          <Button size="sm" variant="primary">
+            Return to Paper Trackers
+          </Button>
+        </Link>
+      </div>
+    )
+  }
+
+  const completedCount = tracker.steps.filter((s) => s.status === 'COMPLETED').length
+  const inProgressCount = tracker.steps.filter((s) => s.status === 'IN_PROGRESS').length
+  const progressPercent = Math.round((completedCount / 25) * 100)
+
+  // Group steps by Phase/Category
+  const categories: Array<StageDefinition['category']> = [
+    'PLANNING',
+    'DATA',
+    'MODELING',
+    'ANALYSIS',
+    'WRITING',
+    'PUBLICATION',
+  ]
+
+  const isOwner = tracker.ownerId === user?.id
+  const isSupervisorOrAdmin = isSupervisor || isAdmin
+  const userDirectShare = tracker.shares.find((s) => s.user?.id === user?.id)
+  const canEditAndComment =
+    isOwner ||
+    isSupervisorOrAdmin ||
+    !userDirectShare ||
+    userDirectShare.permission === 'COLLABORATE'
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in pb-16">
+      {/* Top Back Navigation Bar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <Link
+          href="/paper-tracker"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-text-secondary hover:text-accent transition-colors"
+        >
+          <ArrowLeft size={14} /> Back to Paper Trackers
+        </Link>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {!canEditAndComment && (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+              👁️ View Only Mode
+            </span>
+          )}
+
+          {tracker.papers && tracker.papers.map((p) => (
+            <Link
+              key={p.id}
+              href={`/papers/${p.slug || p.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-bg-tertiary border border-border-default text-xs font-medium text-text-secondary hover:text-accent transition-colors max-w-xs truncate"
+              title={p.title}
+            >
+              <FileText size={13} className="text-accent shrink-0" />
+              <span className="truncate">{p.title}</span>
+              <ExternalLink size={11} className="opacity-70 shrink-0" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Project Overview Card */}
+      <div className="glass-card p-6 md:p-8 space-y-6 border-accent/20 bg-gradient-to-br from-bg-secondary via-bg-tertiary/60 to-accent/5">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="space-y-2 max-w-3xl">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Badge
+                variant={
+                  tracker.status === 'PUBLISHED' || tracker.status === 'ACCEPTED'
+                    ? 'success'
+                    : tracker.status === 'SUBMITTED'
+                    ? 'info'
+                    : tracker.status === 'ON_HOLD'
+                    ? 'warning'
+                    : 'default'
+                }
+                size="md"
+              >
+                {tracker.status}
+              </Badge>
+
+              {tracker.targetVenue && (
+                <span className="px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                  🎯 Target: {tracker.targetVenue}
+                </span>
+              )}
+
+              {tracker.targetDate && (
+                <span className="text-xs font-mono text-text-tertiary flex items-center gap-1">
+                  <Calendar size={12} className="text-accent" />
+                  Due: {new Date(tracker.targetDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-xl md:text-2xl font-bold text-text-primary font-display">
+              {tracker.title}
+            </h1>
+
+            {tracker.description && (
+              <p className="text-xs md:text-sm text-text-secondary leading-relaxed">
+                {tracker.description}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:items-end gap-2 shrink-0">
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Share2 size={13} className="text-purple-400" />}
+                onClick={handleOpenShareModal}
+                className="shadow-xs"
+              >
+                Share Tracker
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <span className="text-[10px] font-mono uppercase text-text-tertiary block">
+                    Lead Researcher
+                  </span>
+                  <span className="text-xs font-bold text-text-primary">{tracker.owner.name}</span>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-accent/20 text-accent flex items-center justify-center font-bold text-sm">
+                  {(tracker.owner.name || 'R')[0].toUpperCase()}
+                </div>
+              </div>
+            </div>
+
+            {tracker.shares.length > 0 && (
+              <button
+                type="button"
+                onClick={handleOpenShareModal}
+                className="flex items-center gap-1.5 text-[11px] text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-mono hover:bg-purple-500/20 transition-all cursor-pointer"
+                title="Manage Shares"
+              >
+                <Share2 size={12} />
+                <span>Shared with {tracker.shares.length} target(s)</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Global Progress Bar (25 Stages) */}
+        <div className="p-4 rounded-2xl bg-bg-primary/90 border border-border-default space-y-3 shadow-inner">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+            <span className="text-text-primary font-bold flex items-center gap-2">
+              <ListChecks size={16} className="text-accent" />
+              <span>Research Checklist Progression</span>
+            </span>
+            <span className="text-text-secondary">
+              <strong className="text-emerald-400 text-sm">{completedCount}</strong> of 25 Milestones Completed (
+              <strong className="text-accent text-sm">{progressPercent}%</strong>)
+            </span>
+          </div>
+
+          {/* 25-Segment Progress Bar */}
+          <div className="w-full h-3 rounded-full bg-bg-tertiary overflow-hidden flex gap-0.5 p-0.5 border border-border-default">
+            {tracker.steps.map((s) => (
+              <div
+                key={s.id}
+                title={`Stage ${s.stepIndex}: ${s.title} (${s.status})`}
+                onClick={() => setExpandedStepIndex(s.stepIndex)}
+                className={`h-full flex-1 rounded-xs transition-all cursor-pointer hover:brightness-125 ${
+                  s.status === 'COMPLETED'
+                    ? 'bg-emerald-500'
+                    : s.status === 'IN_PROGRESS'
+                    ? 'bg-accent animate-pulse'
+                    : 'bg-border-default/50 hover:bg-accent/40'
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono pt-1">
+            <span>Stage 1: Idea Formulation</span>
+            <span>Stage 10: Model Dev</span>
+            <span>Stage 17: Manuscript Writing</span>
+            <span>Stage 25: Publication &amp; Release</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── 25 SEQUENTIAL RESEARCH PHASES ACCORDION ─── */}
+      <div className="space-y-6">
+        {categories.map((category) => {
+          const categoryMeta = CATEGORY_METADATA[category]
+          const categorySteps = tracker.steps.filter((s) => s.category === category)
+          const categoryCompleted = categorySteps.filter((s) => s.status === 'COMPLETED').length
+
+          return (
+            <div key={category} className="space-y-3">
+              {/* Category Header */}
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${categoryMeta.bg} ${categoryMeta.color} border ${categoryMeta.border}`}>
+                    {categoryMeta.label}
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-text-tertiary">
+                  {categoryCompleted}/{categorySteps.length} Completed
+                </span>
+              </div>
+
+              {/* Stage Cards inside this Category */}
+              <div className="space-y-2.5">
+                {categorySteps.map((step) => {
+                  const isExpanded = expandedStepIndex === step.stepIndex
+                  const stageDef = PAPER_TRACKER_STAGES.find((s) => s.index === step.stepIndex)
+                  const draft = stepDrafts[step.id] || {
+                    deliverableUrl: '',
+                    deliverableNotes: '',
+                    studentNotes: '',
+                    supervisorFeedback: '',
+                    dueDate: '',
+                  }
+
+                  return (
+                    <div
+                      key={step.id}
+                      className={`glass-card overflow-hidden transition-all border ${
+                        step.status === 'COMPLETED'
+                          ? 'border-emerald-500/30 bg-emerald-500/5'
+                          : step.status === 'IN_PROGRESS'
+                          ? 'border-accent/40 bg-accent/5'
+                          : 'border-border-default'
+                      }`}
+                    >
+                      {/* Stage Card Header Line */}
+                      <div
+                        onClick={() => setExpandedStepIndex(isExpanded ? null : step.stepIndex)}
+                        className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-bg-tertiary/40 transition-colors select-none"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                              step.status === 'COMPLETED'
+                                ? 'bg-emerald-500 text-white shadow-xs'
+                                : step.status === 'IN_PROGRESS'
+                                ? 'bg-accent text-white shadow-xs'
+                                : 'bg-bg-tertiary text-text-tertiary border border-border-default'
+                            }`}
+                          >
+                            {step.stepIndex}
+                          </span>
+
+                          <div className="min-w-0">
+                            <h3 className="text-xs md:text-sm font-bold text-text-primary truncate flex items-center gap-2">
+                              <span>{step.title}</span>
+                              {step.deliverableUrl && (
+                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
+                                  <LinkIcon size={10} /> Artifact
+                                </span>
+                              )}
+                              {step.supervisorFeedback && (
+                                <span className="text-[10px] text-purple-400 font-mono flex items-center gap-0.5">
+                                  <MessageSquare size={10} /> Reviewed
+                                </span>
+                              )}
+                            </h3>
+                            {step.description && (
+                              <p className="text-[11px] text-text-tertiary truncate max-w-xl">
+                                {step.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Toggle Buttons */}
+                        <div
+                          className="flex items-center gap-1.5 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED'] as const).map((st) => (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => handleUpdateStepStatus(step.id, st)}
+                              className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer ${
+                                step.status === st
+                                  ? st === 'COMPLETED'
+                                  ? 'bg-emerald-500 text-white shadow-xs'
+                                  : st === 'IN_PROGRESS'
+                                  ? 'bg-accent text-white shadow-xs'
+                                  : st === 'BLOCKED'
+                                  ? 'bg-red-500 text-white shadow-xs'
+                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-bg-tertiary text-text-tertiary hover:text-text-primary hover:bg-bg-elevated'
+                              }`}
+                            >
+                              {st === 'IN_PROGRESS' ? 'Active' : st}
+                            </button>
+                          ))}
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedStepIndex(isExpanded ? null : step.stepIndex)}
+                            className="p-1 text-text-tertiary hover:text-text-primary"
+                          >
+                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expandable Workspace Body */}
+                      {isExpanded && (
+                        <div className="p-4 md:p-6 border-t border-border-default/60 space-y-4 bg-bg-primary/50 text-xs animate-slide-in">
+                          {/* Guidelines / Criteria Checklist */}
+                          {stageDef?.guidelines && (
+                            <div className="p-3.5 rounded-xl bg-bg-secondary border border-border-default/80 space-y-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-accent font-mono block">
+                                Recommended Stage Deliverables &amp; Guidelines:
+                              </span>
+                              <ul className="space-y-1 text-text-secondary text-[11px]">
+                                {stageDef.guidelines.map((g, idx) => (
+                                  <li key={idx} className="flex items-start gap-2">
+                                    <span className="text-accent font-bold">•</span>
+                                    <span>{g}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Deliverable Artifact Link & Notes Form */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Left Column: Artifacts & Student Synthesis */}
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                                  <LinkIcon size={12} className="text-accent" />
+                                  <span>Deliverable Link / Artifact URL</span>
+                                </label>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="url"
+                                    value={draft.deliverableUrl}
+                                    onChange={(e) =>
+                                      setStepDrafts({
+                                        ...stepDrafts,
+                                        [step.id]: { ...draft, deliverableUrl: e.target.value },
+                                      })
+                                    }
+                                    placeholder={stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'}
+                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
+                                  />
+                                  {draft.deliverableUrl && (
+                                    <a
+                                      href={draft.deliverableUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
+                                      title="Open Artifact Link"
+                                    >
+                                      <ExternalLink size={13} />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                                  <FileText size={12} className="text-cyan-400" />
+                                  <span>Deliverable Notes &amp; Findings</span>
+                                </label>
+                                <textarea
+                                  value={draft.deliverableNotes}
+                                  onChange={(e) =>
+                                    setStepDrafts({
+                                      ...stepDrafts,
+                                      [step.id]: { ...draft, deliverableNotes: e.target.value },
+                                    })
+                                  }
+                                  placeholder="Document key results, checkpoints, dataset splits, code commit hashes..."
+                                  rows={3}
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                                  <GraduationCap size={12} className="text-blue-400" />
+                                  <span>Student Working Notes &amp; Open Questions</span>
+                                </label>
+                                <textarea
+                                  value={draft.studentNotes}
+                                  onChange={(e) =>
+                                    setStepDrafts({
+                                      ...stepDrafts,
+                                      [step.id]: { ...draft, studentNotes: e.target.value },
+                                    })
+                                  }
+                                  placeholder="Unresolved questions for supervisor, blockers, GPU compute constraints..."
+                                  rows={2}
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Right Column: Supervisor Feedback & Stage Deadline */}
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                                  <Calendar size={12} className="text-amber-400" />
+                                  <span>Target Completion Date</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  value={draft.dueDate}
+                                  onChange={(e) =>
+                                    setStepDrafts({
+                                      ...stepDrafts,
+                                      [step.id]: { ...draft, dueDate: e.target.value },
+                                    })
+                                  }
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                                  <MessageSquare size={12} className="text-purple-400" />
+                                  <span>Review Comments &amp; Feedback</span>
+                                </label>
+                                <textarea
+                                  value={draft.supervisorFeedback}
+                                  onChange={(e) =>
+                                    setStepDrafts({
+                                      ...stepDrafts,
+                                      [step.id]: { ...draft, supervisorFeedback: e.target.value },
+                                    })
+                                  }
+                                  placeholder="Provide constructive feedback, approve methodology, or leave review remarks..."
+                                  rows={5}
+                                  disabled={!canEditAndComment}
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Save Changes Button */}
+                          <div className="flex items-center justify-between pt-2 border-t border-border-default/50">
+                            <span className="text-[10px] text-text-tertiary">
+                              {step.completedAt && (
+                                <>✓ Completed on {new Date(step.completedAt).toLocaleDateString()}</>
+                              )}
+                            </span>
+
+                            {canEditAndComment && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="primary"
+                                loading={savingStepId === step.id}
+                                onClick={() => handleSaveStepDraft(step.id)}
+                                icon={<Save size={13} />}
+                              >
+                                Save Stage Updates
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ─── SHARE TRACKER MODAL ─── */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-full max-w-xl max-h-[90vh] flex flex-col p-6 space-y-5 border-accent/30 shadow-2xl overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border-default pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <Share2 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-text-primary font-display">
+                    Share Paper Tracker
+                  </h3>
+                  <p className="text-[11px] text-text-secondary">
+                    Distribute this checklist to lab members, cluster groups, or individual peers.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(false)}
+                className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-elevated"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Currently Active Shares List */}
+            {tracker.shares.length > 0 && (
+              <div className="space-y-2 p-3 rounded-xl bg-bg-primary border border-border-default">
+                <span className="text-[11px] font-bold text-text-primary block font-mono">
+                  Currently Shared With ({tracker.shares.length}):
+                </span>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {tracker.shares.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-1.5 rounded bg-bg-tertiary border border-border-default text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        {s.targetType === 'STUDENT' ? (
+                          <GraduationCap size={13} className="text-blue-400" />
+                        ) : s.targetType === 'LAB' ? (
+                          <Building size={13} className="text-purple-400" />
+                        ) : (
+                          <Users size={13} className="text-cyan-400" />
+                        )}
+                        <span className="font-semibold text-text-primary">
+                          {s.user?.name || s.lab?.name || s.group?.name || s.targetType}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
+                            s.permission === 'COLLABORATE'
+                              ? 'bg-accent/20 text-accent'
+                              : 'bg-sky-500/20 text-sky-400'
+                          }`}
+                        >
+                          {s.permission === 'COLLABORATE' ? 'Edit & Comment' : 'View Only'}
+                        </span>
+                      </div>
+
+                      {canEditAndComment && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/paper-trackers/${trackerId}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ removeShareId: s.id }),
+                              })
+                              if (res.ok) {
+                                addToast('success', 'Access revoked successfully')
+                                fetchTracker()
+                              }
+                            } catch {
+                              addToast('error', 'Failed to revoke access')
+                            }
+                          }}
+                          className="text-[10px] text-red-400 hover:text-red-300 hover:underline cursor-pointer"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveShares} className="space-y-4 text-xs">
+              {/* Permission Level Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-text-primary block">
+                  Add New Access &amp; Permission Level
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSharePermission('COLLABORATE')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      sharePermission === 'COLLABORATE'
+                        ? 'border-accent bg-accent/10 text-text-primary'
+                        : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <span className="font-bold text-xs block text-accent">✏️ Edit &amp; Comment</span>
+                    <span className="text-[10px] text-text-tertiary block mt-0.5">
+                      Can update checklist status, link artifacts, and write feedback.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSharePermission('VIEW')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      sharePermission === 'VIEW'
+                        ? 'border-accent bg-accent/10 text-text-primary'
+                        : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <span className="font-bold text-xs block text-sky-400">👁️ View Only</span>
+                    <span className="text-[10px] text-text-tertiary block mt-0.5">
+                      Read-only visibility into milestones and progress.
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Target Type Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-text-primary block">
+                  Select Recipients
+                </label>
+                <div className="flex items-center gap-2 border-b border-border-default pb-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('INDIVIDUAL')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      targetType === 'INDIVIDUAL'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Peer Students'} ({availableStudents.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('LAB')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      targetType === 'LAB'
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <Building size={13} /> Research Labs ({availableLabs.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('GROUP')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      targetType === 'GROUP'
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <Users size={13} /> Sub-Groups
+                  </button>
+                </div>
+
+                {/* Individual Students Checkbox List */}
+                {targetType === 'INDIVIDUAL' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-text-tertiary">
+                      <span>Select researchers:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedStudentIds.length === availableStudents.length) {
+                            setSelectedStudentIds([])
+                          } else {
+                            setSelectedStudentIds(availableStudents.map((s) => s.id))
+                          }
+                        }}
+                        className="text-accent hover:underline font-mono"
+                      >
+                        {selectedStudentIds.length === availableStudents.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
+                      {availableStudents.map((s) => (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStudentIds.includes(s.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStudentIds([...selectedStudentIds, s.id])
+                              } else {
+                                setSelectedStudentIds(selectedStudentIds.filter((id) => id !== s.id))
+                              }
+                            }}
+                            className="accent-accent rounded"
+                          />
+                          <span className="font-semibold text-text-primary">{s.name}</span>
+                          <span className="text-[11px] text-text-tertiary">({s.email})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Research Labs Checkbox List */}
+                {targetType === 'LAB' && (
+                  <div className="space-y-2">
+                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
+                      {availableLabs.map((l) => (
+                        <label
+                          key={l.id}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedLabIds.includes(l.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedLabIds([...selectedLabIds, l.id])
+                              } else {
+                                setSelectedLabIds(selectedLabIds.filter((id) => id !== l.id))
+                              }
+                            }}
+                            className="accent-accent rounded"
+                          />
+                          <span className="font-semibold text-text-primary">{l.name}</span>
+                          <span className="text-[11px] text-text-tertiary">({l.institution})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-Groups Checkbox List */}
+                {targetType === 'GROUP' && (
+                  <div className="space-y-2">
+                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
+                      {availableLabs.flatMap((l) =>
+                        l.groups.map((g) => (
+                          <label
+                            key={g.id}
+                            className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedGroupIds.includes(g.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedGroupIds([...selectedGroupIds, g.id])
+                                } else {
+                                  setSelectedGroupIds(selectedGroupIds.filter((id) => id !== g.id))
+                                }
+                              }}
+                              className="accent-accent rounded"
+                            />
+                            <span className="font-semibold text-text-primary">{g.name}</span>
+                            <span className="text-[11px] text-text-tertiary">(Lab: {l.name})</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-default">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsShareModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  loading={savingShare}
+                  icon={<Share2 size={13} />}
+                >
+                  Save &amp; Share
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

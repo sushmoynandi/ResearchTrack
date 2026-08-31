@@ -25,7 +25,9 @@ function isClientUpToDate(client: any): boolean {
       'roleChangeRequest' in client &&
       'passwordResetOtp' in client &&
       'twoFactorOtp' in client &&
-      'helpVideo' in client
+      'helpVideo' in client &&
+      'paperTracker' in client &&
+      'paperTrackerStep' in client
   )
 }
 

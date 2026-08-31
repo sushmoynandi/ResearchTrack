@@ -130,6 +130,10 @@ model User {
   // Highlights & Marginal Annotations
   highlights        Highlight[]        @relation("UserHighlights")
   highlightComments HighlightComment[] @relation("UserHighlightComments")
+
+  // Paper Trackers (25-Step Research Lifecycle)
+  paperTrackersCreated PaperTracker[]      @relation("PaperTrackerOwner")
+  paperTrackerShares   PaperTrackerShare[] @relation("SharedPaperTrackers")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -193,6 +197,7 @@ model Paper {
   starterPackItems    StarterPackItem[]
   journalClubSessions JournalClubSession[]
   shares              PaperShare[]
+  paperTrackers       PaperTracker[]       @relation("PaperTrackerPapers")
 
   @@unique([userId, doi])
 }
@@ -487,6 +492,7 @@ model Lab {
   broadcasts   LabBroadcast[]
   meetings     LabMeeting[]
   tasks        LabTask[]
+  paperTrackerShares PaperTrackerShare[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 }
@@ -525,6 +531,7 @@ model ResearchGroup {
   meetings            LabMeeting[]
   tasks               LabTask[]
   broadcasts          LabBroadcast[]
+  paperTrackerShares  PaperTrackerShare[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -777,3 +784,87 @@ model HelpVideo {
 
   @@index([audience, isPublished])
 }
+
+// ─── Paper Tracker (25-Step Research Lifecycle & Stage Checklist) ───────────
+model PaperTracker {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?      @db.Text
+  targetVenue  String?      // e.g. "CVPR 2027", "Nature Machine Intelligence", "IEEE TPAMI"
+  targetDate   DateTime?    // Overall deadline
+  status       String       @default("ACTIVE") // ACTIVE, SUBMITTED, ACCEPTED, PUBLISHED, ON_HOLD, ARCHIVED
+
+  papers       Paper[]      @relation("PaperTrackerPapers")
+
+  ownerId      String
+  owner        User         @relation("PaperTrackerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  steps        PaperTrackerStep[]
+  shares       PaperTrackerShare[]
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+model PaperTrackerStep {
+  id               String       @id @default(cuid())
+  trackerId        String
+  tracker          PaperTracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  stepIndex        Int          // 1 to 25
+  stepKey          String       // E.g. RESEARCH_IDEA_SELECTION, LITERATURE_REVIEW...
+  title            String       // e.g. "Research Idea Selection"
+  category         String       // PLANNING, DATA, MODELING, ANALYSIS, WRITING, PUBLICATION
+  description      String?      @db.Text
+
+  status           String       @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  dueDate          DateTime?
+  completedAt      DateTime?
+
+  deliverableUrl   String?      // Links to GitHub, Overleaf, Wandb, Google Drive, arXiv...
+  deliverableNotes String?      @db.Text
+  studentNotes     String?      @db.Text
+  supervisorFeedback String?    @db.Text
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([trackerId, stepIndex])
+  @@index([trackerId])
+  @@index([status])
+}
+
+model PaperTrackerShare {
+  id               String        @id @default(cuid())
+  trackerId        String
+  tracker          PaperTracker  @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  // Target Types: 'STUDENT' | 'LAB' | 'GROUP'
+  targetType       String        @default("STUDENT") 
+
+  // When shared with an individual student
+  userId           String?
+  user             User?         @relation("SharedPaperTrackers", fields: [userId], references: [id], onDelete: Cascade)
+
+  // When shared with an entire Research Lab
+  labId            String?
+  lab              Lab?          @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  // When shared with a specific Sub-Group cluster
+  groupId          String?
+  group            ResearchGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  permission       String        @default("COLLABORATE") // COLLABORATE, VIEW
+  note             String?       @db.Text
+
+  createdAt        DateTime      @default(now())
+
+  @@index([trackerId])
+  @@index([userId])
+  @@index([labId])
+  @@index([groupId])
+}
+

@@ -11,11 +11,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (user.systemRole !== 'SUPERVISOR' && user.systemRole !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Only Supervisors and Administrators can access student rosters' },
-        { status: 403 }
-      )
+    if (user.systemRole === 'STUDENT') {
+      // Fetch student's own supervisor and lab memberships from DB
+      const studentRecord = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          supervisorId: true,
+          labMemberships: { select: { labId: true } },
+        },
+      })
+
+      const userLabIds = studentRecord?.labMemberships.map((l) => l.labId) || []
+      const studentSupervisorId = studentRecord?.supervisorId
+
+      const peers = await prisma.user.findMany({
+        where: {
+          systemRole: 'STUDENT',
+          id: { not: user.id },
+          OR: [
+            ...(userLabIds.length > 0
+              ? [{ labMemberships: { some: { labId: { in: userLabIds } } } }]
+              : []),
+            ...(studentSupervisorId ? [{ supervisorId: studentSupervisorId }] : []),
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          department: true,
+          systemRole: true,
+        },
+        orderBy: { name: 'asc' },
+      })
+      return NextResponse.json(peers)
     }
 
     const { searchParams } = new URL(request.url)
