@@ -20,6 +20,9 @@ import {
   Loader2,
   CheckCircle2,
   Zap,
+  Sun,
+  Moon,
+  Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -46,6 +49,9 @@ interface BroadcastItem {
   year?: number | null
   url?: string | null
   pdfUrl?: string | null
+  theme?: string
+  score?: string | null
+  topics?: string | null
   scheduledFor: string
   status: 'SCHEDULED' | 'SENT' | 'CANCELLED'
   sentAt?: string | null
@@ -63,6 +69,7 @@ export default function AdminPaperOfTheDayPage() {
   const [doiInput, setDoiInput] = useState('')
   const [fetchingDoi, setFetchingDoi] = useState(false)
   const [autoResolved, setAutoResolved] = useState(false)
+  const [selectedTheme, setSelectedTheme] = useState<'DARK' | 'LIGHT'>('DARK')
   const [paperDetails, setPaperDetails] = useState<{
     doi: string
     title: string
@@ -72,6 +79,8 @@ export default function AdminPaperOfTheDayPage() {
     year: string
     url: string
     pdfUrl: string
+    score: string
+    topics: string
   } | null>(null)
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -157,9 +166,13 @@ export default function AdminPaperOfTheDayPage() {
           year: data.year ? String(data.year) : '',
           url: data.url || ('https://doi.org/' + (data.doi || cleanDoi)),
           pdfUrl: data.pdfUrl || '',
+          score: '9.4/10',
+          topics: Array.isArray(data.topics) && data.topics.length > 0
+            ? data.topics.slice(0, 4).join(', ')
+            : 'Foundation Models, Machine Learning, Artificial Intelligence',
         })
         setAutoResolved(true)
-        addToast('success', '⚡ Automatically fetched paper title, authors, and abstract!')
+        addToast('success', '⚡ Automatically fetched paper title, authors, venue & abstract!')
       } else {
         if (isManual) {
           addToast('warning', data.error || 'Could not resolve automatically. You can enter details manually.')
@@ -173,6 +186,8 @@ export default function AdminPaperOfTheDayPage() {
           year: new Date().getFullYear().toString(),
           url: 'https://doi.org/' + cleanDoi,
           pdfUrl: '',
+          score: '9.4/10',
+          topics: 'Machine Learning, Artificial Intelligence',
         })
       }
     } catch {
@@ -188,11 +203,10 @@ export default function AdminPaperOfTheDayPage() {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
 
     const trimmed = val.trim()
-    // If it looks like a pasted DOI, trigger auto-fetch after a short pause
-    if (trimmed.includes('10.') && trimmed.includes('/')) {
+    if ((trimmed.includes('10.') && trimmed.includes('/')) || trimmed.includes('arxiv.org')) {
       debounceTimerRef.current = setTimeout(() => {
         performFetchDoi(trimmed, false)
-      }, 600)
+      }, 500)
     }
   }
 
@@ -237,6 +251,9 @@ export default function AdminPaperOfTheDayPage() {
         year: paperDetails.year ? parseInt(paperDetails.year, 10) : null,
         url: paperDetails.url || null,
         pdfUrl: paperDetails.pdfUrl || null,
+        theme: selectedTheme,
+        score: paperDetails.score || '9.4/10',
+        topics: paperDetails.topics || null,
         sendNow,
         scheduledFor: sendNow ? new Date().toISOString() : new Date(scheduledDate).toISOString(),
         targetFilter,
@@ -432,13 +449,24 @@ export default function AdminPaperOfTheDayPage() {
                       placeholder="2026"
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">DOI Web Link</label>
+                  <div>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">Impact Score</label>
                     <input
-                      type="url"
-                      value={paperDetails.url}
-                      onChange={(e) => setPaperDetails({ ...paperDetails, url: e.target.value })}
+                      type="text"
+                      value={paperDetails.score}
+                      onChange={(e) => setPaperDetails({ ...paperDetails, score: e.target.value })}
+                      className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-amber-400 font-bold outline-none focus:border-accent font-mono"
+                      placeholder="9.4/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">Topics (comma separated)</label>
+                    <input
+                      type="text"
+                      value={paperDetails.topics}
+                      onChange={(e) => setPaperDetails({ ...paperDetails, topics: e.target.value })}
                       className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
+                      placeholder="Computer Vision, AI"
                     />
                   </div>
                 </div>
@@ -448,7 +476,7 @@ export default function AdminPaperOfTheDayPage() {
                   <textarea
                     value={paperDetails.abstract}
                     onChange={(e) => setPaperDetails({ ...paperDetails, abstract: e.target.value })}
-                    rows={4}
+                    rows={3}
                     placeholder="Enter paper abstract summary..."
                     className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
                   />
@@ -461,11 +489,100 @@ export default function AdminPaperOfTheDayPage() {
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-card p-5 md:p-6 space-y-5 border-indigo-500/30">
             <span className="text-xs font-bold text-indigo-400 font-mono uppercase tracking-wider flex items-center gap-1.5 border-b border-border-default/60 pb-3">
-              <Users size={13} /> Step 3: Target Recipients &amp; Schedule
+              <Users size={13} /> Step 3: Select Email Theme &amp; Audience
             </span>
 
+            {/* Selectable Email Visual Theme (Dark vs Light) */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold text-text-primary block">Select Target Audience</label>
+              <label className="text-[11px] font-bold text-text-primary block">Select Email Visual Theme</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTheme('DARK')}
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    selectedTheme === 'DARK'
+                      ? 'border-indigo-500 bg-slate-900 text-indigo-300 shadow-md ring-2 ring-indigo-500/30'
+                      : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <Moon size={14} className="text-indigo-400" />
+                  <span>🌙 Dark Theme</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTheme('LIGHT')}
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    selectedTheme === 'LIGHT'
+                      ? 'border-blue-500 bg-white text-blue-800 shadow-md ring-2 ring-blue-500/30'
+                      : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <Sun size={14} className="text-amber-500" />
+                  <span>☀️ Light Theme</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Interactive Email Card Preview */}
+            {paperDetails && (
+              <div className="space-y-2 border-t border-border-default/60 pt-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-text-primary flex items-center gap-1">
+                    <Eye size={13} className="text-accent" /> Live Email Card Preview
+                  </label>
+                  <span className="text-[10px] font-mono text-text-tertiary uppercase">{selectedTheme} MODE</span>
+                </div>
+
+                <div
+                  className={`p-4 rounded-xl border transition-all text-left space-y-2.5 ${
+                    selectedTheme === 'LIGHT'
+                      ? 'bg-white border-slate-200 text-slate-900 shadow-sm'
+                      : 'bg-[#111827] border-[#1f2937] text-slate-100 border-l-4 border-l-indigo-500 shadow-md'
+                  }`}
+                >
+                  <div className={`text-[11px] font-bold ${selectedTheme === 'LIGHT' ? 'text-slate-800' : 'text-slate-200'}`}>
+                    {paperDetails.authors || 'Authors list'}
+                  </div>
+
+                  <div className={`text-xs font-bold line-clamp-2 ${selectedTheme === 'LIGHT' ? 'text-blue-600' : 'text-blue-400'}`}>
+                    📄 {paperDetails.title || 'Paper Title'}
+                  </div>
+
+                  {paperDetails.abstract && (
+                    <p className={`text-[11px] line-clamp-2 leading-relaxed ${selectedTheme === 'LIGHT' ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {paperDetails.abstract}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between text-[10px] pt-2 border-t border-border-default/40">
+                    <span className={selectedTheme === 'LIGHT' ? 'text-slate-600' : 'text-slate-400'}>
+                      <strong>Venue:</strong> {paperDetails.journal || 'arXiv'} • {paperDetails.year || '2026'}
+                    </span>
+                    <span className="text-amber-500 font-bold">⭐ {paperDetails.score || '9.4/10'}</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {(paperDetails.topics ? paperDetails.topics.split(',') : ['Computer Vision', 'AI']).map((t, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                          selectedTheme === 'LIGHT'
+                            ? 'bg-slate-100 border border-slate-300 text-slate-700'
+                            : 'bg-slate-800 border border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {t.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Target Audience Filter Buttons */}
+            <div className="space-y-2 border-t border-border-default/60 pt-4">
+              <label className="text-[11px] font-bold text-text-primary block">Target Audience</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'ALL', label: 'All Scholars', icon: Users },
@@ -480,11 +597,11 @@ export default function AdminPaperOfTheDayPage() {
                       key={t.id}
                       type="button"
                       onClick={() => setTargetFilter(t.id as any)}
-                      className={'p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all text-left ' + (
+                      className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all text-left ${
                         active
                           ? 'border-indigo-500 bg-indigo-500/20 text-indigo-200 shadow-sm'
                           : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary hover:border-border-hover'
-                      )}
+                      }`}
                     >
                       <Icon size={14} className={active ? 'text-indigo-400' : 'text-text-tertiary'} />
                       <span>{t.label}</span>

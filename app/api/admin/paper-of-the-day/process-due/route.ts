@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     let processedTotal = 0
 
     for (const potd of dueBroadcasts) {
+      const parsedTopics = potd.topics ? potd.topics.split(',').map((t) => t.trim()) : null
       const emailPromises = potd.recipients.map((r) =>
         sendPaperOfTheDayEmail({
           toEmail: r.email,
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
           year: potd.year,
           paperUrl: potd.url,
           pdfUrl: potd.pdfUrl,
+          score: potd.score,
+          topics: parsedTopics,
+          theme: potd.theme,
         }).then(async () => {
           await prisma.paperOfTheDayRecipient.update({
             where: { id: r.id },

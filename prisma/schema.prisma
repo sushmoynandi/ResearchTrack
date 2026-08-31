@@ -884,6 +884,9 @@ model PaperOfTheDay {
   url             String?
   pdfUrl          String?
   paperId         String?
+  theme           String                   @default("DARK") // DARK, LIGHT
+  score           String?                  @default("9.4/10")
+  topics          String?                  @db.Text
   scheduledFor    DateTime
   status          String                   @default("SCHEDULED") // SCHEDULED, SENT, CANCELLED
   sentAt          DateTime?

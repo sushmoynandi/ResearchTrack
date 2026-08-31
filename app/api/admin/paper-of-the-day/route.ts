@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
       url,
       pdfUrl,
       paperId,
+      theme, // 'DARK' | 'LIGHT'
+      score,
+      topics,
       scheduledFor,
       sendNow,
       targetFilter,
@@ -93,6 +96,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No active recipients found for selected filter' }, { status: 400 })
     }
 
+    const topicsString = Array.isArray(topics) ? topics.join(', ') : (topics || null)
+
     const potd = await prisma.paperOfTheDay.create({
       data: {
         doi: cleanDoi,
@@ -104,6 +109,9 @@ export async function POST(request: NextRequest) {
         url: url?.trim() || ('https://doi.org/' + cleanDoi),
         pdfUrl: pdfUrl?.trim() || null,
         paperId: paperId || null,
+        theme: theme || 'DARK',
+        score: score || '9.4/10',
+        topics: topicsString,
         scheduledFor: scheduledDateTime,
         status: sendNow ? 'SENT' : 'SCHEDULED',
         sentAt: sendNow ? new Date() : null,
@@ -128,6 +136,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (sendNow) {
+      const parsedTopics = potd.topics ? potd.topics.split(',').map((t) => t.trim()) : null
       const emailPromises = recipients.map((recipient) =>
         sendPaperOfTheDayEmail({
           toEmail: recipient.email,
@@ -140,6 +149,9 @@ export async function POST(request: NextRequest) {
           year: potd.year,
           paperUrl: potd.url,
           pdfUrl: potd.pdfUrl,
+          score: potd.score,
+          topics: parsedTopics,
+          theme: potd.theme,
         }).catch((err) => console.error('Failed to send POTD email to ' + recipient.email + ':', err))
       )
 
