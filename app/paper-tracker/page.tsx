@@ -720,30 +720,35 @@ export default function PaperTrackerDashboardPage() {
                         : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Peer Students'} ({students.length})
+                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Individual Peer Students'} ({students.length})
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('LAB')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      targetType === 'LAB'
-                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <Building size={13} /> Research Labs ({labs.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('GROUP')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      targetType === 'GROUP'
-                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <Users size={13} /> Sub-Group Clusters
-                  </button>
+
+                  {(isSupervisor || isAdmin) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('LAB')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          targetType === 'LAB'
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        <Building size={13} /> Research Labs ({labs.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('GROUP')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          targetType === 'GROUP'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        <Users size={13} /> Sub-Group Clusters
+                      </button>
+                    </>
+                  )}
                 </div>
 
                   {/* Individual Students Checkbox List */}

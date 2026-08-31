@@ -423,15 +423,17 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
           <div className="flex flex-col sm:items-end gap-2 shrink-0">
             <div className="flex items-center gap-3">
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={<Share2 size={13} className="text-purple-400" />}
-                onClick={handleOpenShareModal}
-                className="shadow-xs"
-              >
-                Share Tracker
-              </Button>
+              {(isOwner || isAdmin) && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Share2 size={13} className="text-purple-400" />}
+                  onClick={handleOpenShareModal}
+                  className="shadow-xs"
+                >
+                  Share Tracker
+                </Button>
+              )}
 
               <div className="flex items-center gap-2">
                 <div className="text-right">
@@ -447,15 +449,24 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
             </div>
 
             {tracker.shares.length > 0 && (
-              <button
-                type="button"
-                onClick={handleOpenShareModal}
-                className="flex items-center gap-1.5 text-[11px] text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-mono hover:bg-purple-500/20 transition-all cursor-pointer"
-                title="Manage Shares"
-              >
-                <Share2 size={12} />
-                <span>Shared with {tracker.shares.length} target(s)</span>
-              </button>
+              isOwner || isAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleOpenShareModal}
+                  className="flex items-center gap-1.5 text-[11px] text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-mono hover:bg-purple-500/20 transition-all cursor-pointer"
+                  title="Manage Shares"
+                >
+                  <Share2 size={12} />
+                  <span>Shared with {tracker.shares.length} target(s)</span>
+                </button>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 text-[11px] text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-mono select-none"
+                >
+                  <Share2 size={12} />
+                  <span>Shared with {tracker.shares.length} target(s)</span>
+                </div>
+              )
             )}
           </div>
         </div>
@@ -934,30 +945,35 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                         : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Peer Students'} ({availableStudents.length})
+                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Individual Peer Students'} ({availableStudents.length})
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('LAB')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      targetType === 'LAB'
-                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <Building size={13} /> Research Labs ({availableLabs.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('GROUP')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      targetType === 'GROUP'
-                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <Users size={13} /> Sub-Groups
-                  </button>
+
+                  {(isSupervisor || isAdmin) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('LAB')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          targetType === 'LAB'
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        <Building size={13} /> Research Labs ({availableLabs.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('GROUP')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          targetType === 'GROUP'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        <Users size={13} /> Sub-Groups
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Individual Students Checkbox List */}
