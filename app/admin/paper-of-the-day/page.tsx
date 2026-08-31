@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Sparkles,
   Link as LinkIcon,
@@ -17,6 +17,9 @@ import {
   BookOpen,
   Shield,
   GraduationCap,
+  Loader2,
+  CheckCircle2,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -59,6 +62,7 @@ export default function AdminPaperOfTheDayPage() {
 
   const [doiInput, setDoiInput] = useState('')
   const [fetchingDoi, setFetchingDoi] = useState(false)
+  const [autoResolved, setAutoResolved] = useState(false)
   const [paperDetails, setPaperDetails] = useState<{
     doi: string
     title: string
@@ -69,6 +73,8 @@ export default function AdminPaperOfTheDayPage() {
     url: string
     pdfUrl: string
   } | null>(null)
+
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const [sendNow, setSendNow] = useState(false)
   const [scheduledDate, setScheduledDate] = useState(() => {
@@ -119,51 +125,74 @@ export default function AdminPaperOfTheDayPage() {
     }
   }
 
-  const handleFetchDoi = async () => {
-    if (!doiInput.trim()) {
-      addToast('error', 'Please enter a DOI link or identifier')
+  // Automatic DOI fetch helper
+  const performFetchDoi = async (inputVal: string, isManual = false) => {
+    const raw = inputVal.trim()
+    if (!raw) return
+
+    // Quick regex to check if it looks like a DOI or doi.org link
+    const cleanDoi = raw.replace(/^https?:\/\/doi\.org\//i, '').trim()
+    if (!cleanDoi.includes('/') && cleanDoi.length < 5) {
+      if (isManual) addToast('error', 'Please enter a valid DOI format (e.g. 10.1038/...)')
       return
     }
 
     try {
       setFetchingDoi(true)
+      setAutoResolved(false)
       const res = await fetch('/api/admin/paper-of-the-day/fetch-doi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doi: doiInput }),
+        body: JSON.stringify({ doi: raw }),
       })
 
       const data = await res.json()
-      if (res.ok) {
+      if (res.ok && data.title) {
         setPaperDetails({
-          doi: data.doi || doiInput,
+          doi: data.doi || cleanDoi,
           title: data.title || '',
           authors: data.authors || '',
           abstract: data.abstract || '',
           journal: data.journal || '',
           year: data.year ? String(data.year) : '',
-          url: data.url || ('https://doi.org/' + (data.doi || doiInput)),
+          url: data.url || ('https://doi.org/' + (data.doi || cleanDoi)),
           pdfUrl: data.pdfUrl || '',
         })
-        addToast('success', 'Paper metadata successfully resolved!')
+        setAutoResolved(true)
+        addToast('success', '⚡ Automatically fetched paper title, authors, and abstract!')
       } else {
-        addToast('warning', data.error || 'Could not automatically resolve. You can fill details manually.')
-        const cleanD = doiInput.replace(/^https?:\/\/doi\.org\//i, '').trim()
+        if (isManual) {
+          addToast('warning', data.error || 'Could not resolve automatically. You can enter details manually.')
+        }
         setPaperDetails({
-          doi: cleanD,
+          doi: cleanDoi,
           title: '',
           authors: '',
           abstract: '',
           journal: '',
           year: new Date().getFullYear().toString(),
-          url: 'https://doi.org/' + cleanD,
+          url: 'https://doi.org/' + cleanDoi,
           pdfUrl: '',
         })
       }
     } catch {
-      addToast('error', 'Network error fetching DOI details')
+      if (isManual) addToast('error', 'Network error fetching DOI details')
     } finally {
       setFetchingDoi(false)
+    }
+  }
+
+  // Auto-fetch when admin pastes or types a DOI
+  const handleDoiChange = (val: string) => {
+    setDoiInput(val)
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+
+    const trimmed = val.trim()
+    // If it looks like a pasted DOI, trigger auto-fetch after a short pause
+    if (trimmed.includes('10.') && trimmed.includes('/')) {
+      debounceTimerRef.current = setTimeout(() => {
+        performFetchDoi(trimmed, false)
+      }, 600)
     }
   }
 
@@ -224,11 +253,12 @@ export default function AdminPaperOfTheDayPage() {
         addToast(
           'success',
           sendNow
-            ? 'Paper of the Day broadcast dispatched immediately!'
-            : 'Paper of the Day scheduled successfully!'
+            ? '🚀 Paper of the Day broadcast dispatched immediately!'
+            : '📅 Paper of the Day scheduled successfully!'
         )
         setDoiInput('')
         setPaperDetails(null)
+        setAutoResolved(false)
         setSelectedUserIds([])
         fetchBroadcasts()
       } else {
@@ -284,7 +314,7 @@ export default function AdminPaperOfTheDayPage() {
               Paper of the Day Broadcast &amp; Scheduler
             </h1>
             <p className="text-xs text-text-secondary">
-              Input any DOI link, select target scholars, schedule delivery time, and dispatch automated spotlight emails.
+              Simply paste any DOI link. Title, authors, and details are fetched automatically to schedule email spotlights.
             </p>
           </div>
         </div>
@@ -292,25 +322,36 @@ export default function AdminPaperOfTheDayPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-6">
+          {/* Step 1: DOI Input Card with Instant Auto-Fetch */}
           <div className="glass-card p-5 md:p-6 space-y-4 border-accent/20">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-accent font-mono uppercase tracking-wider flex items-center gap-1.5">
-                <LinkIcon size={13} /> Step 1: Enter DOI Link
+                <Zap size={13} className="text-amber-400" /> Step 1: Paste DOI Link (Automatic Fetch)
               </span>
+              {fetchingDoi && (
+                <span className="text-[11px] font-mono text-accent flex items-center gap-1 animate-pulse">
+                  <Loader2 size={12} className="animate-spin" /> Resolving Title &amp; Authors...
+                </span>
+              )}
+              {autoResolved && !fetchingDoi && (
+                <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Auto-Fetched
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={doiInput}
-                onChange={(e) => setDoiInput(e.target.value)}
+                onChange={(e) => handleDoiChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    handleFetchDoi()
+                    performFetchDoi(doiInput, true)
                   }
                 }}
-                placeholder="e.g. 10.1038/s41586-020-2649-2 or https://doi.org/10.1145/3357384.3357972"
+                placeholder="Paste DOI (e.g. 10.1038/s41586-020-2649-2 or https://doi.org/...)"
                 className="flex-1 p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
               />
 
@@ -318,42 +359,47 @@ export default function AdminPaperOfTheDayPage() {
                 type="button"
                 variant="primary"
                 loading={fetchingDoi}
-                onClick={handleFetchDoi}
+                onClick={() => performFetchDoi(doiInput, true)}
                 icon={<Search size={14} />}
                 className="bg-accent hover:bg-accent-hover text-white shrink-0"
               >
-                Fetch Metadata
+                Fetch
               </Button>
             </div>
             <p className="text-[11px] text-text-tertiary">
-              Automatically resolves Title, Authors, Abstract, Journal, Publication Year, and OpenAccess PDF via CrossRef &amp; Semantic Scholar.
+              💡 <strong>Automatic Title &amp; Author Lookup:</strong> Just paste the DOI link. We automatically query CrossRef, Semantic Scholar, and OpenAlex.
             </p>
           </div>
 
+          {/* Step 2: Paper Details Preview & Editor */}
           {paperDetails && (
             <div className="glass-card p-5 md:p-6 space-y-4 border-purple-500/30 animate-slide-in">
               <div className="flex items-center justify-between border-b border-border-default/60 pb-3">
                 <span className="text-xs font-bold text-purple-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText size={13} /> Step 2: Review &amp; Edit Paper Spotlight
+                  <FileText size={13} /> Step 2: Auto-Populated Paper Spotlight
                 </span>
                 <span className="text-[10px] font-mono text-text-tertiary">DOI: {paperDetails.doi}</span>
               </div>
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="text-[11px] font-bold text-text-primary block mb-1">Paper Title *</label>
+                  <label className="text-[11px] font-bold text-text-primary block mb-1">
+                    Paper Title <span className="text-accent text-[10px] font-normal">(Auto-Fetched)</span> *
+                  </label>
                   <input
                     type="text"
                     value={paperDetails.title}
                     onChange={(e) => setPaperDetails({ ...paperDetails, title: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-medium"
+                    className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-semibold"
                     placeholder="Paper Title"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">Authors *</label>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">
+                      Authors <span className="text-accent text-[10px] font-normal">(Auto-Fetched)</span> *
+                    </label>
                     <input
                       type="text"
                       value={paperDetails.authors}
@@ -370,14 +416,14 @@ export default function AdminPaperOfTheDayPage() {
                       value={paperDetails.journal}
                       onChange={(e) => setPaperDetails({ ...paperDetails, journal: e.target.value })}
                       className="w-full p-2.5 rounded-xl bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent"
-                      placeholder="e.g. Nature, NeurIPS 2024"
+                      placeholder="e.g. Nature, NeurIPS"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">Year</label>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">Publication Year</label>
                     <input
                       type="number"
                       value={paperDetails.year}
@@ -387,7 +433,7 @@ export default function AdminPaperOfTheDayPage() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="text-[11px] font-bold text-text-primary block mb-1">Paper URL / DOI Link</label>
+                    <label className="text-[11px] font-bold text-text-primary block mb-1">DOI Web Link</label>
                     <input
                       type="url"
                       value={paperDetails.url}
@@ -457,7 +503,7 @@ export default function AdminPaperOfTheDayPage() {
                       type="text"
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
-                      placeholder="Search users..."
+                      placeholder="Search scholars..."
                       className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-bg-secondary border border-border-default text-xs text-text-primary outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -511,7 +557,7 @@ export default function AdminPaperOfTheDayPage() {
                   })}
                 </div>
                 <div className="text-[10px] text-text-tertiary text-right font-mono">
-                  {selectedUserIds.length} user(s) selected
+                  {selectedUserIds.length} scholar(s) selected
                 </div>
               </div>
             )}
@@ -553,7 +599,7 @@ export default function AdminPaperOfTheDayPage() {
               icon={sendNow ? <Send size={14} /> : <Clock size={14} />}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold shadow-lg"
             >
-              {sendNow ? 'Dispatch Paper of the Day Now' : 'Schedule Automated Email Broadcast'}
+              {sendNow ? '🚀 Dispatch Paper of the Day Now' : '📅 Schedule Automated Email Broadcast'}
             </Button>
           </div>
         </div>
