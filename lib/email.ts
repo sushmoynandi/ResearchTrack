@@ -283,7 +283,7 @@ export async function sendMeetingScheduledEmail({
 }
 
 /**
- * Dispatch automated "Paper of the Day" HTML Email to student or supervisor
+ * Dispatch automated "Paper of the Day" HTML Email matching the ResearchScope reference design
  */
 export async function sendPaperOfTheDayEmail({
   toEmail,
@@ -296,6 +296,8 @@ export async function sendPaperOfTheDayEmail({
   year,
   paperUrl,
   pdfUrl,
+  score,
+  topics,
 }: {
   toEmail: string
   recipientName: string
@@ -307,75 +309,106 @@ export async function sendPaperOfTheDayEmail({
   year?: number | null
   paperUrl?: string | null
   pdfUrl?: string | null
+  score?: string | null
+  topics?: string[] | null
 }): Promise<boolean> {
   const cleanDoi = doi.replace(/^https?:\/\/doi\.org\//i, '').trim()
-  const doiUrl = `https://doi.org/${cleanDoi}`
+  const doiUrl = cleanDoi.startsWith('http') ? cleanDoi : `https://doi.org/${cleanDoi}`
   const targetReadUrl = paperUrl || doiUrl
-  const venueString = [journal, year].filter(Boolean).join(' • ')
+  const venueString = [journal || 'arXiv', year || new Date().getFullYear()].join(' • ')
+  const formattedScore = score || '9.2/10'
+  const topicsList = Array.isArray(topics) && topics.length > 0
+    ? topics.slice(0, 4)
+    : ['Computer Vision', 'Foundation Models', 'Machine Learning']
+
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: '2-digit',
+    year: 'numeric',
+  })
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 28px; background-color: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b;">
-      {/* Header */}
-      <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #334155;">
-        <div style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 8px 16px; border-radius: 9999px; margin-bottom: 10px;">
-          <span style="color: #ffffff; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;">📰 PAPER OF THE DAY</span>
-        </div>
-        <h1 style="color: #f8fafc; margin: 0; font-size: 22px; font-weight: 800; line-height: 1.3;">Daily Research Spotlight</h1>
-        <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Curated for ResearchTrack Scholars &amp; Labs</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0b0f19; color: #f1f5f9; border-radius: 16px;">
+      
+      {/* Top Banner Tag */}
+      <div style="margin-bottom: 14px; font-size: 13.5px; color: #f8fafc;">
+        📬 <strong>Paper of the Day</strong> is here! Read it and explore more at 👉 <a href="${targetReadUrl}" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">ResearchTrack Daily Spotlight</a>
       </div>
 
-      {/* Body */}
-      <div style="padding: 24px 0;">
-        <h2 style="font-size: 16px; color: #f8fafc; margin-bottom: 8px;">Hi ${recipientName},</h2>
-        <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">
-          Here is your scheduled <strong>Paper of the Day</strong> from your research administration. Dive into today's featured breakthrough:
-        </p>
-
-        {/* Paper Card */}
-        <div style="background-color: #1e293b; border-left: 4px solid #8b5cf6; padding: 20px; border-radius: 12px; margin: 20px 0; border-top: 1px solid #334155; border-right: 1px solid #334155; border-bottom: 1px solid #334155;">
-          <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 17px; font-weight: 700; line-height: 1.4;">
-            ${paperTitle}
-          </h3>
-
-          <p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 13px;">
-            <strong style="color: #cbd5e1;">Authors:</strong> ${authors}
-          </p>
-
-          ${venueString ? `<p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 13px;"><strong style="color: #cbd5e1;">Publication:</strong> ${venueString}</p>` : ''}
-
-          <p style="margin: 0 0 12px 0; color: #94a3b8; font-size: 13px; font-family: monospace;">
-            <strong style="color: #cbd5e1;">DOI:</strong> <a href="${doiUrl}" style="color: #38bdf8; text-decoration: underline;">${cleanDoi}</a>
-          </p>
-
-          ${
-            abstract
-              ? `<div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #334155;">
-                  <strong style="color: #e2e8f0; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.5px;">Abstract:</strong>
-                  <p style="color: #94a3b8; font-size: 13px; line-height: 1.6; margin: 6px 0 0 0;">
-                    ${abstract.length > 450 ? abstract.slice(0, 450) + '...' : abstract}
-                  </p>
-                </div>`
-              : ''
-          }
+      {/* Main Research Card */}
+      <div style="background-color: #111827; border-left: 4px solid #6366f1; padding: 20px; border-radius: 12px; border-top: 1px solid #1f2937; border-right: 1px solid #1f2937; border-bottom: 1px solid #1f2937;">
+        
+        {/* Authors Header */}
+        <div style="font-size: 13.5px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px;">
+          ${authors}
         </div>
 
-        {/* Action Buttons */}
-        <div style="text-align: center; margin: 28px 0; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="${targetReadUrl}" style="background-color: #8b5cf6; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
-            📖 Read Paper on ResearchTrack &rarr;
+        {/* Paper Title */}
+        <h2 style="margin: 0 0 12px 0; font-size: 17px; font-weight: 700; line-height: 1.45;">
+          <a href="${targetReadUrl}" style="color: #60a5fa; text-decoration: none;">
+            📄 ${paperTitle}
           </a>
-          ${
-            pdfUrl
-              ? `<a href="${pdfUrl}" style="background-color: #334155; color: #f8fafc; padding: 12px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13.5px; margin-left: 8px;">
-                  📄 Download PDF
-                </a>`
-              : ''
-          }
+        </h2>
+
+        {/* Abstract */}
+        ${
+          abstract
+            ? `<p style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin: 0 0 16px 0;">
+                ${abstract.length > 400 ? abstract.slice(0, 400) + '...' : abstract}
+              </p>`
+            : ''
+        }
+
+        {/* Venue & Score Stats Grid */}
+        <div style="display: flex; gap: 40px; margin-bottom: 14px; padding-top: 14px; border-top: 1px solid #1f2937;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.5px;">Venue</div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 2px;">${venueString}</div>
+          </div>
+
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.5px;">Score</div>
+            <div style="font-size: 13px; color: #fbbf24; font-weight: 700; margin-top: 2px;">⭐ ${formattedScore}</div>
+          </div>
         </div>
+
+        {/* Topics Chips */}
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 11px; font-weight: 700; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Topics</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${topicsList
+              .map(
+                (t) =>
+                  `<span style="display: inline-block; background-color: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-family: monospace;">${t}</span>`
+              )
+              .join(' ')}
+          </div>
+        </div>
+
+        {/* Action Button & Footer Subtext */}
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 14px; border-top: 1px solid #1f2937;">
+          <div style="font-size: 11.5px; color: #64748b;">
+            🔭 ResearchTrack • Paper of the Day • ${todayFormatted}
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <a href="${targetReadUrl}" style="background-color: #2563eb; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12.5px; text-decoration: none; display: inline-block;">
+              Open Paper &rarr;
+            </a>
+            ${
+              pdfUrl
+                ? `<a href="${pdfUrl}" style="background-color: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 12.5px; text-decoration: none; display: inline-block;">
+                    PDF
+                  </a>`
+                : ''
+            }
+          </div>
+        </div>
+
       </div>
 
-      {/* Footer */}
-      <div style="border-top: 1px solid #334155; padding-top: 16px; text-align: center; font-size: 12px; color: #64748b;">
+      {/* Email Footer */}
+      <div style="margin-top: 16px; text-align: center; font-size: 11.5px; color: #64748b;">
         ResearchTrack Academic Operating System • Automated Daily Spotlight
       </div>
     </div>
@@ -387,4 +420,5 @@ export async function sendPaperOfTheDayEmail({
     html,
   })
 }
+
 
