@@ -73,9 +73,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       supervisorFeedback,
     } = body
 
+    const isSupervisorRole = user.systemRole === 'SUPERVISOR' || isAdmin
     const updateData: any = {}
 
-    // Review Action Logic (Supervisor / Lead / Owner review)
+    // Review Action Logic (Strictly SUPERVISOR or ADMIN only)
+    if (reviewAction === 'ACCEPT' || reviewAction === 'REJECT') {
+      if (!isSupervisorRole) {
+        return NextResponse.json(
+          { error: 'Forbidden: Only Supervisors or Administrators can Accept or Reject research stages' },
+          { status: 403 }
+        )
+      }
+    }
+
     if (reviewAction === 'ACCEPT') {
       updateData.status = 'COMPLETED'
       updateData.completedAt = new Date()
@@ -168,7 +178,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     })
 
-    // If general feedback without explicit accept/reject reviewAction
+    // ─── NOTIFICATION DISPATCH TO RELEVANT PARTIES (STUDENT & SUPERVISORS) ───
+    // 1. When a student submits a stage for review or updates deliverable
+    if (status === 'SUBMITTED' || (!reviewAction && (deliverableUrl || deliverableNotes) && user.id === tracker.ownerId)) {
+      // Find supervisor and shared collaborators to notify
+      const targetUserIds = new Set<string>()
+      if (tracker.owner?.supervisorId && tracker.owner.supervisorId !== user.id) {
+        targetUserIds.add(tracker.owner.supervisorId)
+      }
+      for (const share of tracker.shares) {
+        if (share.userId && share.userId !== user.id) {
+          targetUserIds.add(share.userId)
+        }
+        if (share.labId) {
+          const lab = await prisma.lab.findUnique({ where: { id: share.labId }, select: { leadId: true } })
+          if (lab?.leadId && lab.leadId !== user.id) {
+            targetUserIds.add(lab.leadId)
+          }
+        }
+      }
+
+      for (const recipientId of targetUserIds) {
+        await createNotification({
+          userId: recipientId,
+          title: status === 'SUBMITTED' ? `📥 Stage ${step.stepIndex} Submitted for Review` : `📦 Deliverable Updated on Stage ${step.stepIndex}`,
+          message: `${user.name} submitted deliverables on Stage ${step.stepIndex}: "${step.title}" (${tracker.title}). Review decision needed.`,
+          type: 'FEEDBACK',
+          link: `/paper-tracker/${trackerId}`,
+        }).catch(() => {})
+      }
+    }
+
+    // 2. If general feedback without explicit accept/reject reviewAction (notify student/owner)
     if (!reviewAction && supervisorFeedback && user.id !== tracker.ownerId) {
       await createNotification({
         userId: tracker.ownerId,

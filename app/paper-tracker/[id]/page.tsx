@@ -924,8 +924,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap justify-end">
-                              {/* Supervisor / Reviewer Decision Actions */}
-                              {(isSupervisor || isAdmin || (!isOwner && canEditAndComment)) && (
+                              {/* Supervisor / Admin ONLY Review Decision Actions */}
+                              {(isSupervisor || isAdmin) && (
                                 <>
                                   <Button
                                     type="button"
