@@ -134,6 +134,10 @@ model User {
   // Paper Trackers (25-Step Research Lifecycle)
   paperTrackersCreated PaperTracker[]      @relation("PaperTrackerOwner")
   paperTrackerShares   PaperTrackerShare[] @relation("SharedPaperTrackers")
+
+  // Paper of the Day Scheduled Broadcasts
+  paperOfTheDayCreated  PaperOfTheDay[]          @relation("PaperOfTheDayCreator")
+  paperOfTheDayReceived PaperOfTheDayRecipient[] @relation("PaperOfTheDayUserRecipients")
 }
 
 // ─── Paper ──────────────────────────────────────────────────
@@ -867,4 +871,47 @@ model PaperTrackerShare {
   @@index([labId])
   @@index([groupId])
 }
+
+// ─── Paper of the Day Scheduled Broadcasts ───────────────────
+model PaperOfTheDay {
+  id              String                   @id @default(cuid())
+  doi             String
+  title           String
+  authors         String
+  abstract        String?                  @db.Text
+  journal         String?
+  year            Int?
+  url             String?
+  pdfUrl          String?
+  paperId         String?
+  scheduledFor    DateTime
+  status          String                   @default("SCHEDULED") // SCHEDULED, SENT, CANCELLED
+  sentAt          DateTime?
+  recipientCount  Int                      @default(0)
+  targetFilter    String                   @default("ALL") // ALL, STUDENTS, SUPERVISORS, CUSTOM
+  createdById     String
+  createdBy       User                     @relation("PaperOfTheDayCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  recipients      PaperOfTheDayRecipient[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([scheduledFor, status])
+  @@index([createdById])
+}
+
+model PaperOfTheDayRecipient {
+  id        String        @id @default(cuid())
+  potdId    String
+  potd      PaperOfTheDay @relation(fields: [potdId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation("PaperOfTheDayUserRecipients", fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  sentAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@unique([potdId, userId])
+  @@index([potdId])
+  @@index([userId])
+}
+
 

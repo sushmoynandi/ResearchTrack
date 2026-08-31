@@ -24,6 +24,7 @@ import {
   Share2,
   HelpCircle,
   MonitorPlay,
+  Sparkles,
   ListChecks,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
@@ -48,6 +49,7 @@ export function Sidebar() {
 
   const navItems = isAdmin
     ? [
+        { href: "/admin/paper-of-the-day", label: "Paper of the Day", icon: Sparkles },
         { href: "/admin/users", label: "User Management", icon: ShieldCheck },
         { href: "/admin/role-requests", label: "Role Requests", icon: UserCog },
         { href: "/admin/audit", label: "Audit Trail", icon: ShieldAlert },
