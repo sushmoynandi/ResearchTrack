@@ -557,12 +557,14 @@ export default function AdminPaperOfTheDayPage() {
                       : 'bg-[#111827] border-[#1f2937] text-slate-100 border-l-4 border-l-indigo-500 shadow-md'
                   }`}
                 >
-                  <div className={`text-[11px] font-bold ${selectedTheme === 'LIGHT' ? 'text-slate-800' : 'text-slate-200'}`}>
-                    {paperDetails.authors || 'Authors list'}
-                  </div>
-
+                  {/* 1. Paper Title (First) */}
                   <div className={`text-xs font-bold line-clamp-2 ${selectedTheme === 'LIGHT' ? 'text-blue-600' : 'text-blue-400'}`}>
                     📄 {paperDetails.title || 'Paper Title'}
+                  </div>
+
+                  {/* 2. Authors Header (Second) */}
+                  <div className={`text-[11px] font-medium ${selectedTheme === 'LIGHT' ? 'text-slate-600' : 'text-slate-400'}`}>
+                    By {paperDetails.authors || 'Authors list'}
                   </div>
 
                   {paperDetails.abstract && (
@@ -575,9 +577,6 @@ export default function AdminPaperOfTheDayPage() {
                     <span className={selectedTheme === 'LIGHT' ? 'text-slate-600' : 'text-slate-400'}>
                       <strong>Venue:</strong> {paperDetails.journal || 'arXiv'} • {paperDetails.year || '2026'}
                     </span>
-                    {showScore && paperDetails.score && (
-                      <span className="text-amber-500 font-bold">⭐ {paperDetails.score}</span>
-                    )}
                   </div>
 
                   {paperDetails.topics && paperDetails.topics.trim() && (

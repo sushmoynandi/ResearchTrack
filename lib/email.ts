@@ -328,7 +328,7 @@ export async function sendPaperOfTheDayEmail({
   }
 
   const hasTopics = Array.isArray(topics) && topics.length > 0
-  const topicsList = hasTopics ? topics.slice(0, 5) : []
+  const topicsList = hasTopics ? topics : []
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     month: 'long',
@@ -373,16 +373,16 @@ export async function sendPaperOfTheDayEmail({
           <tr>
             <td style="background-color: ${bgCard}; border-left: 5px solid ${spineColor}; border-top: 1px solid ${borderCard}; border-right: 1px solid ${borderCard}; border-bottom: 1px solid ${borderCard}; border-radius: 12px; padding: 24px; box-shadow: ${isLight ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 20px rgba(0,0,0,0.4)'};">
               
-              <!-- 1. Authors Header -->
-              <div style="font-size: 13.5px; font-weight: 700; color: ${textPrimary}; margin-bottom: 12px; letter-spacing: -0.2px;">
-                ${authorDisplay}
-              </div>
-
-              <!-- 2. Paper Title -->
-              <div style="margin-bottom: 14px; line-height: 1.45;">
+              <!-- 1. Paper Title (First) -->
+              <div style="margin-bottom: 8px; line-height: 1.45;">
                 <a href="${targetReadUrl}" style="font-size: 18px; font-weight: 700; color: ${titleColor}; text-decoration: none; display: inline-block;">
                   📄 ${paperTitle}
                 </a>
+              </div>
+
+              <!-- 2. Authors Header (Second) -->
+              <div style="font-size: 13px; font-weight: 600; color: ${textSecondary}; margin-bottom: 14px; letter-spacing: -0.1px;">
+                By ${authorDisplay}
               </div>
 
               <!-- 3. Abstract Snippet -->
@@ -412,7 +412,7 @@ export async function sendPaperOfTheDayEmail({
                 </tr>
               </table>
 
-              <!-- 5. Optional Topics Tags -->
+              <!-- 5. Optional Topics Tags (All Topics Included) -->
               ${
                 hasTopics
                   ? `<div style="margin-bottom: 20px;">
