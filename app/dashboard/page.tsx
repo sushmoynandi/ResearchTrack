@@ -22,6 +22,10 @@ import {
   ChevronRight,
   TrendingUp,
   Trophy,
+  ChevronDown,
+  Sparkles,
+  Zap,
+  Flame,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PaperRow } from "@/components/papers/PaperRow";
@@ -127,6 +131,7 @@ export default function DashboardPage() {
   const { user, isStudent, isSupervisor, isAdmin } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -278,6 +283,63 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* 🌟 HERO CARD: "Today's Focus" Launchpad */}
+      {isStudent && (
+        <div className="p-5 rounded-2xl bg-linear-to-r from-accent/15 via-bg-secondary to-purple-500/10 border border-accent/30 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent/20 text-accent flex items-center gap-1">
+                <Sparkles size={11} /> Today&apos;s Focus
+              </span>
+              {stats.pendingAssignments && stats.pendingAssignments.length > 0 && (
+                <span className="text-xs text-text-secondary font-mono">
+                  {stats.pendingAssignments.length} reading tasks queued
+                </span>
+              )}
+            </div>
+            <h3 className="text-base font-bold text-text-primary font-display">
+              {stats.pendingAssignments && stats.pendingAssignments.length > 0
+                ? `Continue: ${stats.pendingAssignments[0].paper.title}`
+                : stats.recentPapers && stats.recentPapers.length > 0
+                ? `Resume Reading: ${stats.recentPapers[0].title}`
+                : "Ready to start your literature synthesis?"}
+            </h3>
+            <p className="text-xs text-text-secondary">
+              {stats.pendingAssignments && stats.pendingAssignments.length > 0
+                ? `Assigned by ${stats.pendingAssignments[0].assignedBy.name} · Next milestone: ${stats.completedMilestones || 0}/${stats.totalMilestones || 0} completed`
+                : "Log insights, track reading momentum, and build your research foundation."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            {stats.pendingAssignments && stats.pendingAssignments.length > 0 ? (
+              <Link href={`/papers/${stats.pendingAssignments[0].paper.slug || stats.pendingAssignments[0].paper.id}`}>
+                <Button variant="primary" icon={<ArrowRight size={15} />}>
+                  Resume Reading
+                </Button>
+              </Link>
+            ) : stats.recentPapers && stats.recentPapers.length > 0 ? (
+              <Link href={`/papers/${stats.recentPapers[0].slug || stats.recentPapers[0].id}`}>
+                <Button variant="primary" icon={<ArrowRight size={15} />}>
+                  Open Latest Paper
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/papers/new">
+                <Button variant="primary" icon={<Plus size={15} />}>
+                  Add First Paper
+                </Button>
+              </Link>
+            )}
+            <Link href="/paper-tracker">
+              <Button variant="secondary" icon={<ClipboardList size={14} />}>
+                View Tracker
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ─── ROLE-SPECIFIC SECTIONS ─── */}
 
@@ -605,13 +667,40 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 🌟 Student Research Contribution Heatmap & Activity (GitHub Style) */}
-          <StudentContributionHeatmap />
+          {/* 🌟 Collapsible Detailed Research Telemetry & Activity Accordion */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="w-full flex items-center justify-between p-3.5 rounded-xl glass-card hover:border-accent/40 transition-all text-xs font-semibold text-text-primary cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <TrendingUp size={15} className="text-accent" />
+                <span>Detailed Research Telemetry, Activity Heatmap &amp; Velocity</span>
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-text-secondary font-normal">
+                {showAnalytics ? "Hide Graphs" : "Show Graphs"}
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform duration-200 ${showAnalytics ? "rotate-180" : ""}`}
+                />
+              </span>
+            </button>
+
+            {showAnalytics && (
+              <div className="space-y-6 animate-fade-in pt-2">
+                <StudentContributionHeatmap />
+                <LabReadingVelocityWidget />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Lab Reading Velocity & Research Topic Cluster Map */}
-      <LabReadingVelocityWidget />
+      {/* For supervisors/admins or when not in student view, show reading velocity */}
+      {!isStudent && (
+        <LabReadingVelocityWidget />
+      )}
 
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">

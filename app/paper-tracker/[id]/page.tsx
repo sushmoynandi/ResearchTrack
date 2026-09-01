@@ -661,6 +661,26 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
             <span>Stage 25: Publication &amp; Release</span>
           </div>
         </div>
+
+        {/* 6-Phase Stepper Quick Navigation Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="text-[10px] font-mono text-text-tertiary uppercase shrink-0 mr-1">Phases:</span>
+          {categories.map((cat) => {
+            const meta = CATEGORY_METADATA[cat]
+            const catSteps = tracker.steps.filter((s) => s.category === cat)
+            const catDone = catSteps.filter((s) => s.status === 'COMPLETED' || s.status === 'SKIPPED').length
+            return (
+              <a
+                key={cat}
+                href={`#phase-${cat.toLowerCase()}`}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-semibold shrink-0 transition-all ${meta.bg} ${meta.color} ${meta.border} hover:brightness-125 flex items-center gap-1.5`}
+              >
+                <span>{meta.label}</span>
+                <span className="text-[10px] opacity-80 font-mono">({catDone}/{catSteps.length})</span>
+              </a>
+            )
+          })}
+        </div>
       </div>
 
       {/* ─── 25 SEQUENTIAL RESEARCH PHASES ACCORDION ─── */}
@@ -671,7 +691,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
           const categoryCompleted = categorySteps.filter((s) => s.status === 'COMPLETED' || s.status === 'SKIPPED').length
 
           return (
-            <div key={category} className="space-y-3">
+            <div key={category} id={`phase-${category.toLowerCase()}`} className="space-y-3 scroll-mt-20">
               {/* Category Header */}
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
