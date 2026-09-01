@@ -78,28 +78,64 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updateData: any = {}
 
     // Review Action Logic (Strictly SUPERVISOR or ADMIN only)
-    if (reviewAction === 'ACCEPT' || reviewAction === 'REJECT') {
+    if (reviewAction === 'ACCEPT' || reviewAction === 'REJECT' || reviewAction === 'SKIP' || reviewAction === 'UNSKIP') {
       if (!isSupervisorRole) {
         return NextResponse.json(
-          { error: 'Forbidden: Only Supervisors or Administrators can Accept or Reject research stages' },
+          { error: 'Forbidden: Only Supervisors or Administrators can review, accept, reject, or skip research stages' },
           { status: 403 }
         )
       }
     }
 
-    if (reviewAction === 'ACCEPT') {
+    if (reviewAction === 'SKIP') {
+      updateData.status = 'SKIPPED'
+      updateData.completedAt = new Date()
+      if (supervisorFeedback) updateData.supervisorFeedback = supervisorFeedback
+
+      // Automatically advance: Find the next non-completed/non-skipped step and unlock it
+      const nextStep = await prisma.paperTrackerStep.findFirst({
+        where: {
+          trackerId,
+          stepIndex: { gt: step.stepIndex },
+          status: { in: ['PENDING', 'BLOCKED'] },
+        },
+        orderBy: { stepIndex: 'asc' },
+      })
+      if (nextStep) {
+        await prisma.paperTrackerStep.update({
+          where: { id: nextStep.id },
+          data: { status: 'IN_PROGRESS' },
+        })
+      }
+
+      // Notify student
+      if (user.id !== tracker.ownerId) {
+        await createNotification({
+          userId: tracker.ownerId,
+          title: `⏭️ Stage ${step.stepIndex} Skipped by Supervisor: ${step.title}`,
+          message: `${user.name} marked Stage ${step.stepIndex} as optional/skipped. You can proceed to ${nextStep ? `Stage ${nextStep.stepIndex}: ${nextStep.title}` : 'next stage'}!`,
+          type: 'FEEDBACK',
+          link: `/paper-tracker/${trackerId}`,
+        }).catch(() => {})
+      }
+    } else if (reviewAction === 'UNSKIP') {
+      updateData.status = 'PENDING'
+      updateData.completedAt = null
+    } else if (reviewAction === 'ACCEPT') {
       updateData.status = 'COMPLETED'
       updateData.completedAt = new Date()
       if (supervisorFeedback) updateData.supervisorFeedback = supervisorFeedback
 
-      // Automatically advance: Set the subsequent step (stepIndex + 1) to IN_PROGRESS if it's currently PENDING
+      // Automatically advance: Set the subsequent step to IN_PROGRESS if it's currently PENDING or BLOCKED
       const nextStep = await prisma.paperTrackerStep.findFirst({
         where: {
           trackerId,
-          stepIndex: step.stepIndex + 1,
+          stepIndex: { gt: step.stepIndex },
+          status: { in: ['PENDING', 'BLOCKED'] },
         },
+        orderBy: { stepIndex: 'asc' },
       })
-      if (nextStep && (nextStep.status === 'PENDING' || nextStep.status === 'BLOCKED')) {
+      if (nextStep) {
         await prisma.paperTrackerStep.update({
           where: { id: nextStep.id },
           data: { status: 'IN_PROGRESS' },
@@ -117,7 +153,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }).catch(() => {})
       }
     } else if (reviewAction === 'REJECT') {
-      // If rejected, keep on the same step with REJECTED or IN_PROGRESS status
+      // If rejected, keep on the same step with REJECTED status
       updateData.status = 'REJECTED'
       updateData.completedAt = null
       if (supervisorFeedback) updateData.supervisorFeedback = supervisorFeedback
@@ -144,7 +180,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     } else if (typeof status === 'string') {
       updateData.status = status
-      if (status === 'COMPLETED') {
+      if (status === 'COMPLETED' || status === 'SKIPPED') {
         updateData.completedAt = new Date()
       } else if (status === 'PENDING' || status === 'IN_PROGRESS' || status === 'SUBMITTED' || status === 'REJECTED') {
         updateData.completedAt = null

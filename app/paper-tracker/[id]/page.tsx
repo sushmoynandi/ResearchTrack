@@ -33,6 +33,10 @@ import {
   ThumbsUp,
   ThumbsDown,
   ShieldAlert,
+  ArrowUp,
+  ArrowDown,
+  FastForward,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -48,7 +52,7 @@ interface StepItem {
   title: string
   category: 'PLANNING' | 'DATA' | 'MODELING' | 'ANALYSIS' | 'WRITING' | 'PUBLICATION'
   description?: string | null
-  status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'COMPLETED' | 'REJECTED' | 'BLOCKED'
+  status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'COMPLETED' | 'REJECTED' | 'BLOCKED' | 'SKIPPED'
   dueDate?: string | null
   completedAt?: string | null
   deliverableUrl?: string | null
@@ -110,6 +114,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
   // Step Editing State
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
+  const [reorderingStepId, setReorderingStepId] = useState<string | null>(null)
   const [stepDrafts, setStepDrafts] = useState<
     Record<
       string,
@@ -148,13 +153,11 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
       if (raw.startsWith('[') && raw.endsWith(']')) {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((u) => typeof u === 'string')
+          return parsed
         }
       }
     } catch {}
-    // Fallback: newline or comma separated or single URL
-    const lines = raw.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean)
-    return lines.length > 0 ? lines : ['']
+    return [raw]
   }
 
   const fetchTracker = async () => {
@@ -165,8 +168,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
         const data = await res.json()
         setTracker(data)
 
-        // Initialize draft states
-        const drafts: any = {}
+        // Initialize drafts
+        const drafts: Record<string, any> = {}
         if (data.steps) {
           for (const s of data.steps) {
             drafts[s.id] = {
@@ -220,7 +223,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
     }
   }
 
-  const handleReviewStep = async (stepId: string, action: 'ACCEPT' | 'REJECT', stepIndex: number) => {
+  const handleReviewStep = async (stepId: string, action: 'ACCEPT' | 'REJECT' | 'SKIP' | 'UNSKIP', stepIndex: number) => {
     const draft = stepDrafts[stepId]
     try {
       setSavingStepId(stepId)
@@ -235,10 +238,14 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
       if (res.ok) {
         if (action === 'ACCEPT') {
-          addToast('success', `✓ Stage ${stepIndex} Approved! Automatically unlocked Stage ${stepIndex + 1}.`)
+          addToast('success', `✓ Stage ${stepIndex} Approved! Automatically unlocked next stage.`)
           setExpandedStepIndex(stepIndex + 1)
-        } else {
+        } else if (action === 'REJECT') {
           addToast('warning', `⚠️ Revision Requested on Stage ${stepIndex}. The stage remains pending revision.`)
+        } else if (action === 'SKIP') {
+          addToast('success', `⏭️ Stage ${stepIndex} marked as Skipped!`)
+        } else if (action === 'UNSKIP') {
+          addToast('info', `↩️ Stage ${stepIndex} restored to pending queue.`)
         }
         fetchTracker()
       } else {
@@ -249,6 +256,32 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
       addToast('error', 'Network error submitting review decision')
     } finally {
       setSavingStepId(null)
+    }
+  }
+
+  const handleReorderStep = async (stepId: string, direction: 'UP' | 'DOWN') => {
+    try {
+      setReorderingStepId(stepId)
+      const res = await fetch(`/api/paper-trackers/${trackerId}/steps/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId, direction }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.steps) {
+          setTracker((prev) => (prev ? { ...prev, steps: data.steps } : prev))
+        }
+        addToast('success', `Milestone moved ${direction === 'UP' ? 'up 🔼' : 'down 🔽'}`)
+      } else {
+        const err = await res.json()
+        addToast('error', err.error || 'Failed to reorder milestone')
+      }
+    } catch {
+      addToast('error', 'Network error reordering milestone')
+    } finally {
+      setReorderingStepId(null)
     }
   }
 
@@ -306,46 +339,97 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
     }
   }
 
-  // Open Share Modal & fetch candidates
-  const handleOpenShareModal = () => {
-    setIsShareModalOpen(true)
-    fetch('/api/students')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setAvailableStudents(Array.isArray(data) ? data : []))
-      .catch(() => {})
-
-    fetch('/api/labs')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setAvailableLabs(Array.isArray(data) ? data : []))
-      .catch(() => {})
+  const handleDeliverableUrlChange = (stepId: string, index: number, value: string) => {
+    setStepDrafts((prev) => {
+      const current = prev[stepId] || {
+        deliverableUrls: [''],
+        deliverableNotes: '',
+        studentNotes: '',
+        supervisorFeedback: '',
+        dueDate: '',
+      }
+      const newUrls = [...current.deliverableUrls]
+      newUrls[index] = value
+      return {
+        ...prev,
+        [stepId]: {
+          ...current,
+          deliverableUrls: newUrls,
+        },
+      }
+    })
   }
 
-  const handleSaveShares = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedStudentIds.length === 0 && selectedLabIds.length === 0 && selectedGroupIds.length === 0) {
-      addToast('error', 'Please select at least one student, lab, or sub-group to share with')
-      return
-    }
+  const handleAddDeliverableUrl = (stepId: string) => {
+    setStepDrafts((prev) => {
+      const current = prev[stepId] || {
+        deliverableUrls: [''],
+        deliverableNotes: '',
+        studentNotes: '',
+        supervisorFeedback: '',
+        dueDate: '',
+      }
+      return {
+        ...prev,
+        [stepId]: {
+          ...current,
+          deliverableUrls: [...current.deliverableUrls, ''],
+        },
+      }
+    })
+  }
 
+  const handleRemoveDeliverableUrl = (stepId: string, index: number) => {
+    setStepDrafts((prev) => {
+      const current = prev[stepId]
+      if (!current) return prev
+      const newUrls = current.deliverableUrls.filter((_, i) => i !== index)
+      return {
+        ...prev,
+        [stepId]: {
+          ...current,
+          deliverableUrls: newUrls.length > 0 ? newUrls : [''],
+        },
+      }
+    })
+  }
+
+  const handleOpenShareModal = async () => {
+    setIsShareModalOpen(true)
+    try {
+      const [studentsRes, labsRes] = await Promise.all([
+        fetch('/api/students?mode=discover'),
+        fetch('/api/labs'),
+      ])
+      if (studentsRes.ok) {
+        const data = await studentsRes.json()
+        setAvailableStudents(data.students || [])
+      }
+      if (labsRes.ok) {
+        const data = await labsRes.json()
+        setAvailableLabs(data.labs || [])
+      }
+    } catch {}
+  }
+
+  const handleSaveShare = async () => {
     try {
       setSavingShare(true)
-      const res = await fetch(`/api/paper-trackers/${trackerId}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/paper-trackers/${trackerId}/share`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          targetType,
+          studentIds: targetType === 'INDIVIDUAL' ? selectedStudentIds : [],
+          labIds: targetType === 'LAB' ? selectedLabIds : [],
+          groupIds: targetType === 'GROUP' ? selectedGroupIds : [],
           permission: sharePermission,
-          newStudentIds: selectedStudentIds,
-          newLabIds: selectedLabIds,
-          newGroupIds: selectedGroupIds,
         }),
       })
 
       if (res.ok) {
         addToast('success', 'Tracker shared successfully!')
         setIsShareModalOpen(false)
-        setSelectedStudentIds([])
-        setSelectedLabIds([])
-        setSelectedGroupIds([])
         fetchTracker()
       } else {
         const err = await res.json()
@@ -361,22 +445,21 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
   if (loading) {
     return (
       <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
-          ))}
+        <Skeleton variant="card" height="180px" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton variant="card" height="120px" />
+          <Skeleton variant="card" height="120px" />
         </div>
+        <Skeleton variant="card" height="400px" />
       </div>
     )
   }
 
   if (!tracker) {
     return (
-      <div className="max-w-md mx-auto my-16 text-center space-y-4 glass-card p-8">
-        <AlertTriangle size={32} className="text-amber-400 mx-auto" />
-        <h2 className="text-lg font-bold text-text-primary">Paper Tracker Not Found</h2>
+      <div className="glass-card p-12 text-center max-w-md mx-auto my-12 space-y-4">
+        <AlertTriangle size={48} className="mx-auto text-warning" />
+        <h2 className="text-lg font-bold text-text-primary">Tracker Not Found</h2>
         <p className="text-xs text-text-secondary">
           You may not have permission to view this project tracker or it has been deleted.
         </p>
@@ -389,9 +472,9 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
     )
   }
 
-  const completedCount = tracker.steps.filter((s) => s.status === 'COMPLETED').length
+  const completedCount = tracker.steps.filter((s) => s.status === 'COMPLETED' || s.status === 'SKIPPED').length
   const inProgressCount = tracker.steps.filter((s) => s.status === 'IN_PROGRESS').length
-  const progressPercent = Math.round((completedCount / 25) * 100)
+  const progressPercent = Math.round((completedCount / (tracker.steps.length || 25)) * 100)
 
   // Group steps by Phase/Category
   const categories: Array<StageDefinition['category']> = [
@@ -405,6 +488,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
   const isOwner = tracker.ownerId === user?.id
   const isAdminUser = isAdmin
+  const isSupervisorUser = isSupervisor || isAdminUser
   const userShare = tracker.shares.find((s) => s.user?.id === user?.id)
   const isViewOnlyShare = userShare && userShare.permission === 'VIEW'
   const canEditAndComment = isOwner || isAdminUser || (!isViewOnlyShare && userShare?.permission === 'COLLABORATE')
@@ -545,7 +629,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
               <span>Research Checklist Progression</span>
             </span>
             <span className="text-text-secondary">
-              <strong className="text-emerald-400 text-sm">{completedCount}</strong> of 25 Milestones Completed (
+              <strong className="text-emerald-400 text-sm">{completedCount}</strong> of {tracker.steps.length || 25} Milestones Completed / Skipped (
               <strong className="text-accent text-sm">{progressPercent}%</strong>)
             </span>
           </div>
@@ -560,6 +644,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                 className={`h-full flex-1 rounded-xs transition-all cursor-pointer hover:brightness-125 ${
                   s.status === 'COMPLETED'
                     ? 'bg-emerald-500'
+                    : s.status === 'SKIPPED'
+                    ? 'bg-slate-500/60'
                     : s.status === 'IN_PROGRESS'
                     ? 'bg-accent animate-pulse'
                     : 'bg-border-default/50 hover:bg-accent/40'
@@ -582,7 +668,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
         {categories.map((category) => {
           const categoryMeta = CATEGORY_METADATA[category]
           const categorySteps = tracker.steps.filter((s) => s.category === category)
-          const categoryCompleted = categorySteps.filter((s) => s.status === 'COMPLETED').length
+          const categoryCompleted = categorySteps.filter((s) => s.status === 'COMPLETED' || s.status === 'SKIPPED').length
 
           return (
             <div key={category} className="space-y-3">
@@ -598,11 +684,11 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                 </span>
               </div>
 
-              {/* Stage Cards inside this Category */}
-              <div className="space-y-2.5">
+              {/* Steps in this Category */}
+              <div className="space-y-3">
                 {categorySteps.map((step) => {
                   const isExpanded = expandedStepIndex === step.stepIndex
-                  const stageDef = PAPER_TRACKER_STAGES.find((s) => s.index === step.stepIndex)
+                  const stageDef = PAPER_TRACKER_STAGES.find((st) => st.key === step.stepKey)
                   const draft = stepDrafts[step.id] || {
                     deliverableUrls: [''],
                     deliverableNotes: '',
@@ -611,12 +697,22 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                     dueDate: '',
                   }
 
+                  const currentIndexInAll = tracker.steps.findIndex((s) => s.id === step.id)
+                  const canMoveUp = isSupervisorUser && currentIndexInAll > 0
+                  const canMoveDown = isSupervisorUser && currentIndexInAll < tracker.steps.length - 1
+
                   return (
                     <div
                       key={step.id}
-                      className={`glass-card overflow-hidden transition-all border ${
+                      className={`glass-card border transition-all duration-200 overflow-hidden ${
                         step.status === 'COMPLETED'
                           ? 'border-emerald-500/30 bg-emerald-500/5'
+                          : step.status === 'SKIPPED'
+                          ? 'border-slate-500/30 bg-slate-500/5 opacity-80'
+                          : step.status === 'SUBMITTED'
+                          ? 'border-purple-500/40 bg-purple-500/5 shadow-md'
+                          : step.status === 'REJECTED'
+                          ? 'border-rose-500/40 bg-rose-500/5'
                           : step.status === 'IN_PROGRESS'
                           ? 'border-accent/40 bg-accent/5'
                           : 'border-border-default'
@@ -628,10 +724,36 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                         className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-bg-tertiary/40 transition-colors select-none"
                       >
                         <div className="flex items-center gap-3 min-w-0">
+                          {/* Reorder Buttons for Supervisors */}
+                          {isSupervisorUser && (
+                            <div className="flex flex-col gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                disabled={!canMoveUp || reorderingStepId === step.id}
+                                onClick={() => handleReorderStep(step.id, 'UP')}
+                                className="p-0.5 text-text-tertiary hover:text-accent disabled:opacity-20 transition-colors cursor-pointer"
+                                title="Move Milestone Up"
+                              >
+                                <ArrowUp size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!canMoveDown || reorderingStepId === step.id}
+                                onClick={() => handleReorderStep(step.id, 'DOWN')}
+                                className="p-0.5 text-text-tertiary hover:text-accent disabled:opacity-20 transition-colors cursor-pointer"
+                                title="Move Milestone Down"
+                              >
+                                <ArrowDown size={12} />
+                              </button>
+                            </div>
+                          )}
+
                           <span
                             className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
                               step.status === 'COMPLETED'
                                 ? 'bg-emerald-500 text-white shadow-xs'
+                                : step.status === 'SKIPPED'
+                                ? 'bg-slate-600 text-slate-200'
                                 : step.status === 'IN_PROGRESS'
                                 ? 'bg-accent text-white shadow-xs'
                                 : 'bg-bg-tertiary text-text-tertiary border border-border-default'
@@ -642,7 +764,12 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
                           <div className="min-w-0">
                             <h3 className="text-xs md:text-sm font-bold text-text-primary truncate flex items-center gap-2">
-                              <span>{step.title}</span>
+                              <span className={step.status === 'SKIPPED' ? 'line-through text-text-tertiary' : ''}>{step.title}</span>
+                              {step.status === 'SKIPPED' && (
+                                <span className="text-[10px] text-slate-400 font-mono flex items-center gap-0.5 bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-500/20">
+                                  <FastForward size={10} /> Skipped
+                                </span>
+                              )}
                               {step.deliverableUrl && (
                                 <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                                   <LinkIcon size={10} />{' '}
@@ -671,9 +798,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                           onClick={(e) => e.stopPropagation()}
                         >
                           {/* Status Badge Buttons */}
-                          {(['PENDING', 'IN_PROGRESS', 'SUBMITTED', 'COMPLETED', 'REJECTED', 'BLOCKED'] as const)
+                          {(['PENDING', 'IN_PROGRESS', 'SUBMITTED', 'COMPLETED', 'REJECTED', 'BLOCKED', 'SKIPPED'] as const)
                             .filter((st) => {
-                              // If not in that status and not common, keep list compact
                               if (step.status === st) return true
                               if (st === 'IN_PROGRESS' || st === 'SUBMITTED' || st === 'COMPLETED') return true
                               return false
@@ -696,6 +822,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                       ? 'bg-rose-500 text-white shadow-xs'
                                       : st === 'BLOCKED'
                                       ? 'bg-red-500 text-white shadow-xs'
+                                      : st === 'SKIPPED'
+                                      ? 'bg-slate-600 text-white shadow-xs'
                                       : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                                     : 'bg-bg-tertiary text-text-tertiary hover:text-text-primary hover:bg-bg-elevated'
                                 }`}
@@ -706,6 +834,8 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                   ? 'Under Review'
                                   : st === 'REJECTED'
                                   ? 'Revision'
+                                  : st === 'SKIPPED'
+                                  ? 'Skipped'
                                   : st}
                               </button>
                             ))}
@@ -740,223 +870,138 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                             </div>
                           )}
 
-                          {/* Deliverable Artifact Link & Notes Form */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Left Column: Artifacts & Student Synthesis (Full visibility for Supervisor & Student) */}
+                          {/* Editable Stage Deliverables & Fields */}
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {/* Left Column: Artifacts & Due Date */}
                             <div className="space-y-3">
-                              {/* Deliverable Links & Artifact URLs */}
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5">
+                                  <label className="text-[11px] font-bold text-text-primary uppercase font-mono flex items-center gap-1.5">
                                     <LinkIcon size={12} className="text-accent" />
-                                    <span>Deliverable Links &amp; Artifact URLs</span>
+                                    <span>Deliverable Links &amp; Artifacts</span>
                                   </label>
-                                  {canEditAndComment && !isSupervisor && (
+                                  {canEditAndComment && (
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        const currentUrls = draft.deliverableUrls || ['']
-                                        setStepDrafts({
-                                          ...stepDrafts,
-                                          [step.id]: { ...draft, deliverableUrls: [...currentUrls, ''] },
-                                        })
-                                      }}
-                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:underline cursor-pointer"
+                                      onClick={() => handleAddDeliverableUrl(step.id)}
+                                      className="text-[10px] font-mono text-accent hover:text-accent-hover flex items-center gap-1 cursor-pointer font-bold"
                                     >
-                                      <Plus size={11} /> Add Link
+                                      <Plus size={11} /> Add Artifact Link
                                     </button>
                                   )}
                                 </div>
 
-                                {isSupervisor ? (
-                                  /* Supervisor Read/Inspection View */
-                                  <div className="space-y-1.5 p-2.5 rounded-lg bg-bg-tertiary border border-border-default">
-                                    {(draft.deliverableUrls || []).filter((u) => u.trim()).length > 0 ? (
-                                      <div className="flex flex-col gap-1.5">
-                                        {(draft.deliverableUrls || [])
-                                          .filter((u) => u.trim())
-                                          .map((url, idx) => (
-                                            <a
-                                              key={idx}
-                                              href={url.startsWith('http') ? url : `https://${url}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="flex items-center justify-between p-2 rounded-lg bg-bg-secondary hover:bg-accent/10 border border-border-default hover:border-accent transition-all group text-xs text-text-primary"
-                                            >
-                                              <div className="flex items-center gap-2 truncate">
-                                                <Globe size={13} className="text-accent shrink-0 group-hover:scale-110 transition-transform" />
-                                                <span className="truncate font-mono text-[11px] text-accent font-semibold">{url}</span>
-                                              </div>
-                                              <ExternalLink size={12} className="text-text-tertiary group-hover:text-accent shrink-0" />
-                                            </a>
-                                          ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-[11px] text-text-tertiary italic flex items-center gap-1">
-                                        <AlertTriangle size={12} className="text-amber-400/80" /> No deliverable links attached yet
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  /* Student Editing Input View */
-                                  <div className="space-y-2">
-                                    {(draft.deliverableUrls || ['']).map((url, urlIndex) => (
-                                      <div key={urlIndex} className="flex items-center gap-1.5">
-                                        <input
-                                          type="url"
-                                          value={url}
-                                          onChange={(e) => {
-                                            const updatedUrls = [...(draft.deliverableUrls || [''])]
-                                            updatedUrls[urlIndex] = e.target.value
-                                            setStepDrafts({
-                                              ...stepDrafts,
-                                              [step.id]: { ...draft, deliverableUrls: updatedUrls },
-                                            })
-                                          }}
-                                          disabled={!canEditAndComment}
-                                          placeholder={
-                                            urlIndex === 0
-                                              ? stageDef?.deliverablePlaceholder || 'https://github.com/... or https://overleaf.com/...'
-                                              : `https://... (Deliverable link #${urlIndex + 1})`
-                                         }
-                                          className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono disabled:opacity-70"
-                                        />
-
-                                        {url.trim() && (
-                                          <a
-                                            href={url.startsWith('http') ? url : `https://${url}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent hover:text-white transition-colors shrink-0"
-                                            title={`Open Link #${urlIndex + 1}`}
-                                          >
-                                            <ExternalLink size={13} />
-                                          </a>
-                                        )}
-
-                                        {canEditAndComment && (draft.deliverableUrls || []).length > 1 && (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updatedUrls = (draft.deliverableUrls || []).filter((_, idx) => idx !== urlIndex)
-                                              setStepDrafts({
-                                                ...stepDrafts,
-                                                [step.id]: {
-                                                  ...draft,
-                                                  deliverableUrls: updatedUrls.length > 0 ? updatedUrls : [''],
-                                                },
-                                              })
-                                            }}
-                                            className="p-2 rounded-lg text-text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
-                                            title="Remove Link"
-                                          >
-                                            <Trash2 size={13} />
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                <div className="space-y-1.5">
+                                  {draft.deliverableUrls.map((urlVal, uIdx) => (
+                                    <div key={uIdx} className="flex items-center gap-1.5">
+                                      <input
+                                        type="url"
+                                        value={urlVal}
+                                        onChange={(e) => handleDeliverableUrlChange(step.id, uIdx, e.target.value)}
+                                        disabled={!canEditAndComment}
+                                        placeholder="https://github.com/... or https://overleaf.com/..."
+                                        className="flex-1 p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent disabled:opacity-70"
+                                      />
+                                      {urlVal.trim() && (
+                                        <a
+                                          href={urlVal.startsWith('http') ? urlVal : `https://${urlVal}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated text-accent transition-colors shrink-0"
+                                          title="Open link"
+                                        >
+                                          <ExternalLink size={13} />
+                                        </a>
+                                      )}
+                                      {canEditAndComment && draft.deliverableUrls.length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveDeliverableUrl(step.id, uIdx)}
+                                          className="p-2 rounded-lg text-text-tertiary hover:text-danger hover:bg-bg-tertiary transition-colors shrink-0 cursor-pointer"
+                                          title="Remove URL"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
 
-                              {/* Deliverable Notes & Findings */}
                               <div>
-                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                                  <FileText size={12} className="text-cyan-400" />
-                                  <span>Deliverable Notes &amp; Findings</span>
-                                </label>
-                                {isSupervisor ? (
-                                  <div className="p-2.5 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary min-h-[60px] whitespace-pre-wrap">
-                                    {draft.deliverableNotes?.trim() ? (
-                                      draft.deliverableNotes
-                                    ) : (
-                                      <span className="text-text-tertiary italic text-[11px]">No deliverable findings documented yet.</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <textarea
-                                    value={draft.deliverableNotes}
-                                    onChange={(e) =>
-                                      setStepDrafts({
-                                        ...stepDrafts,
-                                        [step.id]: { ...draft, deliverableNotes: e.target.value },
-                                      })
-                                    }
-                                    placeholder="Document key results, checkpoints, dataset splits, code commit hashes..."
-                                    rows={3}
-                                    disabled={!canEditAndComment}
-                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
-                                  />
-                                )}
-                              </div>
-
-                              {/* Student Working Notes & Open Questions */}
-                              <div>
-                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                                  <GraduationCap size={12} className="text-blue-400" />
-                                  <span>Student Working Notes &amp; Open Questions</span>
-                                </label>
-                                {isSupervisor ? (
-                                  <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-text-primary min-h-[50px] whitespace-pre-wrap">
-                                    {draft.studentNotes?.trim() ? (
-                                      draft.studentNotes
-                                    ) : (
-                                      <span className="text-text-tertiary italic text-[11px]">No open student questions or blockers noted.</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <textarea
-                                    value={draft.studentNotes}
-                                    onChange={(e) =>
-                                      setStepDrafts({
-                                        ...stepDrafts,
-                                        [step.id]: { ...draft, studentNotes: e.target.value },
-                                      })
-                                    }
-                                    placeholder="Unresolved questions for supervisor, blockers, GPU compute constraints..."
-                                    rows={2}
-                                    disabled={!canEditAndComment}
-                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
-                                  />
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Right Column: Supervisor Feedback & Stage Deadline */}
-                            <div className="space-y-3">
-                              <div>
-                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                                  <Calendar size={12} className="text-amber-400" />
-                                  <span>Target Completion Date</span>
+                                <label className="text-[11px] font-bold text-text-primary uppercase font-mono block mb-1">
+                                  Target Milestone Due Date
                                 </label>
                                 <input
                                   type="date"
                                   value={draft.dueDate}
                                   onChange={(e) =>
-                                    setStepDrafts({
-                                      ...stepDrafts,
+                                    setStepDrafts((prev) => ({
+                                      ...prev,
                                       [step.id]: { ...draft, dueDate: e.target.value },
-                                    })
+                                    }))
                                   }
-                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent font-mono"
+                                  disabled={!canEditAndComment}
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent disabled:opacity-70"
                                 />
                               </div>
 
                               <div>
-                                <label className="text-[11px] font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                                  <MessageSquare size={12} className="text-purple-400" />
-                                  <span>Review Comments &amp; Feedback</span>
+                                <label className="text-[11px] font-bold text-text-primary uppercase font-mono block mb-1">
+                                  Deliverable Description &amp; Artifact Details
                                 </label>
                                 <textarea
+                                  rows={2}
+                                  value={draft.deliverableNotes}
+                                  onChange={(e) =>
+                                    setStepDrafts((prev) => ({
+                                      ...prev,
+                                      [step.id]: { ...draft, deliverableNotes: e.target.value },
+                                    }))
+                                  }
+                                  disabled={!canEditAndComment}
+                                  placeholder="Describe the attached code commits, datasets, baseline metrics, or draft section..."
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Right Column: Researcher Notes & Supervisor Feedback */}
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-[11px] font-bold text-text-primary uppercase font-mono block mb-1">
+                                  Researcher Internal Working Notes
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={draft.studentNotes}
+                                  onChange={(e) =>
+                                    setStepDrafts((prev) => ({
+                                      ...prev,
+                                      [step.id]: { ...draft, studentNotes: e.target.value },
+                                    }))
+                                  }
+                                  disabled={!canEditAndComment}
+                                  placeholder="Formulas tried, hyperparameter settings, blockers faced, ablation details..."
+                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-bold text-purple-400 uppercase font-mono flex items-center gap-1.5 mb-1">
+                                  <MessageSquare size={12} />
+                                  <span>Supervisor / Reviewer Advice &amp; Feedback</span>
+                                </label>
+                                <textarea
+                                  rows={3}
                                   value={draft.supervisorFeedback}
                                   onChange={(e) =>
-                                    setStepDrafts({
-                                      ...stepDrafts,
+                                    setStepDrafts((prev) => ({
+                                      ...prev,
                                       [step.id]: { ...draft, supervisorFeedback: e.target.value },
-                                    })
+                                    }))
                                   }
-                                  placeholder="Provide constructive feedback, approve methodology, or leave review remarks..."
-                                  rows={5}
+                                  placeholder="Advisor comments, suggested revisions, or criteria required before moving to next stage..."
                                   disabled={!canEditAndComment}
                                   className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
                                 />
@@ -966,16 +1011,21 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
                           {/* Save & Supervisor Review Action Buttons */}
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border-default/60">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[11px] text-text-tertiary">
                                 {step.status === 'COMPLETED' && step.completedAt && (
                                   <span className="text-emerald-400 font-semibold font-mono bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 inline-flex items-center gap-1">
                                     ✓ Approved &amp; Completed on {new Date(step.completedAt).toLocaleDateString()}
                                   </span>
                                 )}
+                                {step.status === 'SKIPPED' && (
+                                  <span className="text-slate-400 font-semibold font-mono bg-slate-500/10 px-2 py-1 rounded-lg border border-slate-500/20 inline-flex items-center gap-1">
+                                    ⏭️ Skipped by Supervisor (Optional for this paper)
+                                  </span>
+                                )}
                                 {step.status === 'SUBMITTED' && (
                                   <span className="text-purple-300 font-bold font-mono bg-purple-500/15 px-2.5 py-1 rounded-lg border border-purple-500/30 inline-flex items-center gap-1.5 animate-pulse">
-                                    <Clock size={13} className="text-purple-400" /> Review on process (Awaiting Supervisor Decision)
+                                    <Clock size={13} className="text-purple-400" /> Student Notified Supervisor (Review in Progress)
                                   </span>
                                 )}
                                 {step.status === 'REJECTED' && (
@@ -983,12 +1033,47 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                     <AlertTriangle size={12} /> Revision Requested — Update deliverables &amp; resubmit
                                   </span>
                                 )}
+                                {step.status === 'IN_PROGRESS' && (
+                                  <span className="text-accent font-semibold font-mono bg-accent/10 px-2 py-1 rounded-lg border border-accent/20 inline-flex items-center gap-1">
+                                    ⏳ Active Working Stage
+                                  </span>
+                                )}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap justify-end">
-                              {/* Supervisor / Admin ONLY Review Decision Actions */}
-                              {(isSupervisor || isAdmin) && (
+                              {/* Supervisor Skip / Unskip Toggle */}
+                              {isSupervisorUser && (
+                                <>
+                                  {step.status === 'SKIPPED' ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondary"
+                                      loading={savingStepId === step.id}
+                                      onClick={() => handleReviewStep(step.id, 'UNSKIP', step.stepIndex)}
+                                      icon={<RotateCcw size={13} />}
+                                    >
+                                      Unskip Milestone
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondary"
+                                      loading={savingStepId === step.id}
+                                      onClick={() => handleReviewStep(step.id, 'SKIP', step.stepIndex)}
+                                      icon={<FastForward size={13} />}
+                                      className="text-text-tertiary hover:text-text-primary"
+                                    >
+                                      Skip Milestone
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+
+                              {/* Supervisor / Admin Decision Actions - ONLY SHOWN WHEN STUDENT NOTIFIED (SUBMITTED) */}
+                              {isSupervisorUser && step.status === 'SUBMITTED' && (
                                 <>
                                   <Button
                                     type="button"
@@ -1017,7 +1102,7 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                               )}
 
                               {/* Student & Researcher Actions (for owners or student collaborators with edit access) */}
-                              {canEditAndComment && !isSupervisor && (
+                              {canEditAndComment && (
                                 <>
                                   <Button
                                     type="button"
@@ -1030,19 +1115,21 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
                                     Save Stage Update
                                   </Button>
 
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="primary"
-                                    loading={savingStepId === step.id}
-                                    onClick={() => handleSaveStepDraft(step.id, true)}
-                                    icon={<Send size={13} />}
-                                    className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm font-semibold"
-                                  >
-                                    {step.status === 'SUBMITTED'
-                                      ? 'Resend Notification to Supervisor'
-                                      : 'Notify Supervisor of Stage Update'}
-                                  </Button>
+                                  {!isSupervisor && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="primary"
+                                      loading={savingStepId === step.id}
+                                      onClick={() => handleSaveStepDraft(step.id, true)}
+                                      icon={<Send size={13} />}
+                                      className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm font-semibold"
+                                    >
+                                      {step.status === 'SUBMITTED'
+                                        ? 'Resend Notification to Supervisor'
+                                        : 'Notify Supervisor of Stage Update'}
+                                    </Button>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -1060,306 +1147,269 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
       {/* ─── SHARE TRACKER MODAL ─── */}
       {isShareModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-card w-full max-w-xl max-h-[90vh] flex flex-col p-6 space-y-5 border-accent/30 shadow-2xl overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border-default pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                  <Share2 size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-text-primary font-display">
-                    Share Paper Tracker
-                  </h3>
-                  <p className="text-[11px] text-text-secondary">
-                    Distribute this checklist to lab members, cluster groups, or individual peers.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="glass-card max-w-lg w-full p-6 space-y-5 border-purple-500/30 shadow-2xl bg-bg-secondary">
+            <div className="flex items-center justify-between pb-3 border-b border-border-default">
+              <div className="flex items-center gap-2">
+                <Share2 size={18} className="text-purple-400" />
+                <h3 className="text-base font-bold text-text-primary font-display">
+                  Share Paper Tracker &amp; Assign Collaborators
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsShareModalOpen(false)}
-                className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-elevated"
+                className="text-text-tertiary hover:text-text-primary p-1 rounded-lg"
               >
                 ✕
               </button>
             </div>
 
-            {/* Currently Active Shares List */}
-            {tracker.shares.length > 0 && (
-              <div className="space-y-2 p-3 rounded-xl bg-bg-primary border border-border-default">
-                <span className="text-[11px] font-bold text-text-primary block font-mono">
-                  Currently Shared With ({tracker.shares.length}):
-                </span>
-                <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                  {tracker.shares.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between p-1.5 rounded bg-bg-tertiary border border-border-default text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        {s.targetType === 'STUDENT' ? (
-                          <GraduationCap size={13} className="text-blue-400" />
-                        ) : s.targetType === 'LAB' ? (
-                          <Building size={13} className="text-purple-400" />
-                        ) : (
-                          <Users size={13} className="text-cyan-400" />
-                        )}
-                        <span className="font-semibold text-text-primary">
-                          {s.user?.name || s.lab?.name || s.group?.name || s.targetType}
-                        </span>
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
-                            s.permission === 'COLLABORATE'
-                              ? 'bg-accent/20 text-accent'
-                              : 'bg-sky-500/20 text-sky-400'
+            {/* Target Type Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase font-mono block">
+                Share Destination
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTargetType('INDIVIDUAL')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    targetType === 'INDIVIDUAL'
+                      ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:bg-bg-elevated'
+                  }`}
+                >
+                  <Users size={16} />
+                  <span>Student Researcher</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTargetType('LAB')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    targetType === 'LAB'
+                      ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:bg-bg-elevated'
+                  }`}
+                >
+                  <Building size={16} />
+                  <span>Research Lab</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTargetType('GROUP')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    targetType === 'GROUP'
+                      ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:bg-bg-elevated'
+                  }`}
+                >
+                  <Layers size={16} />
+                  <span>Sub-Group Cluster</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Target Picker */}
+            {targetType === 'INDIVIDUAL' && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-text-primary uppercase font-mono block">
+                  Select Students
+                </label>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-bg-tertiary border border-border-default">
+                  {availableStudents.length === 0 ? (
+                    <p className="text-xs text-text-tertiary p-2 text-center">No students found.</p>
+                  ) : (
+                    availableStudents.map((s) => {
+                      const isSelected = selectedStudentIds.includes(s.id)
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => {
+                            setSelectedStudentIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                            )
+                          }}
+                          className={`p-2 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40'
+                              : 'hover:bg-bg-secondary text-text-secondary'
                           }`}
                         >
-                          {s.permission === 'COLLABORATE' ? 'Edit & Comment' : 'View Only'}
-                        </span>
-                      </div>
+                          <div>
+                            <span className="text-text-primary">{s.name}</span>
+                            <span className="text-[11px] text-text-tertiary block">{s.email}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="text-purple-400" />}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
 
-                      {canEditAndComment && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const res = await fetch(`/api/paper-trackers/${trackerId}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ removeShareId: s.id }),
-                              })
-                              if (res.ok) {
-                                addToast('success', 'Access revoked successfully')
-                                fetchTracker()
-                              }
-                            } catch {
-                              addToast('error', 'Failed to revoke access')
-                            }
+            {targetType === 'LAB' && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-text-primary uppercase font-mono block">
+                  Select Research Labs
+                </label>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-bg-tertiary border border-border-default">
+                  {availableLabs.length === 0 ? (
+                    <p className="text-xs text-text-tertiary p-2 text-center">No labs found.</p>
+                  ) : (
+                    availableLabs.map((l) => {
+                      const isSelected = selectedLabIds.includes(l.id)
+                      return (
+                        <div
+                          key={l.id}
+                          onClick={() => {
+                            setSelectedLabIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== l.id) : [...prev, l.id]
+                            )
                           }}
-                          className="text-[10px] text-red-400 hover:text-red-300 hover:underline cursor-pointer"
+                          className={`p-2.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40'
+                              : 'hover:bg-bg-secondary text-text-secondary'
+                          }`}
                         >
-                          Revoke
-                        </button>
-                      )}
+                          <div>
+                            <span className="text-text-primary font-bold">{l.name}</span>
+                            <span className="text-[11px] text-text-tertiary block">{l.institution}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="text-purple-400" />}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {targetType === 'GROUP' && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-text-primary uppercase font-mono block">
+                  Select Sub-Group Clusters
+                </label>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-bg-tertiary border border-border-default">
+                  {availableLabs.flatMap((l) => l.groups.map((g) => ({ ...g, labName: l.name }))).length === 0 ? (
+                    <p className="text-xs text-text-tertiary p-2 text-center">No sub-groups found.</p>
+                  ) : (
+                    availableLabs.flatMap((l) => l.groups.map((g) => ({ ...g, labName: l.name }))).map((g) => {
+                      const isSelected = selectedGroupIds.includes(g.id)
+                      return (
+                        <div
+                          key={g.id}
+                          onClick={() => {
+                            setSelectedGroupIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== g.id) : [...prev, g.id]
+                            )
+                          }}
+                          className={`p-2.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40'
+                              : 'hover:bg-bg-secondary text-text-secondary'
+                          }`}
+                        >
+                          <div>
+                            <span className="text-text-primary font-bold">{g.name}</span>
+                            <span className="text-[11px] text-text-tertiary block">Lab: {g.labName}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="text-purple-400" />}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Permission Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase font-mono block">
+                Access Level
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSharePermission('COLLABORATE')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left space-y-0.5 ${
+                    sharePermission === 'COLLABORATE'
+                      ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:bg-bg-elevated'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-text-primary font-bold">
+                    <Edit size={13} className="text-accent" /> Collaborate &amp; Edit
+                  </div>
+                  <p className="text-[11px] text-text-tertiary">Can update deliverables, notes, and checklist stages</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSharePermission('VIEW')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left space-y-0.5 ${
+                    sharePermission === 'VIEW'
+                      ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
+                      : 'bg-bg-tertiary border-border-default text-text-secondary hover:bg-bg-elevated'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-text-primary font-bold">
+                    <Globe size={13} className="text-accent" /> View Only
+                  </div>
+                  <p className="text-[11px] text-text-tertiary">Can view progress and read deliverables in read-only mode</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Existing Shares List */}
+            {tracker.shares.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-border-default">
+                <span className="text-[11px] font-bold text-text-tertiary uppercase font-mono block">
+                  Current Shares ({tracker.shares.length})
+                </span>
+                <div className="space-y-1 max-h-28 overflow-y-auto">
+                  {tracker.shares.map((share) => (
+                    <div
+                      key={share.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-bg-tertiary text-xs border border-border-default/60"
+                    >
+                      <span className="text-text-primary font-medium">
+                        {share.user ? `👤 ${share.user.name}` : share.lab ? `🏛️ ${share.lab.name}` : `🔬 ${share.group?.name}`}
+                      </span>
+                      <Badge variant="outline" size="sm">
+                        {share.permission}
+                      </Badge>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleSaveShares} className="space-y-4 text-xs">
-              {/* Permission Level Selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-text-primary block">
-                  Add New Access &amp; Permission Level
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSharePermission('COLLABORATE')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      sharePermission === 'COLLABORATE'
-                        ? 'border-accent bg-accent/10 text-text-primary'
-                        : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <span className="font-bold text-xs block text-accent">✏️ Edit &amp; Comment</span>
-                    <span className="text-[10px] text-text-tertiary block mt-0.5">
-                      Can update checklist status, link artifacts, and write feedback.
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSharePermission('VIEW')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      sharePermission === 'VIEW'
-                        ? 'border-accent bg-accent/10 text-text-primary'
-                        : 'border-border-default bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <span className="font-bold text-xs block text-sky-400">👁️ View Only</span>
-                    <span className="text-[10px] text-text-tertiary block mt-0.5">
-                      Read-only visibility into milestones and progress.
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Target Type Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-text-primary block">
-                  Select Recipients
-                </label>
-                <div className="flex items-center gap-2 border-b border-border-default pb-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('INDIVIDUAL')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      targetType === 'INDIVIDUAL'
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <GraduationCap size={13} /> {isSupervisor ? 'Supervised Students' : 'Individual Peer Students'} ({availableStudents.length})
-                  </button>
-
-                  {(isSupervisor || isAdmin) && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setTargetType('LAB')}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                          targetType === 'LAB'
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
-                            : 'text-text-secondary hover:text-text-primary'
-                        }`}
-                      >
-                        <Building size={13} /> Research Labs ({availableLabs.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTargetType('GROUP')}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                          targetType === 'GROUP'
-                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                            : 'text-text-secondary hover:text-text-primary'
-                        }`}
-                      >
-                        <Users size={13} /> Sub-Groups
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Individual Students Checkbox List */}
-                {targetType === 'INDIVIDUAL' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-text-tertiary">
-                      <span>Select researchers:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectedStudentIds.length === availableStudents.length) {
-                            setSelectedStudentIds([])
-                          } else {
-                            setSelectedStudentIds(availableStudents.map((s) => s.id))
-                          }
-                        }}
-                        className="text-accent hover:underline font-mono"
-                      >
-                        {selectedStudentIds.length === availableStudents.length ? 'Deselect All' : 'Select All'}
-                      </button>
-                    </div>
-
-                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
-                      {availableStudents.map((s) => (
-                        <label
-                          key={s.id}
-                          className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedStudentIds.includes(s.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedStudentIds([...selectedStudentIds, s.id])
-                              } else {
-                                setSelectedStudentIds(selectedStudentIds.filter((id) => id !== s.id))
-                              }
-                            }}
-                            className="accent-accent rounded"
-                          />
-                          <span className="font-semibold text-text-primary">{s.name}</span>
-                          <span className="text-[11px] text-text-tertiary">({s.email})</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Research Labs Checkbox List */}
-                {targetType === 'LAB' && (
-                  <div className="space-y-2">
-                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
-                      {availableLabs.map((l) => (
-                        <label
-                          key={l.id}
-                          className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedLabIds.includes(l.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedLabIds([...selectedLabIds, l.id])
-                              } else {
-                                setSelectedLabIds(selectedLabIds.filter((id) => id !== l.id))
-                              }
-                            }}
-                            className="accent-accent rounded"
-                          />
-                          <span className="font-semibold text-text-primary">{l.name}</span>
-                          <span className="text-[11px] text-text-tertiary">({l.institution})</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Sub-Groups Checkbox List */}
-                {targetType === 'GROUP' && (
-                  <div className="space-y-2">
-                    <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-lg bg-bg-primary border border-border-default">
-                      {availableLabs.flatMap((l) =>
-                        l.groups.map((g) => (
-                          <label
-                            key={g.id}
-                            className="flex items-center gap-2 p-1.5 rounded hover:bg-bg-tertiary transition-colors cursor-pointer text-xs"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedGroupIds.includes(g.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedGroupIds([...selectedGroupIds, g.id])
-                                } else {
-                                  setSelectedGroupIds(selectedGroupIds.filter((id) => id !== g.id))
-                                }
-                              }}
-                              className="accent-accent rounded"
-                            />
-                            <span className="font-semibold text-text-primary">{g.name}</span>
-                            <span className="text-[11px] text-text-tertiary">(Lab: {l.name})</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-default">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setIsShareModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  loading={savingShare}
-                  icon={<Share2 size={13} />}
-                >
-                  Save &amp; Share
-                </Button>
-              </div>
-            </form>
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-default">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsShareModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                loading={savingShare}
+                onClick={handleSaveShare}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bold"
+              >
+                Apply Shares
+              </Button>
+            </div>
           </div>
         </div>
       )}
