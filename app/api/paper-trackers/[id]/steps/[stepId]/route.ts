@@ -199,7 +199,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.deliverableNotes = deliverableNotes
     }
 
-    if (typeof studentNotes === 'string' || studentNotes === null) {
+    if ((isOwner || isAdmin) && (typeof studentNotes === 'string' || studentNotes === null)) {
       updateData.studentNotes = studentNotes
     }
 
@@ -214,6 +214,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       where: { id: stepId },
       data: updateData,
     })
+
+    const responseStep = !isOwner && !isAdmin ? { ...updatedStep, studentNotes: null } : updatedStep
 
     // ─── NOTIFICATION DISPATCH TO RELEVANT PARTIES (STUDENT & SUPERVISORS) ───
     // 1. When a student explicitly notifies supervisor of stage update or submits for review
@@ -302,7 +304,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: { updatedAt: new Date() },
     })
 
-    return NextResponse.json(updatedStep)
+    return NextResponse.json(responseStep)
   } catch (error: any) {
     console.error('Error updating tracker step:', error)
     return NextResponse.json({ error: 'Failed to update step' }, { status: 500 })

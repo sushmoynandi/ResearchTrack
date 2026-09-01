@@ -102,6 +102,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden: You do not have access to this paper tracker' }, { status: 403 })
     }
 
+    // Privacy Guard: If the user is a supervisor/PI and not the tracker owner or system admin,
+    // redact private "Researcher Internal Working Notes" (studentNotes)
+    if (!isOwner && !isAdmin) {
+      const sanitizedSteps = tracker.steps.map((s) => ({
+        ...s,
+        studentNotes: null,
+      }))
+      return NextResponse.json({ ...tracker, steps: sanitizedSteps })
+    }
+
     return NextResponse.json(tracker)
   } catch (error: any) {
     console.error('Error fetching paper tracker:', error)

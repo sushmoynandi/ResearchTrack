@@ -968,24 +968,28 @@ export default function PaperTrackerWorkspacePage({ params }: PageProps) {
 
                             {/* Right Column: Researcher Notes & Supervisor Feedback */}
                             <div className="space-y-3">
-                              <div>
-                                <label className="text-[11px] font-bold text-text-primary uppercase font-mono block mb-1">
-                                  Researcher Internal Working Notes
-                                </label>
-                                <textarea
-                                  rows={3}
-                                  value={draft.studentNotes}
-                                  onChange={(e) =>
-                                    setStepDrafts((prev) => ({
-                                      ...prev,
-                                      [step.id]: { ...draft, studentNotes: e.target.value },
-                                    }))
-                                  }
-                                  disabled={!canEditAndComment}
-                                  placeholder="Formulas tried, hyperparameter settings, blockers faced, ablation details..."
-                                  className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y disabled:opacity-70"
-                                />
-                              </div>
+                              {(isOwner || isAdminUser) && (
+                                <div>
+                                  <label className="text-[11px] font-bold text-text-primary uppercase font-mono flex items-center justify-between mb-1">
+                                    <span>Researcher Internal Working Notes</span>
+                                    <span className="text-[9px] font-mono text-accent bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20">
+                                      🔒 Private to Researcher
+                                    </span>
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    value={draft.studentNotes}
+                                    onChange={(e) =>
+                                      setStepDrafts((prev) => ({
+                                        ...prev,
+                                        [step.id]: { ...draft, studentNotes: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="Formulas tried, hyperparameter settings, blockers faced, ablation details (private to you)..."
+                                    className="w-full p-2 rounded-lg bg-bg-tertiary border border-border-default text-xs text-text-primary outline-none focus:border-accent resize-y"
+                                  />
+                                </div>
+                              )}
 
                               <div>
                                 <label className="text-[11px] font-bold text-purple-400 uppercase font-mono flex items-center gap-1.5 mb-1">

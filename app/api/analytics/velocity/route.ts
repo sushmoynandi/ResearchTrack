@@ -158,9 +158,18 @@ export async function GET() {
       type: 'group' | 'collection' | 'tag'
     }> = []
 
-    // 1. Add Research Sub-Groups from user's labs
+    // 1. Add Research Sub-Groups from user's labs (strictly isolated: students ONLY see groups they are enrolled in)
+    const isSupervisorOrAdmin = user.systemRole === 'SUPERVISOR' || user.systemRole === 'ADMIN'
+
     userLabs.forEach((lab) => {
-      lab.groups.forEach((group) => {
+      // If user is lab lead or admin, they see all groups in the lab.
+      // If user is a student, they ONLY see sub-groups they are an enrolled member of.
+      const accessibleGroups = lab.groups.filter((group) => {
+        if (lab.leadId === user.id || isSupervisorOrAdmin) return true
+        return group.members.some((m) => m.userId === user.id)
+      })
+
+      accessibleGroups.forEach((group) => {
         const groupMembers = group.members.map((m) => m.user.name)
         const keyword = group.name.toLowerCase().split(' ')[0]
         const matchingPapers = papers.filter(
