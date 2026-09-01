@@ -76,24 +76,29 @@ export async function POST(request: NextRequest) {
     const cleanDoi = doi.replace(/^https?:\/\/doi\.org\//i, '').trim()
     const scheduledDateTime = sendNow ? new Date() : new Date(scheduledFor || Date.now())
 
-    let userQuery: any = { isActive: true }
+    // Target audience selection filter
+    let userQuery: any = {}
     if (targetFilter === 'STUDENTS') {
       userQuery.systemRole = 'STUDENT'
     } else if (targetFilter === 'SUPERVISORS') {
       userQuery.systemRole = 'SUPERVISOR'
     } else if (targetFilter === 'CUSTOM' && Array.isArray(recipientUserIds) && recipientUserIds.length > 0) {
       userQuery.id = { in: recipientUserIds }
-    } else if (targetFilter === 'ALL') {
-      userQuery.systemRole = { in: ['STUDENT', 'SUPERVISOR'] }
+    } else if (targetFilter === 'ALL' || !targetFilter) {
+      // 'ALL' Scholars: Include all registered researchers across the institution (students, supervisors, admins)
+      userQuery.systemRole = { in: ['STUDENT', 'SUPERVISOR', 'ADMIN'] }
     }
 
-    const recipients = await prisma.user.findMany({
+    const allMatchedUsers = await prisma.user.findMany({
       where: userQuery,
       select: { id: true, name: true, email: true, systemRole: true },
     })
 
+    // Filter out any accounts missing email
+    const recipients = allMatchedUsers.filter((u) => u.email && u.email.includes('@'))
+
     if (recipients.length === 0) {
-      return NextResponse.json({ error: 'No active recipients found for selected filter' }, { status: 400 })
+      return NextResponse.json({ error: 'No recipients with valid email addresses found for the selected filter' }, { status: 400 })
     }
 
     const topicsString = Array.isArray(topics) ? topics.join(', ') : (topics || null)

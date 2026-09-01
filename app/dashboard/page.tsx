@@ -510,67 +510,23 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="glass-card p-4 border-l-4 border-l-purple-500 space-y-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-purple-400">
-                Supervisor Contact
+          <div className="glass-card p-4 border-l-4 border-l-purple-500 space-y-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-purple-400">
+              Supervisor Contact
+            </p>
+            <p className="text-sm font-semibold text-text-primary">
+              {stats.supervisor?.name || "Supervisor not assigned"}
+            </p>
+            {stats.supervisor?.email && (
+              <p className="text-xs text-text-secondary">
+                {stats.supervisor.email}
               </p>
-              <p className="text-sm font-semibold text-text-primary">
-                {stats.supervisor?.name || "Supervisor not assigned"}
+            )}
+            {stats.supervisor?.department && (
+              <p className="text-[11px] text-text-tertiary">
+                {stats.supervisor.department}
               </p>
-              {stats.supervisor?.email && (
-                <p className="text-xs text-text-secondary">
-                  {stats.supervisor.email}
-                </p>
-              )}
-              {stats.supervisor?.department && (
-                <p className="text-[11px] text-text-tertiary">
-                  {stats.supervisor.department}
-                </p>
-              )}
-            </div>
-
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {stats.pendingAssignments &&
-              stats.pendingAssignments.length > 0 ? (
-                stats.pendingAssignments.map((a) => (
-                  <div
-                    key={a.id}
-                    className="glass-card p-4 border-l-4 border-l-blue-500 flex flex-col justify-between gap-3"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px] text-text-tertiary">
-                        <span>Assigned by {a.assignedBy.name}</span>
-                        <Badge variant="info" size="sm">
-                          PENDING
-                        </Badge>
-                      </div>
-                      <h4 className="text-sm font-semibold text-text-primary hover:text-accent transition-colors line-clamp-1">
-                        <Link href={`/papers/${a.paper.slug || a.paper.id}`}>
-                          {a.paper.title}
-                        </Link>
-                      </h4>
-                      <p className="text-xs text-text-secondary line-clamp-1">
-                        {a.paper.authors}
-                      </p>
-                    </div>
-                    {a.dueDate && (
-                      <div className="flex items-center gap-1 text-[11px] text-text-tertiary">
-                        <Calendar size={12} className="text-accent" />
-                        <span>
-                          Due {new Date(a.dueDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="glass-card p-4 text-xs text-text-tertiary flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-success" /> No pending
-                  supervisor assignments.
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {stats.recentNotifications && stats.recentNotifications.length > 0 ? (
