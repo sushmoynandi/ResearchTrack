@@ -39,11 +39,6 @@ interface PaperChatAssistantProps {
 
 const PROMPT_PRESETS = [
   {
-    label: '✨ 3-Bullet Takeaways',
-    prompt: 'Summarize the entire paper in 3 concise, bulleted key takeaways (Novelty, Method, Main Finding).',
-    icon: Sparkles,
-  },
-  {
     label: '💡 What is the Novelty?',
     prompt: 'What is the core novelty and primary theoretical/empirical breakthrough introduced in this paper?',
     icon: Cpu,

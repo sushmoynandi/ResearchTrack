@@ -969,24 +969,6 @@ export function PdfReaderWorkspace({ paper }: PdfReaderWorkspaceProps) {
               </>
             )}
 
-            {/* 1-Click AI Quick Summary Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSidebarOpen(true)
-                setActiveTab('ai')
-                const event = new CustomEvent('ask-ai-quick-summary', {
-                  detail: { prompt: 'Summarize the entire paper in 3 concise, bulleted key takeaways (Novelty, Method, Main Finding).' },
-                })
-                window.dispatchEvent(event)
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 transition-all cursor-pointer shadow-xs"
-              title="Generate instant 3-bullet AI summary of this paper"
-            >
-              <Sparkles size={13} className="text-purple-400" />
-              <span>✨ 3-Bullet Summary</span>
-            </button>
-
             {/* Always Visible Fullscreen Reader Toggle */}
             <button
               type="button"

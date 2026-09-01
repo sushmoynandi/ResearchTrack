@@ -536,7 +536,7 @@ export default function StudentsPage() {
             <div className="flex items-center gap-1.5 flex-wrap">
               {[
                 { id: 'ALL', label: 'All Students' },
-                { id: 'TASKS_DUE', label: '🟡 Tasks Due' },
+                { id: 'TASKS_DUE', label: '📥 Needs Attention / Tasks Due' },
                 { id: 'HIGH_VELOCITY', label: '🟢 High Velocity' },
                 { id: 'INACTIVE', label: '⚪ Inactive' },
               ].map((tab) => (
@@ -545,7 +545,7 @@ export default function StudentsPage() {
                   onClick={() => setStatusFilter(tab.id as any)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                     statusFilter === tab.id
-                      ? 'bg-purple-600 text-white font-bold'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
                       : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
                   }`}
                 >
