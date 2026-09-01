@@ -702,15 +702,7 @@ export default function StudentsPage() {
                   </div>
 
                   {/* Discovery Action Footer */}
-                  <div className="pt-3 border-t border-border-default/60 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProfileStudent(student)}
-                      className="text-xs text-text-secondary hover:text-text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
-                    >
-                      <Users size={12} /> Profile
-                    </button>
-
+                  <div className="pt-3 border-t border-border-default/60 flex items-center justify-end">
                     {isDirect ? (
                       <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                         <UserCheck size={13} /> Supervised
