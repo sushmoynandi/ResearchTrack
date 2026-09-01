@@ -90,8 +90,8 @@ export function Sidebar() {
   const mobileQuickItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/papers', label: 'Library', icon: FileText },
-    { href: '/tracks', label: 'Tracks', icon: Milestone },
-    { href: '/labs', label: 'Labs', icon: Building },
+    { href: '/paper-tracker', label: 'Tracker', icon: ListChecks },
+    { href: isSupervisor ? '/students' : '/meetings', label: isSupervisor ? 'Students' : 'Sync', icon: isSupervisor ? Users : Calendar },
   ]
 
   return (
