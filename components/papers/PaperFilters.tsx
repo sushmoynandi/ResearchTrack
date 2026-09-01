@@ -89,6 +89,55 @@ export function PaperFilters({
 
   return (
     <div className="space-y-3">
+      {/* Quick Preset Filter Chips */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <span className="text-[11px] font-mono text-text-tertiary uppercase shrink-0 mr-1">Presets:</span>
+        <button
+          type="button"
+          onClick={() => onStatusChange(status === 'READING' ? '' : 'READING')}
+          className={`px-2.5 py-1 rounded-lg border font-medium transition-all shrink-0 cursor-pointer ${
+            status === 'READING'
+              ? 'bg-accent text-bg-primary font-bold border-accent shadow-xs'
+              : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          🔥 Reading Now
+        </button>
+        <button
+          type="button"
+          onClick={() => onStatusChange(status === 'TO_READ' ? '' : 'TO_READ')}
+          className={`px-2.5 py-1 rounded-lg border font-medium transition-all shrink-0 cursor-pointer ${
+            status === 'TO_READ'
+              ? 'bg-blue-500 text-white font-bold border-blue-500 shadow-xs'
+              : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          📖 To Read
+        </button>
+        <button
+          type="button"
+          onClick={() => onStatusChange(status === 'COMPLETED' ? '' : 'COMPLETED')}
+          className={`px-2.5 py-1 rounded-lg border font-medium transition-all shrink-0 cursor-pointer ${
+            status === 'COMPLETED'
+              ? 'bg-emerald-500 text-white font-bold border-emerald-500 shadow-xs'
+              : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          ✅ Completed
+        </button>
+        <button
+          type="button"
+          onClick={() => onPriorityChange(priority === 'HIGH' ? '' : 'HIGH')}
+          className={`px-2.5 py-1 rounded-lg border font-medium transition-all shrink-0 cursor-pointer ${
+            priority === 'HIGH'
+              ? 'bg-rose-500 text-white font-bold border-rose-500 shadow-xs'
+              : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          🚨 High Priority
+        </button>
+      </div>
+
       {/* Search */}
       <Input
         placeholder="Search by title, author, or abstract..."

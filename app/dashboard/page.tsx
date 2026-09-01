@@ -244,10 +244,24 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <Link href="/papers/new">
             <Button icon={<Plus size={16} />}>Add Paper</Button>
           </Link>
+          {!isSupervisor && !isAdmin && (
+            <>
+              <Link href="/paper-tracker">
+                <Button variant="secondary" icon={<ClipboardList size={14} className="text-accent" />}>
+                  Paper Tracker
+                </Button>
+              </Link>
+              <Link href="/assignments">
+                <Button variant="secondary" icon={<BookOpen size={14} className="text-purple-400" />}>
+                  Assignments
+                </Button>
+              </Link>
+            </>
+          )}
           {isSupervisor && (
             <Link href="/assignments">
               <Button variant="secondary" icon={<ClipboardList size={16} />}>

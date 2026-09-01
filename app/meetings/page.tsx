@@ -574,9 +574,30 @@ export default function MeetingsPage() {
 
             <form onSubmit={handleCreateMeeting} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Meeting Title *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Meeting Title *
+                  </label>
+                  <span className="text-[10px] text-text-tertiary font-mono">Quick Templates:</span>
+                </div>
+                {/* 1-Click Title Templates */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2">
+                  {[
+                    'Weekly 1-on-1 Sync',
+                    'Thesis Milestone Review',
+                    'Paper Draft Discussion',
+                    'Experiment & Ablation Sync',
+                  ].map((tpl) => (
+                    <button
+                      key={tpl}
+                      type="button"
+                      onClick={() => setTitle(`${tpl} (${new Date().toLocaleDateString()})`)}
+                      className="px-2 py-0.5 rounded text-[10px] bg-bg-tertiary hover:bg-accent/20 hover:text-accent border border-border-default transition-all shrink-0 cursor-pointer font-medium"
+                    >
+                      + {tpl}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="text"
                   value={title}

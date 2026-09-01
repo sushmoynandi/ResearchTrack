@@ -255,6 +255,15 @@ export default function AssignmentsPage() {
 
   const filteredAssignments = assignments.filter((a) => {
     if (statusFilter === 'ALL') return true
+    if (statusFilter === 'OVERDUE') {
+      if (!a.dueDate || a.status === 'COMPLETED') return false
+      return new Date(a.dueDate).getTime() < Date.now()
+    }
+    if (statusFilter === 'DUE_SOON') {
+      if (!a.dueDate || a.status === 'COMPLETED') return false
+      const diffDays = (new Date(a.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      return diffDays >= 0 && diffDays <= 7
+    }
     return a.status === statusFilter
   })
 
@@ -291,18 +300,25 @@ export default function AssignmentsPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-border-default pb-3">
-        {['ALL', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].map((tab) => (
+      <div className="flex items-center gap-1.5 border-b border-border-default pb-3 flex-wrap">
+        {[
+          { id: 'ALL', label: 'All Tasks' },
+          { id: 'PENDING', label: 'To Read (Pending)' },
+          { id: 'IN_PROGRESS', label: 'Reading Now' },
+          { id: 'DUE_SOON', label: '⏰ Due in 7 Days' },
+          { id: 'OVERDUE', label: '🚨 Overdue' },
+          { id: 'COMPLETED', label: '✓ Completed' },
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setStatusFilter(tab)}
+            key={tab.id}
+            onClick={() => setStatusFilter(tab.id)}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-              statusFilter === tab
-                ? 'bg-accent text-bg-primary font-bold'
+              statusFilter === tab.id
+                ? 'bg-accent text-bg-primary font-bold shadow-xs'
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
             }`}
           >
-            {tab.replace('_', ' ')}
+            {tab.label}
           </button>
         ))}
       </div>
