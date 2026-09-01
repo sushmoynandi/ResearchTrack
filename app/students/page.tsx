@@ -462,62 +462,103 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* Toolbar & Filter Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 rounded-2xl bg-bg-secondary border border-border-default">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-          <input
-            type="text"
-            placeholder="Search student by name, email, department, lab..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-bg-tertiary border border-border-default rounded-xl pl-9 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
-          />
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {[
-            { id: 'ALL', label: 'All Students' },
-            { id: 'TASKS_DUE', label: '🟡 Tasks Due' },
-            { id: 'HIGH_VELOCITY', label: '🟢 High Velocity' },
-            { id: 'INACTIVE', label: '⚪ Inactive' },
-          ].map((tab) => (
+      {/* Toolbar & Tab Switcher Bar */}
+      <div className="space-y-4">
+        {/* Main Tab Navigation */}
+        <div className="flex items-center justify-between gap-3 border-b border-border-default pb-3">
+          <div className="flex items-center gap-2">
             <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id as any)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                statusFilter === tab.id
-                  ? 'bg-purple-600 text-white font-bold'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+              onClick={() => {
+                setViewMode('SUPERVISED')
+                setStatusFilter('ALL')
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                viewMode === 'SUPERVISED'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-default'
               }`}
             >
-              {tab.label}
+              <GraduationCap size={15} />
+              <span>My Supervised Students</span>
+              {viewMode === 'SUPERVISED' && !loading && (
+                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-mono font-bold">
+                  {students.length}
+                </span>
+              )}
             </button>
-          ))}
 
-          {/* Mode toggle: My Roster vs Discover All */}
-          <div className="h-4 w-px bg-border-default mx-1 hidden sm:block" />
+            <button
+              onClick={() => {
+                setViewMode('DISCOVER')
+                setStatusFilter('ALL')
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                viewMode === 'DISCOVER'
+                  ? 'bg-accent text-white shadow-md shadow-accent/20'
+                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-default'
+              }`}
+            >
+              <UserPlus size={15} />
+              <span>Find &amp; Add Students</span>
+              {viewMode === 'DISCOVER' && !loading && (
+                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-mono font-bold">
+                  {students.length}
+                </span>
+              )}
+            </button>
+          </div>
 
-          <button
-            onClick={() => setViewMode(viewMode === 'SUPERVISED' ? 'DISCOVER' : 'SUPERVISED')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
-              viewMode === 'DISCOVER'
-                ? 'bg-accent/15 border-accent text-accent'
-                : 'bg-bg-tertiary border-border-default text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {viewMode === 'DISCOVER' ? (
-              <>
-                <UserCheck size={13} /> Showing All Students
-              </>
-            ) : (
-              <>
-                <UserPlus size={13} /> Discover &amp; Link Students
-              </>
-            )}
-          </button>
+          <span className="text-xs text-text-tertiary font-mono hidden sm:inline-block">
+            {viewMode === 'SUPERVISED' ? 'Active Supervision Roster' : 'Campus Student Directory'}
+          </span>
+        </div>
+
+        {/* Search & Filter Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 rounded-2xl bg-bg-secondary border border-border-default">
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              placeholder={
+                viewMode === 'DISCOVER'
+                  ? 'Search student name, email, department to add...'
+                  : 'Search student by name, email, department, lab...'
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-bg-tertiary border border-border-default rounded-xl pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+            />
+          </div>
+
+          {/* Filter Pills (Shown in Supervised view) */}
+          {viewMode === 'SUPERVISED' ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { id: 'ALL', label: 'All Students' },
+                { id: 'TASKS_DUE', label: '🟡 Tasks Due' },
+                { id: 'HIGH_VELOCITY', label: '🟢 High Velocity' },
+                { id: 'INACTIVE', label: '⚪ Inactive' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    statusFilter === tab.id
+                      ? 'bg-purple-600 text-white font-bold'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-text-secondary">
+              <Sparkles size={14} className="text-amber-400" />
+              <span>Click <strong>&ldquo;+ Add to My Supervision&rdquo;</strong> to link student researchers to your advisory hub.</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -532,21 +573,200 @@ export default function StudentsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredStudents.map((student) => {
             const isDirect = student.isDirectlySupervised
-            const health = student.metrics.healthStatus
+            const health = student.metrics?.healthStatus || 'INACTIVE'
 
+            // --- DISCOVERY CARD: Clean, Privacy-Conscious & User-Friendly ---
+            if (viewMode === 'DISCOVER') {
+              return (
+                <div
+                  key={student.id}
+                  className="glass-card p-5 flex flex-col justify-between space-y-4 border-border-default/80 hover:border-accent/50 transition-all group"
+                >
+                  <div className="space-y-3">
+                    {/* Header: Avatar, Name & Dept */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-accent/20 via-purple-500/20 to-blue-500/20 flex items-center justify-center font-bold text-accent text-base shrink-0 border border-border-default overflow-hidden">
+                        {student.image ? (
+                          <img src={student.image} alt={student.name} className="w-full h-full object-cover" />
+                        ) : (
+                          student.name.slice(0, 2).toUpperCase()
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-text-primary group-hover:text-accent transition-colors truncate font-display">
+                          {student.name}
+                        </h3>
+                        <p className="text-xs text-text-tertiary truncate flex items-center gap-1 mt-0.5">
+                          <Mail size={12} className="text-accent shrink-0" />
+                          <span className="truncate">{student.email}</span>
+                        </p>
+                        <p className="text-[11px] text-text-secondary truncate flex items-center gap-1 mt-0.5">
+                          <GraduationCap size={12} className="text-purple-400 shrink-0" />
+                          <span>{student.department || student.institution || 'Student Researcher'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bio Snippet if available */}
+                    {student.bio && (
+                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed bg-bg-tertiary/50 p-2.5 rounded-xl border border-border-default/50">
+                        {student.bio}
+                      </p>
+                    )}
+
+                    {/* Advisor / Supervision Status Pill */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {isDirect ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-mono">
+                          <UserCheck size={10} /> Already Supervised by You
+                        </span>
+                      ) : student.supervisor ? (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                          <GraduationCap size={10} /> Advisor: {student.supervisor.name}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Available for Supervision
+                        </span>
+                      )}
+
+                      {/* Lab Membership if any */}
+                      {student.labMemberships && student.labMemberships.length > 0 && (
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1">
+                          <Building size={10} className="text-accent" /> {student.labMemberships[0].lab.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Social & Academic Profile Badges */}
+                    {(student.githubUrl || student.linkedinUrl || student.googleScholarUrl || student.orcidUrl || student.huggingFaceUrl) && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {student.githubUrl && (
+                          <a
+                            href={student.githubUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-text-tertiary hover:text-text-primary transition-colors p-1 rounded-md bg-bg-tertiary"
+                            title="GitHub Profile"
+                          >
+                            <GithubIcon size={12} />
+                          </a>
+                        )}
+                        {student.linkedinUrl && (
+                          <a
+                            href={student.linkedinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400/70 hover:text-blue-400 transition-colors p-1 rounded-md bg-bg-tertiary"
+                            title="LinkedIn Profile"
+                          >
+                            <LinkedInIcon size={12} />
+                          </a>
+                        )}
+                        {student.googleScholarUrl && (
+                          <a
+                            href={student.googleScholarUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sky-400/70 hover:text-sky-400 transition-colors p-1 rounded-md bg-bg-tertiary"
+                            title="Google Scholar Profile"
+                          >
+                            <GoogleScholarIcon size={12} />
+                          </a>
+                        )}
+                        {student.orcidUrl && (
+                          <a
+                            href={student.orcidUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-400/70 hover:text-emerald-400 transition-colors p-1 rounded-md bg-bg-tertiary"
+                            title="ORCID iD"
+                          >
+                            <OrcidIcon size={12} />
+                          </a>
+                        )}
+                        {student.huggingFaceUrl && (
+                          <a
+                            href={student.huggingFaceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-amber-400/70 hover:text-amber-400 transition-colors p-1 rounded-md bg-bg-tertiary"
+                            title="Hugging Face Models"
+                          >
+                            <HuggingFaceIcon size={12} />
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Discovery Action Footer */}
+                  <div className="pt-3 border-t border-border-default/60 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfileStudent(student)}
+                      className="text-xs text-text-secondary hover:text-text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      <Users size={12} /> Profile
+                    </button>
+
+                    {isDirect ? (
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <UserCheck size={13} /> Supervised
+                      </span>
+                    ) : student.pendingSupervisionRequest ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-mono">
+                          <Clock size={12} /> Invite Pending
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelRequest(student.pendingSupervisionRequest!.id, student.name)}
+                          className="text-[11px] text-text-tertiary hover:text-danger transition-colors cursor-pointer underline"
+                          title="Cancel invitation"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        onClick={() => handleLinkStudent(student.id, student.name)}
+                        icon={<UserPlus size={13} />}
+                        className="bg-purple-600 hover:bg-purple-500 text-white font-bold shadow-sm"
+                      >
+                        + Add to My Supervision
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            // --- SUPERVISED CARD: Full Analytics, Reading Stats, Deliverables & Actions ---
             return (
               <div
                 key={student.id}
                 className={`glass-card p-6 flex flex-col justify-between space-y-5 transition-all duration-200 group hover:border-purple-500/50 relative ${
-                  isDirect ? 'border-purple-500/30' : 'border-border-default'
+                  health === 'TASKS_DUE'
+                    ? 'border-amber-500/40 bg-amber-500/[0.02]'
+                    : health === 'HIGH_VELOCITY'
+                    ? 'border-emerald-500/30'
+                    : 'border-border-default/80'
                 }`}
               >
-                <div className="space-y-4">
-                  {/* Student Profile Header */}
+                {/* Header: Student Info & Health Status */}
+                <div className="space-y-3">
                   <div className="flex items-start gap-3.5">
-                    <div className="relative">
-                      <div className="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 font-display font-bold text-lg flex items-center justify-center shrink-0">
-                        {student.name.slice(0, 2).toUpperCase()}
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center font-bold text-white text-base shadow-md overflow-hidden">
+                        {student.image ? (
+                          <img src={student.image} alt={student.name} className="w-full h-full object-cover" />
+                        ) : (
+                          student.name.slice(0, 2).toUpperCase()
+                        )}
                       </div>
                       <span
                         className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-bg-primary ${
@@ -591,67 +811,6 @@ export default function StudentsPage() {
                         <GraduationCap size={12} className="text-purple-400 shrink-0" />
                         <span>{student.department || student.institution || 'Student Researcher'}</span>
                       </p>
-
-                      {/* Social & Academic Profile Badges */}
-                      {(student.githubUrl || student.linkedinUrl || student.googleScholarUrl || student.orcidUrl || student.huggingFaceUrl) && (
-                        <div className="flex items-center gap-1.5 pt-1">
-                          {student.githubUrl && (
-                            <a
-                              href={student.githubUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-text-tertiary hover:text-text-primary transition-colors p-0.5"
-                              title="GitHub Profile"
-                            >
-                              <GithubIcon size={12} />
-                            </a>
-                          )}
-                          {student.linkedinUrl && (
-                            <a
-                              href={student.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400/70 hover:text-blue-400 transition-colors p-0.5"
-                              title="LinkedIn Profile"
-                            >
-                              <LinkedInIcon size={12} />
-                            </a>
-                          )}
-                          {student.googleScholarUrl && (
-                            <a
-                              href={student.googleScholarUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sky-400/70 hover:text-sky-400 transition-colors p-0.5"
-                              title="Google Scholar Profile"
-                            >
-                              <GoogleScholarIcon size={12} />
-                            </a>
-                          )}
-                          {student.orcidUrl && (
-                            <a
-                              href={student.orcidUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-emerald-400/70 hover:text-emerald-400 transition-colors p-0.5"
-                              title="ORCID iD"
-                            >
-                              <OrcidIcon size={12} />
-                            </a>
-                          )}
-                          {student.huggingFaceUrl && (
-                            <a
-                              href={student.huggingFaceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-amber-400/70 hover:text-amber-400 transition-colors p-0.5"
-                              title="Hugging Face Models"
-                            >
-                              <HuggingFaceIcon size={12} />
-                            </a>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -691,21 +850,11 @@ export default function StudentsPage() {
                           </button>
                         )
                       })}
-
-                      {student.groupMemberships.map((g) => (
-                        <span
-                          key={g.group.id}
-                          className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-bg-tertiary text-text-secondary border border-border-default flex items-center gap-1"
-                        >
-                          <Layers size={10} className="text-purple-400" /> {g.group.name}
-                        </span>
-                      ))}
                     </div>
                   </div>
 
                   {/* Paper Reading Progress (Assigned vs Total Library) */}
                   <div className="space-y-2.5 bg-bg-tertiary/60 p-3.5 rounded-xl border border-border-default/60">
-                    {/* Assigned Paper Reading */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-text-primary font-semibold flex items-center gap-1.5">
@@ -721,16 +870,8 @@ export default function StudentsPage() {
                           style={{ width: `${student.metrics.assignedCompletionRate || 0}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-text-tertiary pt-0.5 font-mono">
-                        <span>{student.metrics.completedAssignedPapers || 0} read</span>
-                        <span>{student.metrics.inProgressAssignedPapers || 0} reading</span>
-                        <span className={(student.metrics.pendingAssignedPapers || 0) > 0 ? 'text-amber-400 font-bold' : ''}>
-                          {student.metrics.pendingAssignedPapers || 0} pending
-                        </span>
-                      </div>
                     </div>
 
-                    {/* Total Library Reading & Notes */}
                     <div className="pt-2 border-t border-border-default/50 flex items-center justify-between text-[11px] text-text-secondary">
                       <span className="flex items-center gap-1">
                         <TrendingUp size={12} className="text-success" /> Total Library Read:
@@ -739,149 +880,22 @@ export default function StudentsPage() {
                         {student.metrics.completedPapers} / {student.metrics.totalPapers} ({student.metrics.completionRate}%)
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono">
-                      <span>{student.metrics.readingPapers} active in library</span>
-                      <span>{student.metrics.totalNotes} synthesized notes</span>
-                    </div>
                   </div>
 
-                  {/* Active Lab Tasks (if any) */}
+                  {/* Active Lab Tasks */}
                   {student.assignedLabTasks.length > 0 && (
                     <div className="space-y-1.5 p-2.5 rounded-xl bg-accent/5 border border-accent/20 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1">
                           <CheckSquare size={11} /> Lab Tasks ({student.assignedLabTasks.length})
                         </span>
-                        <span className="text-[10px] text-text-tertiary">
-                          {student.metrics.completedTasks} completed
-                        </span>
                       </div>
-                      <div className="space-y-1">
-                        {student.assignedLabTasks.slice(0, 2).map((task) => (
-                          <div
-                            key={task.id}
-                            className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
-                          >
-                            <span className="text-text-primary truncate font-medium flex-1">
-                              {task.title}
-                            </span>
-                            <span
-                              className={`px-1.5 py-0.2 text-[9px] font-bold rounded font-mono shrink-0 ${
-                                task.status === 'COMPLETED'
-                                  ? 'bg-emerald-500/20 text-emerald-400'
-                                  : task.status === 'IN_REVIEW'
-                                  ? 'bg-amber-500/20 text-amber-300'
-                                  : 'bg-cyan-500/20 text-cyan-300'
-                              }`}
-                            >
-                              {task.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Active Reading Assignments (if any) */}
-                  {student.assignedPapers.length > 0 && (
-                    <div className="space-y-1.5 p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
-                          <ClipboardList size={11} /> Assigned Reading ({student.assignedPapers.length})
-                        </span>
-                        <span className="text-[9px] text-text-tertiary">
-                          {student.metrics.completedAssignedPapers} read
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {student.assignedPapers.slice(0, 3).map((a) => {
-                          const hasSynthesis = a.status === 'COMPLETED'
-                          return (
-                            <div
-                              key={a.id}
-                              className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0"
-                            >
-                              <Link
-                                href={`/papers/${a.paper.slug || a.paper.id}?studentId=${student.id}`}
-                                className="text-text-primary hover:text-purple-400 truncate font-medium flex-1 flex items-center gap-1"
-                              >
-                                <span className="truncate">{a.paper.title}</span>
-                                {hasSynthesis && (
-                                  <span className="px-1 py-0.2 rounded text-[8px] bg-emerald-500/15 text-emerald-300 font-mono font-bold shrink-0">
-                                    Q1-Q9 ✓
-                                  </span>
-                                )}
-                              </Link>
-                              <span
-                                className={`px-1.5 py-0.2 text-[9px] font-bold rounded font-mono shrink-0 ${
-                                  a.status === 'COMPLETED'
-                                    ? 'bg-emerald-500/20 text-emerald-300'
-                                    : a.status === 'IN_PROGRESS'
-                                    ? 'bg-blue-500/20 text-blue-300'
-                                    : 'bg-amber-500/20 text-amber-300'
-                                }`}
-                              >
-                                {a.status}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Student Paper Feedback & Question Activity */}
-                  {student.feedbackGiven && student.feedbackGiven.length > 0 && (
-                    <div className="space-y-1.5 p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
-                          <MessageSquare size={11} /> Student Paper Feedback ({student.feedbackGiven.length})
-                        </span>
-                        <span className="text-[9px] text-text-tertiary">Recent questions</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        {student.feedbackGiven.slice(0, 2).map((fb) => (
-                          <div
-                            key={fb.id}
-                            className="p-2 rounded-lg bg-bg-primary/70 border border-border-default/50 text-[11px] space-y-1"
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <Link
-                                href={`/papers/${fb.paper.slug || fb.paper.id}?studentId=${student.id}`}
-                                className="text-text-primary font-semibold hover:text-blue-400 truncate flex-1 flex items-center gap-1 text-[11px]"
-                              >
-                                <span className="truncate">📄 {fb.paper.title}</span>
-                              </Link>
-                              <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-blue-500/15 text-blue-300 font-mono shrink-0">
-                                {fb.type}
-                              </span>
-                            </div>
-                            <p className="text-text-secondary text-[10px] line-clamp-1 italic leading-relaxed">
-                              &ldquo;{fb.content}&rdquo;
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Upcoming 1-on-1 Meeting (if scheduled) */}
-                  {student.meetingsAsStudent.length > 0 && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-bg-tertiary text-[11px] text-text-secondary border border-border-default/60">
-                      <span className="flex items-center gap-1 font-medium truncate flex-1">
-                        <Calendar size={12} className="text-accent shrink-0" />
-                        <span className="text-text-primary font-semibold truncate">
-                          Next Meeting: {student.meetingsAsStudent[0].title}
-                        </span>
-                      </span>
-                      <span className="text-accent font-mono text-[10px] shrink-0 ml-1.5">
-                        {new Date(student.meetingsAsStudent[0].scheduledAt).toLocaleDateString([], {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                      {student.assignedLabTasks.slice(0, 2).map((task) => (
+                        <div key={task.id} className="flex items-center justify-between gap-2 text-[11px] py-1 border-t border-border-default/40 first:border-0 first:pt-0">
+                          <span className="text-text-primary truncate font-medium flex-1">{task.title}</span>
+                          <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded font-mono shrink-0 ${task.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-cyan-500/20 text-cyan-300'}`}>{task.status}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -889,91 +903,22 @@ export default function StudentsPage() {
                 {/* Supervision Action Matrix */}
                 <div className="pt-3 border-t border-border-default space-y-2">
                   <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => handleOpenAssign(student)}
-                      className="text-[11px] justify-center"
-                      icon={<BookOpen size={12} />}
-                    >
-                      Assign
-                    </Button>
-
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => handleOpenMeeting(student)}
-                      className="text-[11px] justify-center"
-                      icon={<Calendar size={12} />}
-                    >
-                      Meet
-                    </Button>
-
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => handleOpenAdvice(student)}
-                      className="text-[11px] justify-center text-amber-300 hover:text-amber-200"
-                      icon={<Zap size={12} />}
-                    >
-                      Advice
-                    </Button>
+                    <Button size="xs" variant="secondary" onClick={() => handleOpenAssign(student)} className="text-[11px] justify-center" icon={<BookOpen size={12} />}>Assign</Button>
+                    <Button size="xs" variant="secondary" onClick={() => handleOpenMeeting(student)} className="text-[11px] justify-center" icon={<Calendar size={12} />}>Meet</Button>
+                    <Button size="xs" variant="secondary" onClick={() => handleOpenAdvice(student)} className="text-[11px] justify-center text-amber-300 hover:text-amber-200" icon={<Zap size={12} />}>Advice</Button>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedProfileStudent(student)}
-                        className="text-[11px] text-accent hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-                        title="View complete researcher profile, supervisor info, lab affiliations, and reading records"
-                      >
-                        <Users size={12} /> View Profile &amp; Lab Details
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReport(student)}
-                        className="text-[11px] text-text-secondary hover:text-text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <FileText size={12} /> Report
-                      </button>
-                    </div>
-
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <button type="button" onClick={() => setSelectedProfileStudent(student)} className="text-[11px] text-accent hover:underline flex items-center gap-1 font-semibold cursor-pointer">
+                      <Users size={12} /> Profile
+                    </button>
                     {isDirect ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1 font-mono">
-                          <UserCheck size={11} /> Supervised
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleUnlinkStudent(student.id, student.name)}
-                          className="text-[10px] text-text-tertiary hover:text-rose-400 transition-colors flex items-center gap-0.5 cursor-pointer"
-                          title="Unlink from direct supervision"
-                        >
-                          <UserX size={10} /> Unlink
-                        </button>
-                      </div>
-                    ) : student.pendingSupervisionRequest ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                          <Clock size={10} /> Invite Pending
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCancelRequest(student.pendingSupervisionRequest!.id, student.name)}
-                          className="text-[10px] text-text-tertiary hover:text-danger transition-colors cursor-pointer underline"
-                          title="Cancel invitation"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                      <button type="button" onClick={() => handleUnlinkStudent(student.id, student.name)} className="text-[10px] text-text-tertiary hover:text-rose-400 transition-colors flex items-center gap-0.5 cursor-pointer">
+                        <UserX size={10} /> Unlink
+                      </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleLinkStudent(student.id, student.name)}
-                        className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <UserPlus size={12} /> + Claim to Roster
+                      <button type="button" onClick={() => handleLinkStudent(student.id, student.name)} className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 cursor-pointer">
+                        <UserPlus size={12} /> + Add to My Supervision
                       </button>
                     )}
                   </div>
@@ -993,7 +938,7 @@ export default function StudentsPage() {
           </p>
           {viewMode === 'SUPERVISED' && (
             <Button size="sm" variant="primary" onClick={() => setViewMode('DISCOVER')} icon={<UserPlus size={14} />}>
-              Discover &amp; Link Students
+              Find &amp; Add Students
             </Button>
           )}
         </div>
