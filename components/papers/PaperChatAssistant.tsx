@@ -39,6 +39,16 @@ interface PaperChatAssistantProps {
 
 const PROMPT_PRESETS = [
   {
+    label: '✨ 3-Bullet Takeaways',
+    prompt: 'Summarize the entire paper in 3 concise, bulleted key takeaways (Novelty, Method, Main Finding).',
+    icon: Sparkles,
+  },
+  {
+    label: '💡 What is the Novelty?',
+    prompt: 'What is the core novelty and primary theoretical/empirical breakthrough introduced in this paper?',
+    icon: Cpu,
+  },
+  {
     label: '🎯 Scientific Consensus',
     prompt: 'What is the scientific consensus and peer-reviewed evidence agreement regarding this paper core hypothesis and findings?',
     icon: Target,
@@ -59,14 +69,9 @@ const PROMPT_PRESETS = [
     icon: AlertTriangle,
   },
   {
-    label: '📝 BibTeX & Citation',
+    label: '📝 BibTeX Citation',
     prompt: 'Generate the complete BibTeX entry and APA citation for this paper.',
     icon: FileCode,
-  },
-  {
-    label: '🧪 Replication & Code',
-    prompt: 'What code repositories, weights, and replication artifacts are available?',
-    icon: GitBranch,
   },
 ]
 
