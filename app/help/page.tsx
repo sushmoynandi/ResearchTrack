@@ -230,14 +230,14 @@ const SUPERVISOR_GUIDES: GuideSection[] = [
     title: '4. Scheduling 1-on-1 Syncs & Research Advice',
     category: 'Mentorship',
     icon: Calendar,
-    summary: 'Structure productive 1-on-1 mentorship sessions and send actionable research nudges.',
+    summary: 'Structure productive 1-on-1 mentorship sessions and send actionable research advice.',
     steps: [
       {
         title: 'Schedule 1-on-1 Meetings',
         detail: 'Schedule advisory sessions with agenda topics and calendar integration in 1-on-1 Meetings (/meetings).',
       },
       {
-        title: 'Send Research Advice & Nudges',
+        title: 'Send Research Advice',
         detail: 'Click "Advice" on any student card to send structured research guidance and instant notifications directly to the student.',
       },
     ],
