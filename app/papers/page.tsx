@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useSearchParams } from 'next/navigation'
+import { MagicAddModal } from '@/components/papers/MagicAddModal'
 import {
   LayoutGrid,
   List,
@@ -21,6 +22,8 @@ import {
   User,
   GraduationCap,
   Share2,
+  Sparkles,
+  Plus,
 } from 'lucide-react'
 import type { Paper } from '@/lib/types'
 
@@ -45,6 +48,7 @@ export default function PapersPage() {
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [sort, setSort] = useState('createdAt')
   const [isExportOpen, setIsExportOpen] = useState(false)
+  const [isMagicAddOpen, setIsMagicAddOpen] = useState(false)
 
   const isSupervisorOrAdmin = user?.systemRole === 'SUPERVISOR' || user?.systemRole === 'ADMIN'
   const hasActiveFilters = !!(search || status || priority || tag || favoritesOnly || scope !== 'all')
@@ -119,7 +123,17 @@ export default function PapersPage() {
         </div>
 
         {/* Actions & View toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<Sparkles size={14} className="text-white" />}
+            onClick={() => setIsMagicAddOpen(true)}
+            className="bg-accent text-bg-primary font-bold shadow-xs hover:brightness-110"
+          >
+            1-Step Magic Add
+          </Button>
+
           <Button
             size="sm"
             variant="secondary"
@@ -328,6 +342,13 @@ export default function PapersPage() {
         onClose={() => setIsExportOpen(false)}
         papers={papers}
         title="Export Research Library Matrix & BibTeX"
+      />
+
+      {/* 1-Step Magic Add Modal */}
+      <MagicAddModal
+        isOpen={isMagicAddOpen}
+        onClose={() => setIsMagicAddOpen(false)}
+        onSuccess={() => fetchPapers()}
       />
     </div>
   )

@@ -182,6 +182,27 @@ export function PaperCard({ paper, onUpdate }: PaperCardProps) {
               )}
             </div>
           )}
+
+          {/* Reading Status Progress Bar */}
+          <div className="pt-2 pb-1 space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-text-tertiary">
+              <span>Reading Status</span>
+              <span className={paper.status === 'COMPLETED' ? 'text-emerald-400 font-bold' : paper.status === 'READING' ? 'text-accent font-bold' : 'text-text-tertiary'}>
+                {paper.status === 'COMPLETED' ? '100% (Done)' : paper.status === 'READING' ? '50% (Reading)' : '0% (Queued)'}
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-bg-primary overflow-hidden border border-border-default/40">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  paper.status === 'COMPLETED'
+                    ? 'bg-emerald-500 w-full'
+                    : paper.status === 'READING'
+                    ? 'bg-accent w-1/2'
+                    : 'bg-transparent w-0'
+                }`}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Bottom meta */}
