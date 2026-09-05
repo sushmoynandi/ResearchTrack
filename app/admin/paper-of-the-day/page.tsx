@@ -265,12 +265,17 @@ export default function AdminPaperOfTheDayPage() {
       })
 
       if (res.ok) {
-        addToast(
-          'success',
-          sendNow
-            ? '🚀 Paper of the Day broadcast dispatched immediately!'
-            : '📅 Paper of the Day scheduled successfully!'
-        )
+        const data = await res.json()
+        if (data.warning) {
+          addToast('warning', data.warning)
+        } else {
+          addToast(
+            'success',
+            sendNow
+              ? `🚀 Paper of the Day broadcast dispatched successfully to ${data.sentSuccessCount || data.recipientCount} recipient(s)!`
+              : '📅 Paper of the Day scheduled successfully!'
+          )
+        }
         setDoiInput('')
         setPaperDetails(null)
         setAutoResolved(false)

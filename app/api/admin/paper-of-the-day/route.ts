@@ -200,6 +200,20 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`[POTD BROADCAST] Dispatched to ${sentSuccessCount}/${potd.recipients.length} recipients successfully.`)
+      
+      let warning: string | undefined
+      if (sentSuccessCount === 0 && potd.recipients.length > 0) {
+        warning = 'Broadcast created, but emails could not be delivered by the SMTP provider (Daily sending limit exceeded or connection error). Check SMTP credentials in .env.'
+      } else if (sentSuccessCount < potd.recipients.length) {
+        warning = `Dispatched to ${sentSuccessCount} of ${potd.recipients.length} recipients. Some recipients were rejected by the mail server.`
+      }
+
+      return NextResponse.json({
+        ...potd,
+        sentSuccessCount,
+        totalRecipients: potd.recipients.length,
+        warning,
+      }, { status: 201 })
     }
 
     return NextResponse.json(potd, { status: 201 })
