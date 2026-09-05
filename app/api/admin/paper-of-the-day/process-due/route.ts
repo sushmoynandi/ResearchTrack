@@ -30,40 +30,49 @@ export async function POST(request: NextRequest) {
 
     for (const potd of dueBroadcasts) {
       const parsedTopics = potd.topics ? potd.topics.split(',').map((t) => t.trim()) : null
-      const emailPromises = potd.recipients.map((r) =>
-        sendPaperOfTheDayEmail({
-          toEmail: r.email,
-          recipientName: r.user?.name || 'Scholar',
-          paperTitle: potd.title,
-          authors: potd.authors,
-          doi: potd.doi,
-          abstract: potd.abstract,
-          journal: potd.journal,
-          year: potd.year,
-          paperUrl: potd.url,
-          pdfUrl: potd.pdfUrl,
-          score: potd.score,
-          topics: parsedTopics,
-          theme: potd.theme,
-        }).then(async () => {
-          await prisma.paperOfTheDayRecipient.update({
-            where: { id: r.id },
-            data: { sentAt: new Date() },
-          }).catch(() => {})
-        }).catch((err) => console.error('Failed to send POTD email to ' + r.email + ':', err))
-      )
+      let sentSuccessCount = 0
 
-      const notifPromises = potd.recipients.map((r) =>
+      for (const r of potd.recipients) {
+        try {
+          const success = await sendPaperOfTheDayEmail({
+            toEmail: r.email,
+            recipientName: r.user?.name || 'Scholar',
+            paperTitle: potd.title,
+            authors: potd.authors,
+            doi: potd.doi,
+            abstract: potd.abstract,
+            journal: potd.journal,
+            year: potd.year,
+            paperUrl: potd.url,
+            pdfUrl: potd.pdfUrl,
+            score: potd.score,
+            topics: parsedTopics,
+            theme: potd.theme,
+          })
+
+          if (success) {
+            sentSuccessCount++
+            await prisma.paperOfTheDayRecipient.update({
+              where: { id: r.id },
+              data: { sentAt: new Date() },
+            }).catch(() => {})
+          }
+
+          // Small delay (150ms) between dispatches to guarantee smooth SMTP delivery
+          await new Promise((resolve) => setTimeout(resolve, 150))
+        } catch (err) {
+          console.error(`Failed to send scheduled POTD email to ${r.email}:`, err)
+        }
+
+        // In-app notification
         createNotification({
           userId: r.userId,
-          title: '📰 Paper of the Day: "' + potd.title + '"',
-          message: 'Featured research spotlight by ' + potd.authors + '. Check today breakthrough paper.',
+          title: `📰 Paper of the Day: "${potd.title}"`,
+          message: `Featured research spotlight by ${potd.authors}. Check today's breakthrough paper.`,
           type: 'SYSTEM',
-          link: potd.paperId ? ('/papers/' + potd.paperId) : (potd.url || '/papers'),
+          link: potd.paperId ? `/papers/${potd.paperId}` : (potd.url || '/papers'),
         }).catch(() => {})
-      )
-
-      await Promise.allSettled([...emailPromises, ...notifPromises])
+      }
 
       await prisma.paperOfTheDay.update({
         where: { id: potd.id },
@@ -73,11 +82,12 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      console.log(`[POTD DUE PROCESS] Processed broadcast ${potd.id} (${sentSuccessCount}/${potd.recipients.length} emails dispatched).`)
       processedTotal++
     }
 
     return NextResponse.json({
-      message: 'Successfully processed and dispatched ' + processedTotal + ' scheduled broadcast(s)',
+      message: `Successfully processed and dispatched ${processedTotal} scheduled broadcast(s)`,
       processedCount: processedTotal,
     })
   } catch (error) {

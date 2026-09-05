@@ -45,6 +45,11 @@ function getTransporter(): nodemailer.Transporter {
         user: smtpUser,
         pass: smtpPass,
       },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 100,
+      rateDelta: 1000,
+      rateLimit: 5, // max 5 messages per second
     })
   } else {
     // Dev fallback mock transporter (logs output to console)

@@ -77,16 +77,19 @@ export async function POST(request: NextRequest) {
     const scheduledDateTime = sendNow ? new Date() : new Date(scheduledFor || Date.now())
 
     // Target audience selection filter
-    let userQuery: any = {}
+    let userQuery: any = {
+      isGuest: false,
+      isActive: { not: false },
+    }
+
     if (targetFilter === 'STUDENTS') {
-      userQuery.systemRole = 'STUDENT'
+      userQuery.OR = [{ systemRole: 'STUDENT' }, { role: 'STUDENT' }]
     } else if (targetFilter === 'SUPERVISORS') {
-      userQuery.systemRole = 'SUPERVISOR'
+      userQuery.OR = [{ systemRole: 'SUPERVISOR' }, { role: 'SUPERVISOR' }]
     } else if (targetFilter === 'CUSTOM' && Array.isArray(recipientUserIds) && recipientUserIds.length > 0) {
       userQuery.id = { in: recipientUserIds }
-    } else if (targetFilter === 'ALL' || !targetFilter) {
+    } else {
       // 'ALL' Scholars: Include all registered researchers across the institution (students, supervisors, admins)
-      userQuery.systemRole = { in: ['STUDENT', 'SUPERVISOR', 'ADMIN'] }
     }
 
     const allMatchedUsers = await prisma.user.findMany({
@@ -94,8 +97,18 @@ export async function POST(request: NextRequest) {
       select: { id: true, name: true, email: true, systemRole: true },
     })
 
-    // Filter out any accounts missing email
-    const recipients = allMatchedUsers.filter((u) => u.email && u.email.includes('@'))
+    // Filter out any accounts missing email or duplicates
+    const seenEmails = new Set<string>()
+    const recipients: typeof allMatchedUsers = []
+    for (const u of allMatchedUsers) {
+      if (u.email && u.email.includes('@')) {
+        const cleanEmail = u.email.trim().toLowerCase()
+        if (!seenEmails.has(cleanEmail)) {
+          seenEmails.add(cleanEmail)
+          recipients.push({ ...u, email: cleanEmail })
+        }
+      }
+    }
 
     if (recipients.length === 0) {
       return NextResponse.json({ error: 'No recipients with valid email addresses found for the selected filter' }, { status: 400 })
@@ -127,7 +140,7 @@ export async function POST(request: NextRequest) {
           create: recipients.map((r) => ({
             userId: r.id,
             email: r.email,
-            sentAt: sendNow ? new Date() : null,
+            sentAt: null,
           })),
         },
       },
@@ -142,35 +155,51 @@ export async function POST(request: NextRequest) {
 
     if (sendNow) {
       const parsedTopics = potd.topics ? potd.topics.split(',').map((t) => t.trim()) : null
-      const emailPromises = recipients.map((recipient) =>
-        sendPaperOfTheDayEmail({
-          toEmail: recipient.email,
-          recipientName: recipient.name,
-          paperTitle: potd.title,
-          authors: potd.authors,
-          doi: potd.doi,
-          abstract: potd.abstract,
-          journal: potd.journal,
-          year: potd.year,
-          paperUrl: potd.url,
-          pdfUrl: potd.pdfUrl,
-          score: potd.score,
-          topics: parsedTopics,
-          theme: potd.theme,
-        }).catch((err) => console.error('Failed to send POTD email to ' + recipient.email + ':', err))
-      )
+      let sentSuccessCount = 0
 
-      const notifPromises = recipients.map((recipient) =>
+      for (const recipient of potd.recipients) {
+        try {
+          const success = await sendPaperOfTheDayEmail({
+            toEmail: recipient.email,
+            recipientName: recipient.user?.name || 'Scholar',
+            paperTitle: potd.title,
+            authors: potd.authors,
+            doi: potd.doi,
+            abstract: potd.abstract,
+            journal: potd.journal,
+            year: potd.year,
+            paperUrl: potd.url,
+            pdfUrl: potd.pdfUrl,
+            score: potd.score,
+            topics: parsedTopics,
+            theme: potd.theme,
+          })
+
+          if (success) {
+            sentSuccessCount++
+            await prisma.paperOfTheDayRecipient.update({
+              where: { id: recipient.id },
+              data: { sentAt: new Date() },
+            }).catch(() => {})
+          }
+
+          // Small delay (150ms) between dispatches to guarantee smooth SMTP delivery
+          await new Promise((resolve) => setTimeout(resolve, 150))
+        } catch (err) {
+          console.error(`Failed to send POTD email to ${recipient.email}:`, err)
+        }
+
+        // In-app notification
         createNotification({
-          userId: recipient.id,
-          title: '📰 Paper of the Day: "' + potd.title + '"',
-          message: 'Featured research breakthrough by ' + potd.authors + '. Check today spotlight paper.',
+          userId: recipient.userId,
+          title: `📰 Paper of the Day: "${potd.title}"`,
+          message: `Featured research breakthrough by ${potd.authors}. Check today's spotlight paper.`,
           type: 'SYSTEM',
-          link: potd.paperId ? ('/papers/' + potd.paperId) : (potd.url || '/papers'),
+          link: potd.paperId ? `/papers/${potd.paperId}` : (potd.url || '/papers'),
         }).catch(() => {})
-      )
+      }
 
-      await Promise.allSettled([...emailPromises, ...notifPromises])
+      console.log(`[POTD BROADCAST] Dispatched to ${sentSuccessCount}/${potd.recipients.length} recipients successfully.`)
     }
 
     return NextResponse.json(potd, { status: 201 })

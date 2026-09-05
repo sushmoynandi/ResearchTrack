@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LabReadingVelocityWidget } from "@/components/analytics/LabReadingVelocityWidget";
 import { StudentContributionHeatmap } from "@/components/analytics/StudentContributionHeatmap";
 import { SupervisionRequestBanner } from "@/components/dashboard/SupervisionRequestBanner";
+import { PaperOfTheDayWidget } from "@/components/dashboard/PaperOfTheDayWidget";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { Paper } from "@/lib/types";
 
@@ -283,6 +284,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* 📬 Paper of the Day Spotlight Widget */}
+      <PaperOfTheDayWidget />
 
       {/* 🌟 HERO CARD: "Today's Focus" Launchpad */}
       {isStudent && (
