@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import crypto from 'crypto'
 
 /**
  * Direct Email Dispatch Engine for ResearchTrack
@@ -12,6 +13,25 @@ const smtpPass = process.env.SMTP_PASS || ''
 const smtpFrom = process.env.SMTP_FROM || 'ResearchTrack <notifications@researchtrack.app>'
 
 let transporter: nodemailer.Transporter | null = null
+
+/**
+ * Check whether outgoing SMTP email is configured and ready.
+ */
+export function isMailerConfigured(): boolean {
+  if (Boolean(process.env.SMTP_USER && process.env.SMTP_PASS)) {
+    return true
+  }
+  // In development, mock transporter prints codes to console
+  return process.env.NODE_ENV !== 'production'
+}
+
+/**
+ * Generate a cryptographically secure 6-digit numeric OTP code.
+ */
+export function generate6DigitCode(): string {
+  const num = crypto.randomInt(100000, 1000000)
+  return num.toString()
+}
 
 function getTransporter(): nodemailer.Transporter {
   if (transporter) return transporter
@@ -469,6 +489,194 @@ export async function sendPaperOfTheDayEmail({
     to: toEmail,
     subject: `📰 Paper of the Day: "${paperTitle}"`,
     html,
+  })
+}
+
+/**
+ * Dispatch automated Two-Factor Authentication (2FA) 6-digit OTP code via SMTP
+ */
+export async function sendTwoFactorOtpEmail({
+  toEmail,
+  recipientName,
+  code,
+  ip,
+}: {
+  toEmail: string
+  recipientName?: string
+  code: string
+  ip?: string
+}): Promise<boolean> {
+  const name = recipientName || 'Researcher'
+  const timeString = new Date().toUTCString()
+
+  console.log(`🔐 [2FA SMTP DISPATCH] Sending OTP ${code} to ${toEmail}...`)
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 24px; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #94a3b8;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto;">
+          <tr>
+            <td style="background-color: #111827; border: 1px solid #1f2937; border-top: 4px solid #06b6d4; border-radius: 12px; padding: 32px 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+              
+              <!-- Header -->
+              <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px; background-color: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); margin-bottom: 12px;">
+                  <span style="font-size: 24px;">🔐</span>
+                </div>
+                <h1 style="color: #f8fafc; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.3px;">Two-Step Verification Code</h1>
+                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">ResearchTrack Security Hub</p>
+              </div>
+
+              <!-- Body text -->
+              <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px;">
+                Hello <strong>${name}</strong>,<br/>
+                We received a request to sign in to your ResearchTrack account. Use the verification code below to complete your authentication:
+              </p>
+
+              <!-- OTP Code Display Card -->
+              <div style="background-color: #0d1117; border: 1px solid #334155; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0;">
+                <div style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                  Your 6-Digit Sign-In Code
+                </div>
+                <div style="font-size: 34px; font-weight: 800; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 8px; color: #f8fafc; padding: 4px 0;">
+                  ${code}
+                </div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+                  ⏱️ Valid for <strong>10 minutes</strong>
+                </div>
+              </div>
+
+              <!-- Metadata & Warning -->
+              <div style="background-color: rgba(30, 41, 59, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                <div>📍 <strong>IP Address:</strong> ${ip || 'Direct login'}</div>
+                <div>🕒 <strong>Requested:</strong> ${timeString}</div>
+              </div>
+
+              <p style="font-size: 12.5px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                🔒 If you did not attempt to sign in, your account password may still be secure, but you should verify your credentials or change your password immediately.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding-top: 20px; text-align: center; font-size: 11.5px; color: #475569;">
+              ResearchTrack Academic Research Platform • Automated Security Message
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `
+
+  const text = `ResearchTrack Two-Step Verification Code\n\nYour 6-digit sign-in code is: ${code}\n\nThis code is valid for 10 minutes.\nRequested at: ${timeString}\nIP Address: ${ip || 'Direct login'}\n\nIf you did not request this, please verify your credentials immediately.`
+
+  return sendEmail({
+    to: toEmail,
+    subject: `🔐 Your ResearchTrack Verification Code: ${code}`,
+    html,
+    text,
+  })
+}
+
+/**
+ * Dispatch automated Password Reset 6-digit OTP code via SMTP
+ */
+export async function sendPasswordResetOtpEmail({
+  toEmail,
+  recipientName,
+  code,
+  ip,
+}: {
+  toEmail: string
+  recipientName?: string
+  code: string
+  ip?: string
+}): Promise<boolean> {
+  const name = recipientName || 'Researcher'
+  const timeString = new Date().toUTCString()
+
+  console.log(`🔑 [PASSWORD RESET SMTP DISPATCH] Sending Reset Code ${code} to ${toEmail}...`)
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 24px; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #94a3b8;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto;">
+          <tr>
+            <td style="background-color: #111827; border: 1px solid #1f2937; border-top: 4px solid #f59e0b; border-radius: 12px; padding: 32px 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+              
+              <!-- Header -->
+              <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px; background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); margin-bottom: 12px;">
+                  <span style="font-size: 24px;">🔑</span>
+                </div>
+                <h1 style="color: #f8fafc; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.3px;">Password Reset Request</h1>
+                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">ResearchTrack Account Recovery</p>
+              </div>
+
+              <!-- Body text -->
+              <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px;">
+                Hello <strong>${name}</strong>,<br/>
+                We received a request to reset your ResearchTrack password. Enter the 6-digit recovery code below on the password reset screen:
+              </p>
+
+              <!-- OTP Code Display Card -->
+              <div style="background-color: #0d1117; border: 1px solid #334155; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0;">
+                <div style="font-size: 11px; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                  Password Reset Code
+                </div>
+                <div style="font-size: 34px; font-weight: 800; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 8px; color: #f8fafc; padding: 4px 0;">
+                  ${code}
+                </div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+                  ⏱️ Expires in <strong>15 minutes</strong>
+                </div>
+              </div>
+
+              <!-- Metadata & Warning -->
+              <div style="background-color: rgba(30, 41, 59, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                <div>📍 <strong>IP Address:</strong> ${ip || 'Direct reset request'}</div>
+                <div>🕒 <strong>Requested:</strong> ${timeString}</div>
+              </div>
+
+              <div style="background-color: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px;">
+                <p style="font-size: 12px; color: #fca5a5; line-height: 1.5; margin: 0;">
+                  ⚠️ <strong>Didn't request a password reset?</strong> If you didn't ask to reset your password, you can safely ignore this email. No changes will be made to your account.
+                </p>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding-top: 20px; text-align: center; font-size: 11.5px; color: #475569;">
+              ResearchTrack Academic Research Platform • Account Recovery Service
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `
+
+  const text = `ResearchTrack Password Reset Request\n\nYour 6-digit password reset code is: ${code}\n\nThis code expires in 15 minutes.\nRequested at: ${timeString}\nIP Address: ${ip || 'Direct reset request'}\n\nIf you did not request a password reset, you can safely ignore this email.`
+
+  return sendEmail({
+    to: toEmail,
+    subject: `🔑 Your ResearchTrack Password Reset Code: ${code}`,
+    html,
+    text,
   })
 }
 

@@ -91,33 +91,38 @@ All colours live in one place: `app/globals.css`. Near the top are two lists —
 - **Note**: `.env` is read once when the dev server starts. If you change `DATABASE_URL`, stop and restart the dev server, otherwise the site keeps using the old one.
 - **Going live later**: for a deployed site you'll swap `DATABASE_URL` for a hosted PostgreSQL (e.g. Neon) and run `npx prisma db push` once against it.
 
-## How to Send Real Emails (reset codes & admin 2-step codes)
+## How to Send Real Emails via SMTP (Reset Codes, 2-Step Codes & Meeting Invites)
 
-This is switched on — `APPSCRIPT_2FA_URL` is set, so password reset codes and
-admin 2-step codes both go out as real email.
+ResearchTrack uses direct **SMTP (Nodemailer)** for sending all automated emails, including:
+- **Password Reset Codes (OTP)**
+- **Two-Step Verification Codes (2FA)**
+- **Paper Assignment Notifications**
+- **1-on-1 and Lab Meeting Invitations** (with `.ics` calendar files)
+- **Paper of the Day Spotlights**
 
-If that setting is ever missing, the Forgot Password page **doesn't hand out a
-code**. It says so plainly and offers **Continue with Google** instead — a reset
-code is only worth anything if it lands in the account holder's inbox and nowhere
-else, so it is never shown on screen or written to a log.
+### 1. Setting up SMTP in `.env`
+Add your SMTP server details to `.env`:
+```env
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password-xxxx"
+SMTP_FROM="ResearchTrack <your-email@gmail.com>"
+```
 
-To send real emails, both the password reset code and the admin 2-step code go
-through one Google Apps Script:
+### 2. Using Gmail SMTP
+1. Enable **2-Step Verification** on your Google Account: https://myaccount.google.com/security
+2. Generate an **App Password**: https://myaccount.google.com/apppasswords
+3. Copy the 16-character password into `SMTP_PASS`.
+4. Set `SMTP_USER` to your Gmail address.
 
-1. Go to https://script.google.com and start a **New project**.
-2. Paste in a script that reads `e.postData.contents` (JSON with `email`, `name`,
-   `code`, `subject`, `purpose`) and calls `MailApp.sendEmail(...)`.
-3. **Deploy → New deployment → Web app**, set *Execute as* **Me** and
-   *Who has access* **Anyone**, then copy the web app URL.
-4. Put it in `.env`:
-   ```
-   APPSCRIPT_2FA_URL="https://script.google.com/macros/s/..../exec"
-   ```
-5. Restart the app. The "sign in with Google instead" message disappears on its
-   own and codes start going to the inbox.
+### 3. Using Other Providers (SendGrid, Resend, Amazon SES, Brevo, Mailgun)
+- **SendGrid**: `SMTP_HOST="smtp.sendgrid.net"`, `SMTP_PORT=587`, `SMTP_USER="apikey"`, `SMTP_PASS="SG.your_api_key"`
+- **Resend**: `SMTP_HOST="smtp.resend.com"`, `SMTP_PORT=465`, `SMTP_USER="resend"`, `SMTP_PASS="re_your_api_key"`
+- **Custom / University SMTP**: Configure host and port as provided by your institution.
 
-The `purpose` field is `"PASSWORD_RESET"` for reset codes and absent for 2-step
-codes, so one script can style both differently.
+### 4. Development Fallback
+If SMTP credentials are not set during local development, ResearchTrack logs generated OTP codes and emails directly to the server console with clear markers (`🔐 [2FA SMTP DISPATCH]`, `🔑 [PASSWORD RESET SMTP DISPATCH]`), enabling immediate local testing without requiring external credentials.
 
 ## How to Enable Google Sign-In
 1. Go to https://console.cloud.google.com and create (or pick) a project.

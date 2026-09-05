@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
       // Email codes have to be sent now; app codes are already on their phone.
       if (user.twoFactorMethod === 'EMAIL') {
-        const { generate6DigitCode, sendTwoFactorCode } = await import('@/lib/appscript2fa')
+        const { generate6DigitCode, sendTwoFactorOtpEmail } = await import('@/lib/email')
         const { hashPassword } = await import('@/lib/auth')
 
         await prisma.twoFactorOtp.deleteMany({ where: { userId: user.id } }).catch(() => {})
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        await sendTwoFactorCode({
-          email: user.email,
-          name: user.name,
+        await sendTwoFactorOtpEmail({
+          toEmail: user.email,
+          recipientName: user.name,
           code,
           ip:
             request.headers.get('x-forwarded-for') ||

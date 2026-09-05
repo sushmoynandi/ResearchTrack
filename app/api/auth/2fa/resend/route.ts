@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verify2FAToken, hashPassword } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { generate6DigitCode, sendTwoFactorCode } from '@/lib/appscript2fa'
+import { generate6DigitCode, sendTwoFactorOtpEmail } from '@/lib/email'
 
 /**
  * Send the emailed sign-in code again.
@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    await sendTwoFactorCode({
-      email: user.email,
-      name: user.name,
+    await sendTwoFactorOtpEmail({
+      toEmail: user.email,
+      recipientName: user.name,
       code,
       ip:
         request.headers.get('x-forwarded-for') ||

@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import {
   generate6DigitCode,
-  sendPasswordResetCode,
+  sendPasswordResetOtpEmail,
   isMailerConfigured,
-} from '@/lib/appscript2fa'
+} from '@/lib/email'
 
 const CODE_TTL_MINUTES = 15
 /** Don't let someone spam an inbox — one code a minute per address. */
@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const { delivered } = await sendPasswordResetCode({
-      email: cleanEmail,
-      name: user.name,
+    const delivered = await sendPasswordResetOtpEmail({
+      toEmail: cleanEmail,
+      recipientName: user.name,
       code,
       ip: request.headers.get('x-forwarded-for') || undefined,
     })

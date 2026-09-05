@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, verifyPassword } from '@/lib/auth'
-import { generate6DigitCode, sendTwoFactorCode } from '@/lib/appscript2fa'
+import { generate6DigitCode, sendTwoFactorOtpEmail } from '@/lib/email'
 import {
   createTwoFactorSecret,
   buildAuthenticatorSetup,
@@ -150,9 +150,9 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      await sendTwoFactorCode({
-        email: account.email,
-        name: account.name,
+      await sendTwoFactorOtpEmail({
+        toEmail: account.email,
+        recipientName: account.name,
         code: freshCode,
         ip: request.headers.get('x-forwarded-for') || undefined,
       })
