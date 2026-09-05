@@ -59,7 +59,8 @@ export async function GET() {
               }).catch(() => {})
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 150))
+            // Paced delay (1200ms) between dispatches to guarantee anti-spam Gmail SMTP compliance
+            await new Promise((resolve) => setTimeout(resolve, 1200))
           } catch (err) {
             console.error('Failed to send POTD email to ' + r.email + ':', err)
           }

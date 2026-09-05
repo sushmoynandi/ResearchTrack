@@ -72,25 +72,51 @@ export interface EmailPayload {
 }
 
 /**
+ * Robustly resolve sender display name and authenticated address
+ */
+export function getFromAddress(): { name: string; address: string } {
+  const rawFrom = (process.env.SMTP_FROM || '').trim().replace(/^['"]+|['"]+$/g, '')
+  if (rawFrom) {
+    const match = rawFrom.match(/^(.*?)\s*<(.+?)>$/)
+    if (match) {
+      const name = match[1].trim().replace(/^['"]+|['"]+$/g, '') || 'Research Track'
+      const address = match[2].trim().replace(/^['"]+|['"]+$/g, '')
+      return { name, address }
+    }
+    if (rawFrom.includes('@')) {
+      return { name: 'Research Track', address: rawFrom }
+    }
+  }
+
+  if (smtpUser) {
+    return { name: 'Research Track', address: smtpUser }
+  }
+
+  return { name: 'Research Track', address: 'notifications@researchtrack.app' }
+}
+
+/**
  * Dispatch an automated email with optional iCal calendar attachment
  */
 export async function sendEmail({ to, subject, html, text, icalEvent }: EmailPayload): Promise<boolean> {
   try {
     const transport = getTransporter()
-
-    let fromAddress: string | { name: string; address: string } = smtpFrom
-    if (process.env.SMTP_FROM) {
-      fromAddress = process.env.SMTP_FROM
-    } else if (smtpUser) {
-      fromAddress = { name: 'Research Track', address: smtpUser }
-    }
+    const fromObj = getFromAddress()
 
     const mailOptions: nodemailer.SendMailOptions = {
-      from: fromAddress,
+      from: {
+        name: fromObj.name,
+        address: fromObj.address,
+      },
+      replyTo: fromObj.address,
       to,
       subject,
       html,
-      text: text || html.replace(/<[^>]+>/g, ''),
+      text: text || html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim(),
+      headers: {
+        'X-Entity-Ref-ID': crypto.randomUUID(),
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      },
     }
 
     if (icalEvent) {
@@ -490,10 +516,27 @@ export async function sendPaperOfTheDayEmail({
     </html>
   `
 
+  const plainText = [
+    `📬 Paper of the Day: ${paperTitle}`,
+    `By ${authorDisplay}`,
+    '',
+    abstract ? `Abstract:\n${abstract}` : '',
+    '',
+    `Venue: ${venueString}`,
+    score ? `Impact Score: ${score}` : '',
+    hasTopics ? `Topics: ${topicsList.join(', ')}` : '',
+    '',
+    `Read full paper: ${targetReadUrl}`,
+    pdfUrl ? `PDF link: ${pdfUrl}` : '',
+    '',
+    `---\nResearchTrack Academic Research Platform`
+  ].filter(Boolean).join('\n')
+
   return sendEmail({
     to: toEmail,
     subject: `📰 Paper of the Day: "${paperTitle}"`,
     html,
+    text: plainText,
   })
 }
 

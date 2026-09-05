@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
             }).catch(() => {})
           }
 
-          // Small delay (150ms) between dispatches to guarantee smooth SMTP delivery
-          await new Promise((resolve) => setTimeout(resolve, 150))
+          // Paced delay (1200ms) between dispatches to guarantee anti-spam Gmail SMTP compliance
+          await new Promise((resolve) => setTimeout(resolve, 1200))
         } catch (err) {
           console.error(`Failed to send scheduled POTD email to ${r.email}:`, err)
         }
