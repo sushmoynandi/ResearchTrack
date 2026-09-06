@@ -90,20 +90,17 @@ export function PaperOfTheDayWidget() {
   const readUrl = potd.url || (potd.doi ? ('https://doi.org/' + potd.doi) : '#')
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-bg-secondary to-purple-950/20 p-5 md:p-6 shadow-xl backdrop-blur-md animate-fade-in space-y-4">
-      <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
-      <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-2xl border border-accent/25 bg-gradient-to-r from-accent/10 via-bg-secondary to-sky-500/5 p-5 md:p-6 shadow-lg backdrop-blur-md animate-fade-in space-y-4">
+      {/* Decorative ambient sky-blue background glows */}
+      <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+      <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
 
+      {/* Top Header */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-default/60 pb-3.5">
         <div className="flex items-center gap-2.5">
-          <span className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-            <Sparkles size={13} className="text-indigo-400 animate-pulse" /> Paper of the Day
+          <span className="px-2.5 py-1 rounded-lg bg-accent/15 text-accent border border-accent/30 font-mono text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
+            <Sparkles size={13} className="text-accent animate-pulse" /> Paper of the Day
           </span>
-          {potd.score && (
-            <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono text-[11px] font-bold flex items-center gap-1">
-              <Flame size={12} className="text-amber-400" /> {potd.score}
-            </span>
-          )}
         </div>
 
         <span className="text-[11px] font-mono text-text-tertiary">
@@ -111,16 +108,17 @@ export function PaperOfTheDayWidget() {
         </span>
       </div>
 
+      {/* Main Content Body */}
       <div className="relative space-y-2.5">
         <div className="space-y-1">
           <a
             href={readUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-base md:text-lg font-bold text-text-primary hover:text-indigo-300 transition-colors inline-block leading-snug group"
+            className="text-base md:text-lg font-bold text-text-primary hover:text-accent transition-colors inline-block leading-snug group"
           >
             <span>{potd.title}</span>
-            <ExternalLink size={13} className="inline-block ml-1.5 opacity-60 group-hover:opacity-100 text-indigo-400" />
+            <ExternalLink size={13} className="inline-block ml-1.5 opacity-60 group-hover:opacity-100 text-accent" />
           </a>
 
           <p className="text-xs text-text-secondary font-medium">
@@ -129,7 +127,7 @@ export function PaperOfTheDayWidget() {
         </div>
 
         {potd.abstract && (
-          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed bg-bg-primary/30 p-3 rounded-xl border border-border-default/40">
+          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed bg-bg-primary/40 p-3 rounded-xl border border-border-default/60">
             {potd.abstract}
           </p>
         )}
@@ -147,7 +145,7 @@ export function PaperOfTheDayWidget() {
                 {potd.topics.slice(0, 3).map((topic, i) => (
                   <span
                     key={i}
-                    className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono"
+                    className="px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20 text-[10px] font-mono"
                   >
                     {topic}
                   </span>
@@ -156,6 +154,7 @@ export function PaperOfTheDayWidget() {
             )}
           </div>
 
+          {/* Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
             {inLibrary ? (
               <Link href={addedPaperId ? `/papers/${addedPaperId}` : '/papers'}>
@@ -175,7 +174,7 @@ export function PaperOfTheDayWidget() {
                 loading={addingToLibrary}
                 onClick={handleAddToLibrary}
                 icon={<Plus size={14} />}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/30"
+                className="bg-accent hover:bg-accent-hover text-white font-semibold text-xs shadow-md shadow-accent/25"
               >
                 Save to Library
               </Button>
@@ -189,8 +188,8 @@ export function PaperOfTheDayWidget() {
               <Button
                 size="sm"
                 variant="secondary"
-                icon={<BookOpen size={13} className="text-indigo-400" />}
-                className="text-xs"
+                icon={<BookOpen size={13} className="text-accent" />}
+                className="text-xs hover:border-accent/40 hover:text-accent transition-colors"
               >
                 Read Paper
               </Button>
